@@ -7,3 +7,5 @@ from . import analyze
 from . import experiment
 from . import publish
 from . import simulate
+from . import utils
+from . import visualize
