@@ -5,7 +5,6 @@ Python package for simulating and analyzing stellar variability and resulting ec
 
 from . import analyze
 from . import experiment
-from . import publish
 from . import simulate
 from . import utils
 from . import visualize

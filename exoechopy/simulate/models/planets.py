@@ -7,6 +7,7 @@ import warnings
 from astropy import units as u
 from exoechopy.utils.spectral import *
 from exoechopy.utils.orbital_physics import *
+from exoechopy.utils.plottables import *
 from astropy.coordinates import Angle
 from astropy.coordinates import Distance
 from astropy.utils.exceptions import AstropyUserWarning
@@ -16,7 +17,7 @@ __all__ = ['Exoplanet', 'KeplerianExoplanet']
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 
-class Exoplanet:
+class Exoplanet(Plottable):
     """Exoplanet base class."""
 
     # ------------------------------------------------------------------------------------------------------------ #
@@ -103,6 +104,7 @@ class KeplerianExoplanet(KeplerianOrbit, Exoplanet):
                  periapsis_arg=None,
                  albedo=None,
                  radius=None,
+                 **kwargs
                  ):
         """
         Provides a Keplerian exoplanet for simulations and models.
@@ -121,7 +123,7 @@ class KeplerianExoplanet(KeplerianOrbit, Exoplanet):
         """
         super().__init__(semimajor_axis=semimajor_axis, eccentricity=eccentricity, star_mass=star_mass,
                          initial_anomaly=initial_anomaly, inclination=inclination, longitude=longitude,
-                         periapsis_arg=periapsis_arg, albedo=albedo, radius=radius)
+                         periapsis_arg=periapsis_arg, albedo=albedo, radius=radius, **kwargs)
 
 
 

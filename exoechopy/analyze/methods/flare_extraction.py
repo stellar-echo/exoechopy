@@ -12,6 +12,7 @@ from scipy import signal
 
 __all__ = ['find_peaks_stddev_thresh']
 
+
 def find_peaks_stddev_thresh(lightcurve_data,
                              std_dev_threshold=None,
                              smoothing_radius=None,

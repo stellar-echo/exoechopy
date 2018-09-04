@@ -10,6 +10,8 @@ from astropy.coordinates import Angle
 from astropy.coordinates import Distance
 from astropy import constants as const
 from astropy.utils.exceptions import AstropyUserWarning
+from ..plottables import *
+from ..astropyio import *
 from ..globals import *
 
 __all__ = ['KeplerianOrbit']
@@ -17,7 +19,7 @@ __all__ = ['KeplerianOrbit']
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 
-class KeplerianOrbit:
+class KeplerianOrbit(Plottable):
     """
     Base class for objects that travel on a Keplerian Orbit, solved with Newton's method.
     """
@@ -129,8 +131,8 @@ class KeplerianOrbit:
                 self._star_mass = u.Quantity(star_mass, u.M_sun)
                 warnings.warn("Casting star mass, input as "+str(star_mass)+", to M_sun", AstropyUserWarning)
         self._grav_param = self._star_mass * const.G
-        self._orbital_period = 2 * pi * self._semimajor_axis**1.5 * np.sqrt(1/self._grav_param)
-        self._orbital_frequency = np.sqrt(self._grav_param/self._semimajor_axis**3)
+        self._orbital_period = (2 * np.pi * self._semimajor_axis**1.5 * np.sqrt(1/self._grav_param)).decompose().to(u.d)
+        self._orbital_frequency = np.sqrt(self._grav_param/self._semimajor_axis**3).decompose()
 
     # ------------------------------------------------------------------------------------------------------------ #
     def about_orbit(self):
@@ -138,9 +140,9 @@ class KeplerianOrbit:
         Prints out information about the Keplerian orbit
         :return: None
         """
-        print("Star mass: ", self._star_mass.tostring())
-        print("Semimajor axis: ", self._semimajor_axis.tostring())
-        print("Orbital period: ", self._orbital_period.tostring())
+        print("Star mass: ", u_str(self._star_mass))
+        print("Semimajor axis: ", u_str(self._semimajor_axis))
+        print("Orbital period: ", u_str(self._orbital_period))
         print("Orbit eccentricity, e: ", self._eccentricity)
         print("Orbit inclination, i: ", self._inclination)
         print("Orbit longitude of ascending node: ", self._longitude)
@@ -183,7 +185,7 @@ class KeplerianOrbit:
         :param int num_points: Number of points to plot
         :return list:
         """
-        all_angles = np.linspace(0*u.rad, 2*pi, num_points)
+        all_angles = np.linspace(0 * u.rad, 2 * pi_u, num_points)
         orbit_positions = [self.calc_xyz_position_in_au(ang) for ang in all_angles]
         return orbit_positions
 

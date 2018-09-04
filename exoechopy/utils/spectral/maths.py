@@ -13,6 +13,8 @@ from ..globals import *
 
 __all__ = ['lambertian_phase_law', 'echo_relative_magnitude']
 
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
 def lambertian_phase_law(self, angle):
     """
     Lambertian sphere phase law
@@ -22,8 +24,8 @@ def lambertian_phase_law(self, angle):
     if not isinstance(angle, Angle):
         angle = Angle(angle, u.rad)
         warnings.warn("Casting phase angle, input as " + str(angle) + ", to radians", AstropyUserWarning)
-    angle %= (2 * pi * u.rad)
-    return (np.sin(angle) + (pi - angle) * np.cos(angle)) / pi
+    angle %= (2 * pi_u * u.rad)
+    return (np.sin(angle) + (pi_u - angle) * np.cos(angle)) / pi_u
 
 
 def echo_relative_magnitude(distance_to_star,
