@@ -14,7 +14,7 @@ from ..plottables import *
 from ..astropyio import *
 from ..globals import *
 
-__all__ = ['KeplerianOrbit']
+__all__ = ['KeplerianOrbit', 'true_anomaly_from_mean']
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
@@ -153,24 +153,40 @@ class KeplerianOrbit(Plottable):
     def distance_at_angle(self, theta):
         """
         Provides the distance at an angle, or np.array of angles
-        :param Angle theta: Angle, or array of angles, relative to star system to evaluate the distance at
+        :param Angle theta: Angle, or array of angles, relative to periapsis to evaluate the distance at
         :return u.Quantity: Returns the distance from the star as a function of angle
         """
         if not (isinstance(theta, Angle) or isinstance(theta, u.Quantity)):
             theta = Angle(theta, unit=u.rad)
             warnings.warn("Casting theta, input as " + str(theta) + ", to radians", AstropyUserWarning)
-        return self._semimajor_axis * (1 - self._eccentricity ** 2) \
-               / (1 + self._eccentricity * np.cos(theta + self._initial_anomaly))
+        return self._semimajor_axis * (1 - self._eccentricity ** 2) / \
+               (1 + self._eccentricity * np.cos(theta - self._periapsis_arg))
 
     # ------------------------------------------------------------------------------------------------------------ #
     def calc_xyz_position_in_au(self, theta):
         """
-        Provides the 3D position of the object for a given angle
-        :param Angle theta:
+        Provides the 3D position of the object relative to star for a given angle
+        :param Angle theta: true anomaly of the object
+        :return np.array: xyz array for position as a function of angle
+        """
+        true_anom = theta + self._initial_anomaly + self._periapsis_arg
+        r = self.distance_at_angle(true_anom)
+        x = r*(np.cos(self._longitude)*np.cos(true_anom)
+               - np.sin(self._longitude)*np.sin(true_anom)*np.cos(self._inclination))
+        y = r*(np.sin(self._longitude)*np.cos(true_anom)
+               + np.cos(self._longitude)*np.sin(true_anom)*np.cos(self._inclination))
+        z = r*(np.sin(self._inclination)*np.sin(true_anom))
+        return np.array((x.to(u.au).value, y.to(u.au).value, z.to(u.au).value))
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    def calc_xyz_ascending_node_au(self):
+        """
+        Provides the 3D position of the ascending node, hopefully
         :return np.array:
         """
-        r = self.distance_at_angle(theta)
-        true_anom = self._periapsis_arg + theta
+        theta = 0*u.deg
+        true_anom = theta
+        r = self.distance_at_angle(true_anom)
         x = r*(np.cos(self._longitude)*np.cos(true_anom)
                - np.sin(self._longitude)*np.sin(true_anom)*np.cos(self._inclination))
         y = r*(np.sin(self._longitude)*np.cos(true_anom)
@@ -190,6 +206,9 @@ class KeplerianOrbit(Plottable):
         return orbit_positions
 
 
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
+
 def kepler(x, e, M):
     return x - e * np.sin(x) - M
 
@@ -200,3 +219,22 @@ def D_kepler(x, e, M):
 
 def D2_kepler(x, e, M):
     return e*np.sin(x)
+
+
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
+
+def true_anomaly_from_mean(mean_anomaly, e):
+    if isinstance(mean_anomaly, Angle) or isinstance(mean_anomaly, u.Quantity):
+        _M = mean_anomaly.to(u.rad)
+    else:
+        _M = Angle(mean_anomaly, unit=u.rad)
+        warnings.warn("Casting initial_anomaly, input as " + str(mean_anomaly) + ", to radians",
+                      AstropyUserWarning)
+    return_val = _M + (2*e-.25*e**3)*np.sin(_M)*u.rad+5*e**2/4*np.sin(2*_M)*u.rad+13*e**3/12*np.sin(3*_M)*u.rad
+    print("mean_anomaly: ", mean_anomaly, ", return_val: ", return_val.to(u.deg))
+    return return_val
+
+
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+

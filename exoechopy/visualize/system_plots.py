@@ -15,6 +15,7 @@ from mpl_toolkits.mplot3d import Axes3D
 
 __all__ = ['render_3d_planetary_system', 'plot_3d_keplerian_orbit']
 
+
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 
@@ -25,21 +26,32 @@ def plot_3d_keplerian_orbit(keplerian_orbit,
     if isinstance(axes_object, plt.Axes):  # Is being called from something else, typically
         ax = axes_object
     else:  # Is being used as a stand-alone function, typically
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
+        fig = plt.figure(figsize=plt.figaspect(1))
+        ax = fig.gca(projection='3d')
+        ax.set_aspect('equal')
     positions = np.array(keplerian_orbit.generate_orbital_positions(100)).transpose()
 
     x0, y0, z0 = keplerian_orbit.calc_xyz_position_in_au(0*u.deg)
     ax.scatter(x0, y0, z0,
                c=keplerian_orbit.point_color,
                s=keplerian_orbit.point_size,
-               zorder=10)
+               zorder=10,
+               label=keplerian_orbit.name)
 
     ax.plot(positions[0], positions[1], positions[2],
             color=keplerian_orbit.path_color,
             lw=keplerian_orbit.linewidth, zorder=1
             )
 
+    ascending_node_xyz = keplerian_orbit.calc_xyz_ascending_node_au()
+    ax.plot([0, ascending_node_xyz[0]],
+            [0, ascending_node_xyz[1]],
+            [0, ascending_node_xyz[2]],
+            lw=keplerian_orbit.linewidth/2,
+            linestyle='dashed',
+            c=keplerian_orbit.point_color)
+
+    ax.legend()
 
 
 def render_3d_planetary_system(star_system,
@@ -68,6 +80,7 @@ def render_3d_planetary_system(star_system,
             representative_distance = (orbiting_bodies[-1].semimajor_axis.to(u.au)).value
         else:
             representative_distance = 1.
+
         # Show which direction Earth is located at:
         earth_direction_vector = star_system.earth_direction_vector
         ax.plot([0, representative_distance * earth_direction_vector[0]],
@@ -85,4 +98,4 @@ def render_3d_planetary_system(star_system,
             plt.close()
 
 
-
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #

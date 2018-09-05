@@ -18,6 +18,7 @@ class Plottable:
                  point_size=None,
                  path_color=None,
                  linewidth=None,
+                 name=None,
                  **kwargs):
 
         super().__init__(**kwargs)
@@ -41,6 +42,11 @@ class Plottable:
             self._linewidth = 1.
         else:
             self._linewidth = linewidth
+
+        if name is None:
+            self._name = ""
+        else:
+            self._name = name
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
@@ -77,3 +83,13 @@ class Plottable:
     @point_size.setter
     def point_size(self, point_size):
         self._point_size = point_size
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, name):
+        self._name = name
+
