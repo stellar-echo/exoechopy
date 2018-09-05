@@ -8,6 +8,7 @@ import numpy as np
 from astropy import units as u
 from .planets import *
 from exoechopy.utils.spectral import *
+from exoechopy.utils.plottables import *
 from astropy.coordinates import Angle
 from astropy.coordinates import Distance
 from astropy.utils.exceptions import AstropyUserWarning
@@ -17,7 +18,7 @@ __all__ = ['Star']
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 
-class Star:
+class Star(Plottable):
     """Simple Star class, does not move."""
 
     # ------------------------------------------------------------------------------------------------------------ #
@@ -30,6 +31,7 @@ class Star:
                  earth_longitude=None,
                  earth_latitude=None,
                  dist_to_earth=None,
+                 **kwargs
                  ):
         """
         Defines a simple star with a variety of properties.
@@ -45,6 +47,9 @@ class Star:
         :param Distance dist_to_earth: Currently not used, may be useful if absolute magnitudes get implemented
         """
 
+        super().__init__(**kwargs)
+
+        self._position = np.zeros(3)  # placeholder for potential multi-star system considerations
         self._active_region_list = []
         self._orbiting_bodies_list = []
 
@@ -52,14 +57,12 @@ class Star:
         self._mass = None
         self.mass = mass
 
+        #  Initialize radius
         if radius is None:
-            self._radius = u.R_sun
+            self.radius = u.R_sun
         else:
-            if isinstance(radius, u.Quantity):
-                self._radius = radius.to(u.R_sun)
-            else:
-                self._radius = u.Quantity(radius, unit=u.R_sun)
-                warnings.warn("Casting radius, input as " + str(radius) + ", to solar radii", AstropyUserWarning)
+            self._radius = None
+            self.radius = radius
 
         if spectral_type is None:
             self._spectral_type = SpectralEmitter(JohnsonPhotometricBand('U'), magnitude=16)
@@ -88,6 +91,19 @@ class Star:
             else:
                 self._dist_to_earth = Distance(dist_to_earth, unit=u.lyr)
                 warnings.warn("Casting dist_to_earth, input as " + str(dist_to_earth) + ", to LY", AstropyUserWarning)
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    @property
+    def radius(self):
+        return self._radius
+
+    @radius.setter
+    def radius(self, radius):
+        if isinstance(radius, u.Quantity):
+            self._radius = radius.to(u.R_sun)
+        else:
+            self._radius = u.Quantity(radius, unit=u.R_sun)
+            warnings.warn("Casting radius, input as " + str(radius) + ", to solar radii", AstropyUserWarning)
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
@@ -171,7 +187,7 @@ class Star:
         if earth_longitude is None:
             self._earth_longitude = Angle(0, u.rad)
         else:
-            if isinstance(earth_longitude, Angle):
+            if isinstance(earth_longitude, Angle) or isinstance(earth_longitude, u.Quantity):
                 self._earth_longitude = earth_longitude.to(u.rad)
             else:
                 self._earth_longitude = Angle(earth_longitude, unit=u.rad)
@@ -181,7 +197,7 @@ class Star:
         if earth_latitude is None:
             self._earth_latitude = Angle(0, u.rad)
         else:
-            if isinstance(earth_latitude, Angle):
+            if isinstance(earth_latitude, Angle) or isinstance(earth_latitude, u.Quantity):
                 self._earth_latitude = earth_latitude.to(u.rad)
             else:
                 self._earth_latitude = Angle(earth_latitude, unit=u.rad)
@@ -217,3 +233,7 @@ class Star:
         #     else:
         #         self._x = u.Quantity(x, unit=zz)
         #         warnings.warn("Casting x, input as " + str(x) + ", to zz", AstropyUserWarning)
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    def get_position(self, *args):
+        return self._position

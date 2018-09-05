@@ -11,13 +11,14 @@ from exoechopy.utils.orbital_physics import true_anomaly_from_mean
 spectral_band = eep.utils.spectral.JohnsonPhotometricBand('U')
 emission_type = eep.utils.spectral.SpectralEmitter(spectral_band, 16)
 
-MyStar = eep.simulate.Star(mass=1*u.M_sun, radius=1.*u.R_sun, spectral_type=emission_type)
+MyStar = eep.simulate.Star(mass=1*u.M_sun, radius=1.*u.R_sun, spectral_type=emission_type,
+                           name="Solly", point_color='darkorange')
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 planet_albedo = eep.utils.spectral.Albedo(spectral_band, 1.)
 
-#   ^^^^^^^^^^^^^^^^^^^^^   #
+#   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^   #
 a_M1 = 0.38709893*u.au
 e_M1 = 0.20563069
 i_M1 = 3.38*u.deg  # relative to sun equator
@@ -35,7 +36,7 @@ MercurialPlanet = eep.simulate.KeplerianExoplanet(semimajor_axis=a_M1,
                                                   name='Mercurial')
 MyStar.add_exoplanet(MercurialPlanet)
 
-#   ^^^^^^^^^^^^^^^^^^^^^   #
+#   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^   #
 a_V = 0.72333199*u.au
 e_V = 0.006772
 i_V = 3.86*u.deg  # relative to sun equator
@@ -53,7 +54,7 @@ VenusianPlanet = eep.simulate.KeplerianExoplanet(semimajor_axis=a_V,
                                                  name='Venusian')
 MyStar.add_exoplanet(VenusianPlanet)
 
-#   ^^^^^^^^^^^^^^^^^^^^^   #
+#   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^   #
 a_E = 1.00000011*u.au
 e_E = 0.01671022
 i_E = 7.155*u.deg  # relative to sun equator
@@ -71,7 +72,7 @@ EarthyPlanet = eep.simulate.KeplerianExoplanet(semimajor_axis=a_E,
                                                name='Earthy')
 MyStar.add_exoplanet(EarthyPlanet)
 
-#   ^^^^^^^^^^^^^^^^^^^^^   #
+#   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^   #
 a_M2 = 1.52366231*u.au
 e_M2 = 0.09341233
 i_M2 = 5.65*u.deg  # relative to sun equator

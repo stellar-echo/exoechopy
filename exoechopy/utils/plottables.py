@@ -19,6 +19,7 @@ class Plottable:
                  path_color=None,
                  linewidth=None,
                  name=None,
+                 display_marker=None,
                  **kwargs):
 
         super().__init__(**kwargs)
@@ -47,6 +48,11 @@ class Plottable:
             self._name = ""
         else:
             self._name = name
+
+        if display_marker is None:
+            self._display_marker = 'o'
+        else:
+            self._display_marker = display_marker
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
@@ -92,4 +98,13 @@ class Plottable:
     @name.setter
     def name(self, name):
         self._name = name
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    @property
+    def display_marker(self):
+        return self._display_marker
+
+    @display_marker.setter
+    def display_marker(self, display_marker):
+        self._display_marker = display_marker
 
