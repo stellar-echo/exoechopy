@@ -49,12 +49,6 @@ one_period = Planet1.orbital_period
 print(one_period)
 
 eep.visualize.orbit_plot(Planet1)
-# all_times = np.linspace(0, one_period, 100)
-# positions = Planet1.distance_at_time(all_times)
 
-
-
-
-eep.visualize.render_3d_planetary_system(MyStar)
-
+eep.visualize.animate_3d_planetary_system(MyStar)
 

@@ -97,3 +97,5 @@ MyStar.add_exoplanet(MarsyPlanet)
 EarthyPlanet.about_orbit()
 
 eep.visualize.render_3d_planetary_system(MyStar)
+
+eep.visualize.animate_3d_planetary_system(MyStar)
