@@ -233,7 +233,7 @@ class KeplerianOrbit(Plottable):
         :return u.Quantity: Distance from star at the designated time(s)
         """
         mean_anomaly = (self._orbital_frequency*t0 + self._initial_anomaly)
-        root = optimize.newton(kepler, 0, args=(self._eccentricity, mean_anomaly),
+        root = optimize.newton(kepler, mean_anomaly, args=(self._eccentricity, mean_anomaly),
                                tol=1.48e-09, maxiter=500,
                                fprime=D_kepler, fprime2=D2_kepler)
         root %= 2*np.pi
@@ -279,7 +279,7 @@ class KeplerianOrbit(Plottable):
         :return u.Quantity: Distance from star at the designated time(s)
         """
         mean_anomaly = (self._orbital_frequency * t0 + self._initial_anomaly).to(u.rad).value
-        root = optimize.newton(kepler, 0, args=(self._eccentricity, mean_anomaly),
+        root = optimize.newton(kepler, mean_anomaly, args=(self._eccentricity, mean_anomaly),
                                tol=1.48e-09, maxiter=500,
                                fprime=D_kepler, fprime2=D2_kepler)
         root %= 2 * np.pi
