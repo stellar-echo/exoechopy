@@ -11,7 +11,7 @@ from astropy.utils.exceptions import AstropyUserWarning
 from exoechopy.utils.globals import *
 
 
-__all__ = ['_calculate_basic_limb_darkening_lw', 'limb_darkened_radial_position']
+__all__ = ['calculate_basic_limb_darkening', '_calculate_basic_limb_darkening_lw', 'limb_darkened_radial_position']
 
 # TODO Implement spectral dependencies
 # TODO Create a Limb class?  Could handle spectral stuff and other models more easily?
