@@ -1,7 +1,11 @@
 
+"""
+A handful of useful plot types.
+"""
 
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.collections import PolyCollection
 
 __all__ = ['plot_lines_and_points', 'plot_time_series_w_fft', 'plot_two_signals_different_y_axis',
            'plot_signal_w_uncertainty', 'plot_signal_w_threshold', 'pseudo_waterfall',

@@ -4,15 +4,13 @@ This module generates plots of planetary systems for diagnostic and visualizatio
 """
 
 import numpy as np
-from astropy import units as u
-from ..simulate.models import *
-from ..utils.orbital_physics import *
 import matplotlib.pyplot as plt
+from astropy import units as u
 from astropy.visualization import quantity_support
-import matplotlib as mpl
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import animation
-
+from exoechopy.simulate.models.orbital_physics import *
+from ..simulate.models import *
 
 __all__ = ['render_3d_planetary_system', 'plot_3d_keplerian_orbit', 'animate_3d_planetary_system']
 
@@ -96,7 +94,7 @@ def render_3d_planetary_system(star_system,
         if show_earth_vector:
             # Show which direction Earth is located at:
             earth_direction_vector = star_system.earth_direction_vector
-            system_plot_dict['earth_pointer'] =  ax.quiver(0, 0, 0,
+            system_plot_dict['earth_pointer'] = ax.quiver(0, 0, 0,
                       representative_distance * earth_direction_vector[0],
                       representative_distance * earth_direction_vector[1],
                       representative_distance * earth_direction_vector[2],
@@ -109,7 +107,7 @@ def render_3d_planetary_system(star_system,
         _y = star_system.radius.to(u.au) * np.outer(np.sin(_u), np.sin(_v))
         _z = star_system.radius.to(u.au) * np.outer(np.ones(np.size(_u)), np.cos(_v))
         system_plot_dict['star_surface'] = ax.plot_surface(_x, _y, _z, rcount=20, ccount=20,
-                                                          color=star_system.point_color, linewidth=0.5, alpha=0.5)
+                                                           color=star_system.point_color, linewidth=0.5, alpha=0.5)
 
         ax.set_xbound(-representative_distance, representative_distance)
         ax.set_ybound(-representative_distance, representative_distance)

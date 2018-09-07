@@ -1,22 +1,23 @@
 
 """Test orbital dynamics with a solar system much like our own..."""
 
+from astropy import units as u
+
 # import numpy as np
 import exoechopy as eep
-from astropy import units as u
-from exoechopy.utils.orbital_physics import true_anomaly_from_mean
+from exoechopy.simulate.models.orbital_physics import true_anomaly_from_mean
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
-spectral_band = eep.utils.spectral.JohnsonPhotometricBand('U')
-emission_type = eep.utils.spectral.SpectralEmitter(spectral_band, 16)
+spectral_band = eep.simulate.models.spectral.JohnsonPhotometricBand('U')
+emission_type = eep.simulate.models.spectral.SpectralEmitter(spectral_band, magnitude=16)
 
 MyStar = eep.simulate.Star(mass=1*u.M_sun, radius=1.*u.R_sun, spectral_type=emission_type,
                            name="Solly", point_color='darkorange')
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
-planet_albedo = eep.utils.spectral.Albedo(spectral_band, 1.)
+planet_albedo = eep.simulate.models.spectral.Albedo(spectral_band, 1.)
 
 #   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^   #
 a_M1 = 0.38709893*u.au

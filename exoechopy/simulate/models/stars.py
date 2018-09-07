@@ -4,14 +4,16 @@ This module provides Star classes and methods for simulations and analysis.
 """
 
 import warnings
+
 import numpy as np
 from astropy import units as u
-from .planets import *
-from exoechopy.utils.spectral import *
-from exoechopy.utils.plottables import *
 from astropy.coordinates import Angle
 from astropy.coordinates import Distance
 from astropy.utils.exceptions import AstropyUserWarning
+
+from exoechopy.simulate.models.spectral import *
+from exoechopy.utils.plottables import *
+from .planets import *
 
 __all__ = ['Star']
 

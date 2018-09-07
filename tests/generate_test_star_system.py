@@ -1,15 +1,16 @@
 
 """Display the various orbital parameters and how they affect the orbits."""
 
+from astropy import units as u
+
 # import numpy as np
 import exoechopy as eep
-from astropy import units as u
 from exoechopy.utils import u_str
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
-spectral_band = eep.utils.spectral.JohnsonPhotometricBand('U')
-emission_type = eep.utils.spectral.SpectralEmitter(spectral_band, 16)
+spectral_band = eep.simulate.models.spectral.JohnsonPhotometricBand('U')
+emission_type = eep.simulate.models.spectral.SpectralEmitter(spectral_band, magnitude=16)
 
 MyStar = eep.simulate.Star(mass=.6*u.M_sun, radius=.6*u.R_sun, spectral_type=emission_type,
                            name="My Star", point_color='saddlebrown')
@@ -17,7 +18,7 @@ MyStar.set_view_from_earth(180*u.deg, 120*u.deg)
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
-planet_albedo = eep.utils.spectral.Albedo(spectral_band, 1.)
+planet_albedo = eep.simulate.models.spectral.Albedo(spectral_band, 1.)
 
 #   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^   #
 e_1 = 0.2
@@ -121,3 +122,5 @@ MyStar.add_exoplanet(Planet5)
 Planet1.about_orbit()
 
 eep.visualize.render_3d_planetary_system(MyStar)
+
+eep.visualize.animate_3d_planetary_system(MyStar)

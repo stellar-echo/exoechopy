@@ -3,13 +3,10 @@
 This module generates plots of individual orbits for diagnostic and visualization purposes.
 """
 
-import numpy as np
-from astropy import units as u
-from ..simulate.models import *
-from ..utils.orbital_physics import *
 import matplotlib.pyplot as plt
-from astropy.visualization import quantity_support
+import numpy as np
 
+from exoechopy.simulate.models.orbital_physics import *
 
 __all__ = ['orbit_plot']
 

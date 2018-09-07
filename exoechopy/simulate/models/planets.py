@@ -4,13 +4,15 @@ This module provides Planet classes and methods for simulations and analysis.
 """
 
 import warnings
+
 from astropy import units as u
-from exoechopy.utils.spectral import *
-from exoechopy.utils.orbital_physics import *
-from exoechopy.utils.plottables import *
 from astropy.coordinates import Angle
 from astropy.coordinates import Distance
 from astropy.utils.exceptions import AstropyUserWarning
+
+from exoechopy.simulate.models.orbital_physics import *
+from exoechopy.simulate.models.spectral import *
+from exoechopy.utils.plottables import *
 
 __all__ = ['Exoplanet', 'KeplerianExoplanet']
 
