@@ -10,7 +10,6 @@ from astropy import units as u
 from astropy.coordinates import Angle
 from astropy.coordinates import Distance
 from astropy.utils.exceptions import AstropyUserWarning
-
 from exoechopy.simulate.models.spectral import *
 from exoechopy.utils.plottables import *
 from .planets import *

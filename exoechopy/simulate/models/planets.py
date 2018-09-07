@@ -33,6 +33,7 @@ class Exoplanet(Plottable):
                  ):
         """
         Simplest class of exoplanets.
+
         :param float contrast: exoplanet-star contrast, overrides albedo if provided
         :param float albedo: [0, 1]
         :param u.Quantity semimajor_axis:

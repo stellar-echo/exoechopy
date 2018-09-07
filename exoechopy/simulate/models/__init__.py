@@ -5,3 +5,4 @@ This submodule contains different classes and models for stars, exoplanets, and 
 
 from .stars import *
 from .planets import *
+from .limbs import *
