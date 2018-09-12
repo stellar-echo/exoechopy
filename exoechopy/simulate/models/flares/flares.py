@@ -7,25 +7,17 @@ import warnings
 import numpy as np
 from astropy import units as u
 from astropy.utils.exceptions import AstropyUserWarning
+from scipy import stats
 
-__all__ = []
+__all__ = ['ProtoFlare', 'DeltaFlare', 'ExponentialFlare1']
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 
-class DeltaFlare:
-    """A flare that occurs in a single time bin"""
-    def __init__(self, counts=None, **kwargs):
-        """
-        Adds counts to a single time bin.
-
-        :param int counts:
-        """
-        if counts:
-            self._counts = float(counts)
-        else:
-            self._counts = None
-
+class ProtoFlare:
+    """Template class for flares, generates no signal."""
+    def __init__(self):
+        self._counts = None
         # Explicit definition of where the function is piecewise/discontinuous:
         self._discontinuities = None
         self.discontinuities = [0.]
@@ -46,9 +38,12 @@ class DeltaFlare:
 
     @discontinuities.setter
     def discontinuities(self, discontinuities):
-        _discont = [x for x in discontinuities]
-        _discont.sort()
-        self._discontinuities = np.array(_discont)
+        if discontinuities:
+            _discont = [x for x in discontinuities]
+            _discont.sort()
+            self._discontinuities = np.array(_discont)
+        else:
+            self._discontinuities = None
 
     # ------------------------------------------------------------------------------------------------------------ #
     def evaluate_over_array_lw(self, time_array):
@@ -91,6 +86,57 @@ class DeltaFlare:
         :param t0:
         :return:
         """
+        return 0.
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    def evaluate_at_time(self, time):
+        """
+        Evaluate the flare function at the given time
+        :param u.Quantity time:
+        :return u.Quantity: ct/sec
+        """
+        if isinstance(time, u.Quantity):
+            _time = time.to(u.s).value
+        else:
+            _time = u.Quantity(time, u.s).value
+            warnings.warn("Casting time, input as " + str(time) + ", to seconds", AstropyUserWarning)
+        return self._evaluate_at_time_lw(_time)*u.ct/u.s
+
+    def _evaluate_at_time_lw(self, t):
+        """
+        Unitless version of actual flare function.
+        :param float t: Time in seconds
+        :return float: Ct/s
+        """
+        return 0.
+    # ------------------------------------------------------------------------------------------------------------ #
+
+
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
+
+class DeltaFlare(ProtoFlare):
+    """A flare that occurs in a single time bin"""
+    def __init__(self, counts=None, **kwargs):
+        """
+        Adds counts to a single time bin.
+
+        :param int counts:
+        """
+        super().__init__()
+
+        if counts:
+            self._counts = float(counts)
+        else:
+            self._counts = None
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    def _integrated_flare_lw(self, t0):
+        """
+        Integrated flare, analytically pre-computed
+        :param t0:
+        :return:
+        """
         if self.discontinuities[0] <= t0 < self.discontinuities[-1]:
             return self.integrated_counts
         else:
@@ -100,7 +146,7 @@ class DeltaFlare:
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 
-class ExponentialFlare1(DeltaFlare):
+class ExponentialFlare1(ProtoFlare):
     """A flare with a quadratic onset and exponential decay and C0 continuity."""
     def __init__(self,
                  onset,
@@ -143,19 +189,6 @@ class ExponentialFlare1(DeltaFlare):
         self._counts = self._onset/3. + self._decay - self._decay_duration*self._epsilon/(1.-self._epsilon)
 
     # ------------------------------------------------------------------------------------------------------------ #
-    def evaluate_at_time(self, time):
-        """
-        Evaluate the flare function at the given time
-        :param u.Quantity time:
-        :return u.Quantity: ct/sec
-        """
-        if isinstance(time, u.Quantity):
-            _time = time.to(u.s).value
-        else:
-            _time = u.Quantity(time, u.s).value
-            warnings.warn("Casting time, input as " + str(time) + ", to seconds", AstropyUserWarning)
-        return self._evaluate_at_time_lw(_time)*u.ct/u.s
-
     def _evaluate_at_time_lw(self, t):
         """
         Unitless version of actual flare function.
@@ -189,6 +222,32 @@ class ExponentialFlare1(DeltaFlare):
             return self.integrated_counts
 
 
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
+
+class MultipeakFlare(ProtoFlare):
+    """A container for generating multiple sequential flares of the same type"""
+    def __init__(self,
+                 flare_type=None,
+                 num_subflare_pdf=None,
+                 **kwargs):
+        """
+        Creates a multi-peaked flare based on input parameters and a designated flare type
+        :param DeltaFlare flare_type:
+        :param stats.rv_discrete num_subflare_pdf: Distribution function for determining how many subflares to include
+        :param kwargs:
+        """
+        super().__init__(**kwargs)
+
+        if isinstance(flare_type, DeltaFlare):
+            self._flare_type = flare_type
+        if isinstance(num_subflare_pdf, int):
+            self._num_flares = num_subflare_pdf
+        elif isinstance(num_subflare_pdf, stats.rv_discrete):
+            self._num_flares = num_subflare_pdf.rvs()
+        raise NotImplementedError
+
+
 ##############################################  TEST & DEMO CODE  ######################################################
 
 
@@ -196,6 +255,7 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     import matplotlib.cm as mplcm
     color_map = mplcm.copper_r
+    color_map2 = mplcm.winter
 
     # ------------------------------------------------------------------------------------------------------------ #
     print("""
@@ -208,32 +268,21 @@ if __name__ == "__main__":
     decay = 4 * u.s
     time_domain = np.linspace(-2*onset.value, (onset + 11 * decay).value, 1000) * u.s
 
-    fig, (ax_deriv, ax_plt) = plt.subplots(2, 1, figsize=(6, 6))
-    plt.subplots_adjust(hspace=.01)
-
-    max_decay_list = [2, 4, 6, 10]
+    max_decay_list = [4, 10]
     for max_num_decay in max_decay_list:
         MyFlare = ExponentialFlare1(onset=onset, decay=decay, max_decay=max_num_decay)
-        print('MyFlare total counts: ', MyFlare.integrated_counts)
         flare_intensity_list = np.array([MyFlare.evaluate_at_time(ti).value for ti in time_domain])
-        flare_intensity_derivative = np.diff(flare_intensity_list)/np.diff(time_domain)
-        ax_plt.plot(time_domain, flare_intensity_list,
+        plt.plot(time_domain, flare_intensity_list,
                     color=color_map(max_num_decay/max(max_decay_list)),
                     lw=1, label="max_decay="+str(max_num_decay))
-        ax_deriv.plot(time_domain[:-1], flare_intensity_derivative,
-                      color=color_map(max_num_decay/max(max_decay_list)),
-                      lw=1)
+        plt.arrow((onset+max_num_decay*decay).value, .25, 0, -.15,
+                  head_width=.5, head_length=.05,
+                  color=color_map(max_num_decay/max(max_decay_list)))
 
-    ax_plt.set_ylabel("Flare intensity (ct/s)")
-    ax_plt.legend()
-    ax_plt.tick_params(axis='x', bottom=False, top=True, labelbottom=False, labeltop=True)
-    ax_plt.set_aspect(30, adjustable='box')
+    plt.ylabel("Flare intensity (ct/s)")
+    plt.legend()
 
-    ax_deriv.set_xlabel("Time (s)")
-    ax_deriv.set_ylabel("Diff[Flare intensity (ct/s)]")
-    ax_deriv.set_aspect(10, adjustable='box')
-
-    plt.suptitle("Prototypical ExponentialFlare1")
+    plt.title("Prototypical ExponentialFlare1")
     plt.tight_layout()
     plt.show()
 
@@ -245,16 +294,20 @@ if __name__ == "__main__":
     # ----------------------------------- #
     divs = [10, 11, 51]
     MyDeltaFlare = DeltaFlare(500)
-    for di in divs:
+    fig, ax_list = plt.subplots(1, len(divs), figsize=(6, 4))
+    for di, ax in zip(divs, ax_list):
         times = np.linspace(-5, 5, di)
         integrated_flare = MyDeltaFlare.evaluate_over_array_lw(times)
-        plt.plot(times, integrated_flare,
-                 label=str(di)+"points",
+        ax.plot(times, integrated_flare,
+                 label=str(di)+"points", color='k', lw=1,
                  marker='.', drawstyle='steps-post')
+        ax.set_title(str(di)+"points")
+        ax.tick_params('x', top=True, direction='in')
         print("Time division: ", di, "\tFlare integration: ", np.sum(integrated_flare),
               "\tExact:", MyDeltaFlare.integrated_counts)
-    plt.title("Delta-function flare discretization")
-    plt.legend()
+    fig.suptitle("Delta-function flare discretization")
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+
     plt.show()
 
     # ----------------------------------- #
