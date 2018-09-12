@@ -83,7 +83,6 @@ class KeplerianOrbit(Plottable):
         else:
             self.initial_anomaly = initial_anomaly
 
-
         if inclination is None or inclination == 0.:
             self._inclination = Angle(0., unit=u.rad)
         else:

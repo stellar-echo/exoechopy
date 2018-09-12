@@ -83,7 +83,7 @@ class Telescope:
         if self.cadence is None:
             raise ValueError("A cadence is required to run an observation.")
 
-    #  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  #
+    #  ~~~   ~~~   ~~~   ~~~   ~~~   ~~~   ~~~   ~~~   ~~~   ~~~  #
     def prepare_continuous_observational_run(self, observation_time, cadence=None, print_report=False):
         """
         Prepares to generate a synthetic light curve over a pre-determined period of time.
@@ -114,7 +114,7 @@ class Telescope:
         if print_report:
             self.observation_report()
 
-    #  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  #
+    #  ~~~   ~~~   ~~~   ~~~   ~~~   ~~~   ~~~   ~~~   ~~~   ~~~  #
     def prepare_observe_n_flares(self, num_flares, duration=None, cadence=None):
         """
         Prepares to generate N observable flares.
@@ -202,5 +202,8 @@ class Telescope:
             warnings.warn("Casting observation_time, input as "+str(observation_time)+", to s.", AstropyUserWarning)
 
 
-# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+# ******************************************************************************************************************** #
+# ************************************************  TEST & DEMO CODE  ************************************************ #
 
+if __name__ == "__main__":
+    import matplotlib.pyplot as plt

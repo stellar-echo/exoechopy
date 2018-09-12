@@ -2,9 +2,11 @@
 This module provides base classes for objects that can be plotted with the visualize tools.
 """
 
+import numpy as np
+from collections import Sequence
 from .globals import mpl_colors
 
-__all__ = ['Plottable']
+__all__ = ['Plottable', 'PointCloud']
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -108,3 +110,23 @@ class Plottable:
     def display_marker(self, display_marker):
         self._display_marker = display_marker
 
+
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
+
+class PointCloud(Plottable, Sequence):
+    def __init__(self,
+                 point_array: np.array,
+                 **kwargs):
+        """
+        A class to help plot point clouds from an array of (x, y, z) points
+        :param point_array:
+        """
+        super().__init__(**kwargs)
+        self._point_array = np.transpose(point_array)
+
+    def __getitem__(self, i: int):
+        return self._point_array[i]
+
+    def __len__(self):
+        return len(self._point_array)
