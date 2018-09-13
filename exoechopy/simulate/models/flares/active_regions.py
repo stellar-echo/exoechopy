@@ -6,7 +6,7 @@ This module provides active region classes and methods for stars.
 import warnings
 import numpy as np
 from scipy import stats
-from .flares import *
+from exoechopy.simulate.models.flares import ProtoFlare
 from exoechopy.utils import *
 from astropy import units as u
 from astropy.utils.exceptions import AstropyUserWarning
@@ -147,7 +147,7 @@ class Region:
     # ------------------------------------------------------------------------------------------------------------ #
     @property
     def latitude_pdf(self):
-        return self._longitude_pdf
+        return self._latitude_pdf
 
     @latitude_pdf.setter
     def latitude_pdf(self, latitude_pdf):
@@ -157,8 +157,8 @@ class Region:
             if isinstance(latitude_pdf, CountType):
                 self._latitude_pdf = latitude_pdf
             elif isinstance(latitude_pdf, (list, tuple)):
-                self._latitude_pdf = SphericalLatitudeGen()(loc=latitude_pdf[0],
-                                                            scale=latitude_pdf[1] - latitude_pdf[0])
+                # Create, then freeze the distribution:
+                self._latitude_pdf = SphericalLatitudeGen(a=latitude_pdf[0], b=latitude_pdf[1], name='lat_gen')
             elif isinstance(latitude_pdf, stats._distn_infrastructure.rv_frozen):
                 self._latitude_pdf = latitude_pdf
             else:
@@ -230,25 +230,34 @@ class ActiveRegion:
                 raise ValueError("num_flares must be an integer or None")
 
 
-
 # ******************************************************************************************************************** #
 # ************************************************  TEST & DEMO CODE  ************************************************ #
 
 
 if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-    from exoechopy.visualize import scatter_plot_3d
 
-    test_region_1 = Region([0, 2*np.pi/3], [np.pi/12, 3*np.pi/4])
+    import matplotlib.pyplot as plt
+    from exoechopy.visualize.standard_3d_plots import *
+
+    min_long = np.pi/4
+    max_long = 2*np.pi-np.pi/4
+    min_lat = np.pi / 4
+    max_lat = min_lat + np.pi / 6
+    test_region_1 = Region([min_long, max_long], [min_lat, max_lat])
 
     num_flares = 1000
-    phi_points = test_region_1.get_latitudes(num_flares)
     theta_points = test_region_1.get_longitudes(num_flares)
+    phi_points = test_region_1.get_latitudes(num_flares)
 
     points = vect_from_spherical_coords(theta_points, phi_points)
-    MyPointCloud = PointCloud(points, point_color="k", display_marker='.', name="Flare locations")
+    MyPointCloud = PointCloud(points, point_color="k", display_marker='.', point_size=3, linewidth=0,
+                              name="Flare locations")
 
-    scatter_plot_3d(MyPointCloud, savefile='hold')
+    ax_dic = scatter_plot_3d(MyPointCloud, savefile='hold')
+
+    plot_sphere(ax_dic['ax'], rad=.99, sphere_color='y')
+
+    set_3d_axes_equal(ax_dic['ax'])
 
     plt.legend()
     plt.show()

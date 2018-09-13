@@ -11,6 +11,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import animation
 from exoechopy.simulate.models.orbital_physics import *
 from ..simulate.models import *
+from exoechopy.visualize.standard_3d_plots import *
 
 __all__ = ['render_3d_planetary_system', 'plot_3d_keplerian_orbit', 'animate_3d_planetary_system']
 
@@ -100,14 +101,8 @@ def render_3d_planetary_system(star_system,
                       representative_distance * earth_direction_vector[2],
                       color='r', arrow_length_ratio=.1)
 
-        _u = np.linspace(0, 2 * np.pi, 50)
-        _v = np.linspace(0, np.pi, 40)
-
-        _x = star_system.radius.to(u.au) * np.outer(np.cos(_u), np.sin(_v))
-        _y = star_system.radius.to(u.au) * np.outer(np.sin(_u), np.sin(_v))
-        _z = star_system.radius.to(u.au) * np.outer(np.ones(np.size(_u)), np.cos(_v))
-        system_plot_dict['star_surface'] = ax.plot_surface(_x, _y, _z, rcount=20, ccount=20,
-                                                           color=star_system.point_color, linewidth=0.5, alpha=0.5)
+        system_plot_dict['star_surface'] = plot_sphere(ax_object=ax, rad=star_system.radius.to(u.au),
+                                                       mesh_res=20, sphere_color=star_system.point_color, alpha=.5)
 
         ax.set_xbound(-representative_distance, representative_distance)
         ax.set_ybound(-representative_distance, representative_distance)

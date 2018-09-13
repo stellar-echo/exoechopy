@@ -35,7 +35,7 @@ class SphericalLatitudeGen(stats.rv_continuous):
         self._maxval = max_val
 
     def _pdf(self, x):
-        return np.sin(x)/2
+        return np.sin(x)/(np.cos(self.a) - np.cos(self.b))
 
 
 # ******************************************************************************************************************** #
@@ -44,19 +44,27 @@ class SphericalLatitudeGen(stats.rv_continuous):
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     from exoechopy.utils import PointCloud
-    from exoechopy.visualize import scatter_plot_3d
+    from exoechopy.visualize import *
 
-    LongitudeGenerator = stats.uniform(loc=0, scale=np.pi*2)
-    LatitudeGenerator = SphericalLatitudeGen()(loc=np.pi/4, scale=1/4)
+    min_long = np.pi/12
+    max_long = 2*np.pi - np.pi/12
+    LongitudeGenerator = stats.uniform(loc=min_long, scale=max_long-min_long)
+    # Generate, then freeze the distribution:
+    min_lat = np.pi/6
+    max_lat = np.pi / 4
+    LatitudeGenerator = SphericalLatitudeGen(a=min_lat, b=max_lat)()
 
     num_points = 1000
     theta_points = LongitudeGenerator.rvs(size=num_points)
     phi_points = LatitudeGenerator.rvs(size=num_points)
 
     points = vect_from_spherical_coords(theta_points, phi_points)
-    MyPointCloud = PointCloud(points, point_color="k", display_marker='.', name="Uniformly distributed points?")
+    MyPointCloud = PointCloud(points, point_color="k", display_marker='.',
+                              point_size=4, linewidth=0, name="Uniformly distributed points")
 
-    scatter_plot_3d(MyPointCloud, savefile='hold')
+    ax_dic = scatter_plot_3d(MyPointCloud, savefile='hold')
 
+    set_3d_axes_equal(ax_dic['ax'])
     plt.legend()
+
     plt.show()
