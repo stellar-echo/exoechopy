@@ -9,7 +9,7 @@ from matplotlib import colors as mcolors
 from scipy import stats
 
 __all__ = ['pi_u',
-           'lw_distance_unit', 'lw_time_unit',
+           'lw_distance_unit', 'lw_time_unit', 'lw_freq_unit',
            'CountType', 'PDFType', 'IntFloat',
            'mpl_colors']
 
@@ -23,6 +23,7 @@ pi_u = np.pi * u.rad
 # Base units, often used in lightweight (lw) calculations
 lw_distance_unit = u.m
 lw_time_unit = u.s
+lw_freq_unit = u.uHz  # Frequency of occurrences, such as flares
 
 
 # Specialty types (currently using tuples, had compatibility issues with typing module)

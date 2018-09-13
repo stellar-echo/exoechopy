@@ -125,10 +125,10 @@ def plot_sphere(ax_object=None, rad=None, mesh_res=20, sphere_color='k', alpha=.
 if __name__ == "__main__":
     from exoechopy.utils import vect_from_spherical_coords
 
-    N_points = 2000
-    theta_points_1 = np.random.uniform(0, np.pi, size=N_points)
-    theta_points_2 = np.random.uniform(np.pi, np.pi*2, size=N_points)
-    phi_dist = np.random.uniform(0, 1, size=N_points)
+    n_points = 2000
+    theta_points_1 = np.random.uniform(0, np.pi, size=n_points)
+    theta_points_2 = np.random.uniform(np.pi, np.pi * 2, size=n_points)
+    phi_dist = np.random.uniform(0, 1, size=n_points)
     phi_points_wrong = np.pi*phi_dist
     phi_points = np.arccos(2*phi_dist-1)
 

@@ -7,7 +7,8 @@ Will be broken into separate modules once I know all of the math that is needed.
 import numpy as np
 from scipy import stats
 
-__all__ = ['angle_between_vectors', 'vect_from_spherical_coords', 'SphericalLatitudeGen']
+__all__ = ['angle_between_vectors', 'vect_from_spherical_coords',
+           'SphericalLatitudeGen', 'stochastic_flare_process']
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 # Vector math
@@ -38,6 +39,23 @@ class SphericalLatitudeGen(stats.rv_continuous):
         return np.sin(x)/(np.cos(self.a) - np.cos(self.b))
 
 
+def stochastic_flare_process(stop_value, distribution: stats.rv_continuous,
+                             start_value=0,
+                             max_iter=1000, *dist_args):
+    # TODO implement a faster version, such as generating many values at once and identifying where it exceeds stop_val
+    ct = 0
+    all_values = []
+    total_displacement = start_value
+    while ct < max_iter:
+        next_val = distribution.rvs(*dist_args)
+        if total_displacement + next_val < stop_value:
+            all_values.append(next_val)
+            total_displacement += next_val
+        else:
+            break
+    return all_values
+
+
 # ******************************************************************************************************************** #
 # ************************************************  TEST & DEMO CODE  ************************************************ #
 
@@ -54,9 +72,9 @@ if __name__ == "__main__":
     max_lat = np.pi / 4
     LatitudeGenerator = SphericalLatitudeGen(a=min_lat, b=max_lat)()
 
-    num_points = 1000
-    theta_points = LongitudeGenerator.rvs(size=num_points)
-    phi_points = LatitudeGenerator.rvs(size=num_points)
+    n_points = 1000
+    theta_points = LongitudeGenerator.rvs(size=n_points)
+    phi_points = LatitudeGenerator.rvs(size=n_points)
 
     points = vect_from_spherical_coords(theta_points, phi_points)
     MyPointCloud = PointCloud(points, point_color="k", display_marker='.',
