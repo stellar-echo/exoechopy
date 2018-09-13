@@ -7,7 +7,7 @@ import warnings
 import numpy as np
 from scipy import stats
 from .flares import *
-from exoechopy.utils.globals import *
+from exoechopy.utils import *
 from astropy import units as u
 from astropy.utils.exceptions import AstropyUserWarning
 
@@ -157,8 +157,8 @@ class Region:
             if isinstance(latitude_pdf, CountType):
                 self._latitude_pdf = latitude_pdf
             elif isinstance(latitude_pdf, (list, tuple)):
-                self._latitude_pdf = stats.uniform(loc=latitude_pdf[0],
-                                                   scale=latitude_pdf[1] - latitude_pdf[0])
+                self._latitude_pdf = SphericalLatitudeGen()(loc=latitude_pdf[0],
+                                                            scale=latitude_pdf[1] - latitude_pdf[0])
             elif isinstance(latitude_pdf, stats._distn_infrastructure.rv_frozen):
                 self._latitude_pdf = latitude_pdf
             else:
@@ -234,6 +234,21 @@ class ActiveRegion:
 # ******************************************************************************************************************** #
 # ************************************************  TEST & DEMO CODE  ************************************************ #
 
+
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
+    from exoechopy.visualize import scatter_plot_3d
 
+    test_region_1 = Region([0, 2*np.pi/3], [np.pi/12, 3*np.pi/4])
+
+    num_flares = 1000
+    phi_points = test_region_1.get_latitudes(num_flares)
+    theta_points = test_region_1.get_longitudes(num_flares)
+
+    points = vect_from_spherical_coords(theta_points, phi_points)
+    MyPointCloud = PointCloud(points, point_color="k", display_marker='.', name="Flare locations")
+
+    scatter_plot_3d(MyPointCloud, savefile='hold')
+
+    plt.legend()
+    plt.show()

@@ -7,7 +7,7 @@ Will be broken into separate modules once I know all of the math that is needed.
 import numpy as np
 from scipy import stats
 
-__all__ = ['angle_between_vectors', 'vect_from_spherical_coords']
+__all__ = ['angle_between_vectors', 'vect_from_spherical_coords', 'SphericalLatitudeGen']
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 # Vector math
@@ -29,16 +29,13 @@ def vect_from_spherical_coords(longitude, latitude):
 
 
 class SphericalLatitudeGen(stats.rv_continuous):
-    def __init__(self):
-        super().__init__(a=0, b=1., name="arccos pdf")
+    def __init__(self, a=0, b=np.pi, min_val=0, max_val=np.pi, **kwargs):
+        super().__init__(a=a, b=b, **kwargs)
+        self._minval = min_val
+        self._maxval = max_val
 
-    def _cdf(self, x):
-        raise NotImplementedError
-        # return np.arccos(2*x-1)
-
-    # def _pdf(self, x):
-    #     return np.pi/2 - 1/(1-x**2)**.5/(np.pi/2)
-    #     # return np.arccos(2*x-1)
+    def _pdf(self, x):
+        return np.sin(x)/2
 
 
 # ******************************************************************************************************************** #
@@ -50,8 +47,7 @@ if __name__ == "__main__":
     from exoechopy.visualize import scatter_plot_3d
 
     LongitudeGenerator = stats.uniform(loc=0, scale=np.pi*2)
-    LatitudeGenerator = SphericalLatitudeGen()
-    # LatitudeGenerator = stats.cosine(loc=0, scale=np.pi)
+    LatitudeGenerator = SphericalLatitudeGen()(loc=np.pi/4, scale=1/4)
 
     num_points = 1000
     theta_points = LongitudeGenerator.rvs(size=num_points)
