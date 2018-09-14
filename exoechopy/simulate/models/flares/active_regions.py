@@ -20,30 +20,17 @@ __all__ = ['FlareCollection', 'FlareActivity', 'Region', 'ActiveRegion']
 class FlareCollection:
     """Data container for a collection & subcollections of flares."""
 
-    template_dictionary = {'flare_times': np.array([]),
+    template_dictionary = {'all_flares': [],
+                           'flare_times': np.array([]),
                            'flare_intensities': np.array([]),
                            'flare_vector_array': np.empty((1,3))}
 
     def __init__(self):
-        """Flare collection is a series of dictionaries stored in a dictionary."""
+        """Flare collection is a series of dictionaries stored in a dictionary.
+        """
 
-        #  Flare collection is a dictionary of dictionaries
         self._flare_collection = {}
         self._current_dict = {}
-
-        # TODO Figure out a quick way to assemble metrics on:
-        #           n_flares, all_flare_times, all_flare_intensities, all_flare_vectors
-
-        # #  Keep track of a few important variables about the collection for easy outside access:
-        # self._collection_totals = {'n_flares': 0,
-        #                            'all_flare_times': np.array([]),
-        #                            'all_flare_intensities': np.array([]),
-        #                            'all_flare_vectors': np.empty((1,3))
-        #                            }
-        #
-        # self._key_equiv_dict = {'flare_times': 'all_flare_times',
-        #                         'flare_intensities': 'all_flare_intensities',
-        #                         'flare_vector_array': 'all_flare_vectors'}
 
         # Initialize:
         self.add_subcollection()
@@ -69,13 +56,6 @@ class FlareCollection:
         start_val = max(list(self._flare_collection))+1
         for k in list(another_flare_collection):
             self._current_dict[start_val+k] = another_flare_collection[k]
-        # self._N_flares += another_flare_collection.num_flares
-        # self._all_flare_times = np.append(self.all_flare_times,
-        #                                   another_flare_collection.all_flare_times)
-        # self._all_flare_intensities = np.append(self.all_flare_intensities,
-        #                                         another_flare_collection.all_flare_intensities)
-        # self._all_flare_vectors = np.append(self.all_flare_vectors,
-        #                                     another_flare_collection.all_flare_vectors)
 
     # ------------------------------------------------------------------------------------------------------------ #
     def add_subcollection(self, **kwargs):
@@ -97,15 +77,20 @@ class FlareCollection:
         :return:
         """
         self._current_dict[property_key] = property_val
-        # if property_key in self._key_equiv_dict:
-        #     raise NotImplementedError
-        #     # Problem: the key totals can now be out of sync.  Would be better to find a way to assemble
-        #     self._collection_totals[self._key_equiv_dict[property_key]] = np.append(
-        #         self._collection_totals[self._key_equiv_dict[property_key]],  property_val)
 
     def assign_properties(self, property_dict: dict):
-        if property_dict.keys().isdisjoint(self._current_dict):
+        if property_dict.keys().isdisjoint(self._current_dict.keys()):
             self._current_dict.update(property_dict)
+
+    def assign_collection_properties(self, property_key:str, property_val):
+        """
+        Provide collection-level dict entry
+        :param property_key:
+        :param property_val:
+        :return:
+        """
+        if not isinstance(property_key, int):
+            self._flare_collection[property_key] = property_val
 
     # ------------------------------------------------------------------------------------------------------------ #
     def __call__(self):
@@ -117,26 +102,22 @@ class FlareCollection:
     # ------------------------------------------------------------------------------------------------------------ #
     @property
     def num_flares(self):
-        return self._N_flares
-
-    @num_flares.setter
-    def num_flares(self, num_flares):
-        self._N_flares = num_flares
+        return np.sum([len(sub_dict['all_flares']) for sub_dict in self._flare_collection.values()])
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
     def all_flare_times(self):
-        return self._all_flare_times
+        return np.concatenate([sub_dict['flare_times'] for sub_dict in self._flare_collection.values()])
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
     def all_flare_intensities(self):
-        return self._all_flare_intensities
+        return np.concatenate([sub_dict['flare_intensities'] for sub_dict in self._flare_collection.values()])
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
     def all_flare_vectors(self):
-        return self._all_flare_vectors
+        return np.concatenate([sub_dict['flare_vector_array'] for sub_dict in self._flare_collection.values()])
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -145,9 +126,9 @@ class FlareCollection:
 class FlareActivity:
     """Base flare activity class, good for subclassing."""
     def __init__(self,
-                 flare_type: ProtoFlare=None,
+                 flare_type: type(ProtoFlare)=None,
                  intensity_pdf: PDFType=None,
-                 name:str=None,
+                 name: str=None,
                  *args):
         """
         Provides a flare generator for an ActiveRegion.
@@ -158,16 +139,13 @@ class FlareActivity:
         :param name: Can be used to identify when multiple FlareActivity instances are in use
         :param args: Generators for the arguments that are associated with flare_type
         """
-        if isinstance(flare_type, ProtoFlare):
+        if issubclass(flare_type, ProtoFlare):
             self._flare_type = flare_type
         else:
             raise TypeError("flare_type must be a child class of ProtoFlare")
 
-        if isinstance(intensity_pdf, PDFType):
-            if isinstance(intensity_pdf, IntFloat):
-                self._intensities = intensity_pdf
-        else:
-            raise TypeError("intensity_pdf must be a float, list, or frozen stats pdf")
+        self._intensity_pdf = None
+        self.intensity_pdf = intensity_pdf
 
         self._args = None
         self._arg_types = None
@@ -177,8 +155,23 @@ class FlareActivity:
     # ------------------------------------------------------------------------------------------------------------ #
     def generate_n_flares(self, n_flares:int) -> FlareCollection:
         flare_collection = FlareCollection()
-        for arg, arg_type in zip(self.args, self._arg_types):
-            flare_collection.assign_property(property_key=, property_val=)
+        if isinstance(self.intensity_pdf, CountType):
+            intensity_list = np.ones(n_flares)*self.intensity_pdf
+        elif isinstance(self.intensity_pdf, RVFrozen):
+            intensity_list = self.intensity_pdf.rvs(size=n_flares)
+        else:
+            raise NotImplementedError("self.intensity_pdf does not have a generic handling solution yet")
+        flare_collection.assign_property(property_key='flare_intensities', property_val=intensity_list)
+
+        arg_array = np.zeros((n_flares, len(self.args)))
+        for ai, (arg, arg_type) in enumerate(zip(self.args, self._arg_types)):
+            # perform arg function, such as
+            if isinstance(arg_type, CountType):
+                arg_array[:, ai] = np.ones(n_flares) * arg
+            elif isinstance(arg_type, RVFrozen):
+                arg_array[:, ai] = arg.rvs(size=n_flares)
+        flare_list = [self._flare_type(*arg_i) for arg_i in arg_array.T]
+        flare_collection.assign_property(property_key='all_flares', property_val=flare_list)
         return flare_collection
 
     # ------------------------------------------------------------------------------------------------------------ #
@@ -191,9 +184,9 @@ class FlareActivity:
                 new_args.append(arg)
             elif isinstance(arg, (list, tuple)):
                 new_args.append(stats.uniform(loc=arg[0], scale=arg[1]-arg[0]))
-                arg_type_list.append(stats._distn_infrastructure.rv_frozen)
-            elif isinstance(arg, stats._distn_infrastructure.rv_frozen):
-                arg_type_list.append(stats._distn_infrastructure.rv_frozen)
+                arg_type_list.append(RVFrozen)
+            elif isinstance(arg, RVFrozen):
+                arg_type_list.append(RVFrozen)
                 new_args.append(arg)
             else:
                 arg_type_list.append(type(arg))
@@ -212,6 +205,26 @@ class FlareActivity:
     @property
     def name(self):
         return self._name
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    @property
+    def intensity_pdf(self):
+        return self._intensity_pdf
+
+    @intensity_pdf.setter
+    def intensity_pdf(self, intensity_pdf):
+        if isinstance(intensity_pdf, PDFType):
+            if isinstance(intensity_pdf, CountType):
+                self._intensity_pdf = intensity_pdf
+            elif isinstance(intensity_pdf, (list, tuple)):
+                self._intensity_pdf = stats.uniform(loc=intensity_pdf[0], scale=intensity_pdf[1]-intensity_pdf[0])
+            elif isinstance(intensity_pdf, RVFrozen):
+                self._intensity_pdf = intensity_pdf
+            else:
+                AstropyUserWarning("intensity_pdf is unanticipated type, proceed with caution")
+                self._intensity_pdf = intensity_pdf
+        else:
+            raise TypeError("intensity_pdf must be None or PDFType")
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -249,7 +262,7 @@ class Region:
                 self._longitude_pdf = longitude_pdf
             elif isinstance(longitude_pdf, (list, tuple)):
                 self._longitude_pdf = stats.uniform(loc=longitude_pdf[0], scale=longitude_pdf[1]-longitude_pdf[0])
-            elif isinstance(longitude_pdf, stats._distn_infrastructure.rv_frozen):
+            elif isinstance(longitude_pdf, RVFrozen):
                 self._longitude_pdf = longitude_pdf
             else:
                 AstropyUserWarning("longitude_pdf is unanticipated type, proceed with caution")
@@ -272,7 +285,7 @@ class Region:
             elif isinstance(latitude_pdf, (list, tuple)):
                 # Create, then freeze the distribution:
                 self._latitude_pdf = SphericalLatitudeGen(a=latitude_pdf[0], b=latitude_pdf[1], name='lat_gen')
-            elif isinstance(latitude_pdf, stats._distn_infrastructure.rv_frozen):
+            elif isinstance(latitude_pdf, RVFrozen):
                 self._latitude_pdf = latitude_pdf
             else:
                 AstropyUserWarning("latitude_pdf is unanticipated type, proceed with caution")
@@ -363,7 +376,7 @@ class ActiveRegion:
                                       AstropyUserWarning)
                     # Default: uniform distribution
                     self._occurrence_freq_pdf = stats.uniform(scale=(2 / mean_time_between_events).to(u.s).value)
-                elif isinstance(occurrence_freq_pdf, stats._distn_infrastructure.rv_frozen):
+                elif isinstance(occurrence_freq_pdf, RVFrozen):
                     self._occurrence_freq_pdf = occurrence_freq_pdf
                 else:
                     raise TypeError("Unknown occurrence_freq_pdf type")
@@ -389,7 +402,6 @@ class ActiveRegion:
         else:
             raise TypeError("Unknown flare_activity_ratios type")
 
-
     # ------------------------------------------------------------------------------------------------------------ #
     def __call__(self, duration: CountType=None, max_flares=10000):
         """
@@ -413,7 +425,6 @@ class ActiveRegion:
             flare_times = stochastic_flare_process(duration, self._occurrence_freq_pdf, max_iter=max_flares)
             return self._generate_flares_at_times(flare_times)
 
-
     # ------------------------------------------------------------------------------------------------------------ #
     def _generate_n_flares(self, n_flares:int) -> FlareCollection:
         all_flares = FlareCollection()
@@ -428,13 +439,13 @@ class ActiveRegion:
     def _generate_flares_at_times(self, times:list) -> FlareCollection:
         all_flares = FlareCollection()
         n_flares = len(times)
+        times = np.array(times)
         activity_selections = np.random.choice(len(self._flare_activity), size=n_flares, p=self._flare_activity_ratios)
         flare_counts = np.bincount(activity_selections, minlength=len(self._flare_activity))
-        for activity, n_counts in zip(self._flare_activity, flare_counts):
+        for ii, (activity, n_counts) in enumerate(zip(self._flare_activity, flare_counts)):
             _activity = activity.generate_n_flares(n_counts)
-            _activity.all_flare_times = times
+            _activity.assign_property('flare_times', times[np.where(activity_selections==ii)])
             all_flares.append(_activity)
-        all_flares.assign_property('activity_selections', activity_selections)
         return all_flares
 
 

@@ -10,7 +10,7 @@ from scipy import stats
 
 __all__ = ['pi_u',
            'lw_distance_unit', 'lw_time_unit', 'lw_freq_unit',
-           'CountType', 'PDFType', 'IntFloat',
+           'CountType', 'PDFType', 'IntFloat', 'RVFrozen',
            'mpl_colors']
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -30,7 +30,7 @@ lw_freq_unit = u.uHz  # Frequency of occurrences, such as flares
 CountType = (int, float, u.Quantity)
 PDFType = (*CountType, list, tuple, stats._distn_infrastructure.rv_frozen)
 IntFloat = (int, float)
-
+RVFrozen = stats._distn_infrastructure.rv_frozen
 
 # All basic colors in matplotlib:
 mpl_colors = [ki for ki in dict(mcolors.BASE_COLORS, **mcolors.CSS4_COLORS).keys()]
