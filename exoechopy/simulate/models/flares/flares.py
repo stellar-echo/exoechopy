@@ -10,6 +10,9 @@ To create your own flare:
     - self._integrated_flare_lw():  the analytically computed (if possible) piecewise integration of the flare
     - self._evaluate_at_time_lw():  the analytical form of the flare's lightcurve
 
+Currently, flares are designed to be normalized to one at their peak *intensity*.
+They can be normalized by total intensity by dividing by flare.integrated_counts
+
 """
 
 import warnings
@@ -50,7 +53,7 @@ class ProtoFlare:
             else:
                 raise ValueError("counts must be int/float/u.Quantity or None")
         else:
-            self._counts = None
+            self._counts = 1.
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
@@ -143,6 +146,8 @@ class DeltaFlare(ProtoFlare):
                  **kwargs):
         """
         Adds counts to a single time bin.
+        Note, the standard convention for this library is to treat these flare classes as normalized
+        and rescale externally.
 
         :param CountType counts:
         """
@@ -197,8 +202,8 @@ class ExponentialFlare1(ProtoFlare):
             self._decay = u.Quantity(decay, u.s).value
             warnings.warn("Casting decay, input as " + str(decay) + ", to seconds", AstropyUserWarning)
 
-        if self._decay < self._onset:
-            warnings.warn("Decay, " + str(decay) + ", shorter than onset, " + str(onset), AstropyUserWarning)
+        if self._decay < self._onset/2:
+            warnings.warn("Decay, " + str(decay) + ", shorter than onset/2, " + str(onset), AstropyUserWarning)
 
         if isinstance(max_decay, IntFloat):
             self._decay_duration = self._decay * max_decay

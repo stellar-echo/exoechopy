@@ -46,7 +46,7 @@ def echo_relative_magnitude(distance_to_star,
     :param function phase_law: Which phase law to use
     :return float: reflected-light contrast of an exoplanet
     """
-    phase = phase_law(phase_angle)  # Fix to enable *args
+    phase = phase_law(phase_angle)  # Fix to enable *flare_kwargs
     inverse_falloff = (planet_radius/distance_to_star)**2
     return geometric_albedo*phase*inverse_falloff
 

@@ -19,7 +19,7 @@ def angle_between_vectors(v1, v2):
                         np.linalg.norm(np.linalg.norm(v2)*v1+np.linalg.norm(v1)*v2))
 
 
-def vect_from_spherical_coords(longitude, latitude):
+def vect_from_spherical_coords(longitude, latitude) -> np.ndarray:
     vect = np.array((np.sin(latitude) * np.cos(longitude),
                      np.sin(latitude) * np.sin(longitude),
                      np.cos(latitude) * np.ones(np.shape(longitude))))
