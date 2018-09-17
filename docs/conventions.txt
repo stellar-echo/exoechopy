@@ -1,5 +1,14 @@
 
 
+*_u : function and variable extension to indicate that it uses units.
+The default should include units, so this is typically only used when overriding a
+normally unitless feature (like pi_u, which has radians attached)
+
+*_lw : function and variable extension to indicate that it is unitless ('lightweight')
+This is typically used internally within classes to perform math slightly faster
+and simplify interactions with other modules that do not have astropy support.
+
+
 
 Divider between Classes and major sections:
 

@@ -11,9 +11,9 @@ from astropy.coordinates import Angle
 from astropy.coordinates import Distance
 from astropy.utils.exceptions import AstropyUserWarning
 
-from exoechopy.simulate.models.flares.active_regions import *
-from exoechopy.simulate.models.spectral import *
-from exoechopy.utils.plottables import *
+from .flares.active_regions import *
+from .spectral import *
+from ...utils.plottables import *
 from .planets import *
 
 __all__ = ['DeltaStar', 'Star']

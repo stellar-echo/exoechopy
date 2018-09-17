@@ -6,6 +6,6 @@ All functions and classes in this subpackage are designed to be safe for use by 
 """
 
 from .astropyio import *
-from .globals import *
+from .constants import *
 from .plottables import *
 from .math_operations import *

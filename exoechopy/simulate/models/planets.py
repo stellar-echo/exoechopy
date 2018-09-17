@@ -10,9 +10,10 @@ from astropy.coordinates import Angle
 from astropy.coordinates import Distance
 from astropy.utils.exceptions import AstropyUserWarning
 
-from exoechopy.simulate.models.orbital_physics import *
-from exoechopy.simulate.models.spectral import *
-from exoechopy.utils.plottables import *
+from .orbital_physics import *
+from .spectral import *
+from ...utils.plottables import *
+
 
 __all__ = ['Exoplanet', 'KeplerianExoplanet']
 

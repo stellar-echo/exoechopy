@@ -7,9 +7,10 @@ Includes emission and reflection objects.
 import warnings
 from astropy import units as u
 from astropy.utils.exceptions import AstropyUserWarning
+
 from .values import *
 from .maths import *
-from exoechopy.utils.globals import *
+from ....utils.constants import *
 
 
 __all__ = ['SpectralBand', 'JohnsonPhotometricBand', 'SpectralEmitter', 'Albedo']
@@ -133,14 +134,21 @@ class Albedo:
     """
 
     # ------------------------------------------------------------------------------------------------------------ #
-    def __init__(self, spectra, albedo, phase_function=None):
-        """
-        Enables an object to reflect a specific band at a given magnitude.
+    def __init__(self, spectra: SpectralBand,
+                 albedo: float,
+                 phase_function: FunctionType=None):
+        """Enables an object to reflect a specific band at a given magnitude.
 
-        :param SpectralBand spectra: SpectralBand class that describes its reflection
-        :param float albedo: [0, 1]
-        :param phase_function: Currently only supporting a Lambertian, later may create PhaseFunction classes
+        Parameters
+        ----------
+        spectra
+            SpectralBand class that describes its reflection spectral properties
+        albedo
+            [0, 1]
+        phase_function
+            Currently only supporting a Lambertian, later may create PhaseFunction classes
         """
+
         if isinstance(spectra, SpectralBand):
             self._spectra = spectra
         if isinstance(albedo, float):
@@ -155,9 +163,9 @@ class Albedo:
     # ------------------------------------------------------------------------------------------------------------ #
     def phase_law_bidirectional(self, angle_incident, angle_observed):
         """Placeholder for a future thing"""
-        pass
+        raise NotImplementedError
 
     # ------------------------------------------------------------------------------------------------------------ #
     def phase_law_inhomogeneous(self, angle, albedo_map):
         """Placeholder for a future thing"""
-        pass
+        raise NotImplementedError

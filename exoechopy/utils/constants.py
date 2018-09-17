@@ -4,13 +4,14 @@ Basically just pi.
 """
 
 import numpy as np
+import types
 from astropy import units as u
 from matplotlib import colors as mcolors
 from scipy import stats
 
 __all__ = ['pi_u',
            'lw_distance_unit', 'lw_time_unit', 'lw_freq_unit',
-           'CountType', 'PDFType', 'IntFloat', 'RVFrozen',
+           'CountType', 'PDFType', 'IntFloat', 'RVFrozen', 'FunctionType',
            'mpl_colors']
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -31,6 +32,7 @@ CountType = (int, float, u.Quantity)
 PDFType = (*CountType, list, tuple, stats._distn_infrastructure.rv_frozen)
 IntFloat = (int, float)
 RVFrozen = stats._distn_infrastructure.rv_frozen
+FunctionType = types.FunctionType
 
 # All basic colors in matplotlib:
 mpl_colors = [ki for ki in dict(mcolors.BASE_COLORS, **mcolors.CSS4_COLORS).keys()]

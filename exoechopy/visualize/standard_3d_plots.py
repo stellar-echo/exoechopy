@@ -6,7 +6,9 @@ This module generates generic 3D plots for diagnostic and visualization purposes
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-from exoechopy.utils import PointCloud
+
+from ..utils import PointCloud
+
 
 __all__ = ['scatter_plot_3d', 'set_3d_axes_equal', 'plot_sphere']
 
@@ -15,19 +17,28 @@ __all__ = ['scatter_plot_3d', 'set_3d_axes_equal', 'plot_sphere']
 
 
 def scatter_plot_3d(point_cloud: PointCloud,
-                    ax_object=None,
-                    dict_key='scatter_plot_3d',
+                    ax_object: plt.Axes=None,
+                    dict_key: str='scatter_plot_3d',
                     savefile=None) -> dict:
+    """Accepts as PointCloud and generates a plot
+
+    Parameters
+    ----------
+    point_cloud
+    ax_object
+    dict_key
+    savefile
+        If None: Show()
+        If savefile=='hold', return
+        If savefile is a filepath str, saves to savefile location (must include file extension)
+
+    Returns
+    -------
+    dict
+        If successful, returns a dictionary with the various plots
+
     """
-    Accepts as PointCloud and generates a plot
-    :param point_cloud:
-    :param ax_object:
-    :param dict_key:
-    :param str savefile: If None: Show()
-                         If savefile=='hold', return
-                         If filepath str, saves to savefile location (must include file extension)
-    :return dict: If successful, returns a dictionary with the various plots
-    """
+
     if not isinstance(point_cloud, PointCloud):
         # Then duck type for now
         pass
@@ -64,11 +75,23 @@ def scatter_plot_3d(point_cloud: PointCloud,
 #  =============================================================  #
 
 
-def set_3d_axes_equal(ax):
-    """Make axes of 3D plot have equal scale so that spheres appear as spheres,
+def set_3d_axes_equal(ax: plt.Axes):
+    """Squares axes of a 3D plot
+
+    Make axes of 3D plot have equal scale so that spheres appear as spheres,
     cubes as cubes, etc..  This is one possible solution to Matplotlib's
     ax.set_aspect('equal') and ax.axis('equal') not working for 3D.
     From: https://stackoverflow.com/a/31364297
+
+    Parameters
+    ----------
+    ax
+
+    Returns
+    -------
+
+    """
+    """
 
     :param ax: object, a matplotlib axis, e.g., as output from plt.gca().
     """
@@ -118,35 +141,4 @@ def plot_sphere(ax_object=None, rad=None, mesh_res=20, sphere_color='k', alpha=.
     return ax
 
 
-# ******************************************************************************************************************** #
-# ************************************************  TEST & DEMO CODE  ************************************************ #
 
-
-if __name__ == "__main__":
-    from exoechopy.utils import vect_from_spherical_coords
-
-    n_points = 2000
-    theta_points_1 = np.random.uniform(0, np.pi, size=n_points)
-    theta_points_2 = np.random.uniform(np.pi, np.pi * 2, size=n_points)
-    phi_dist = np.random.uniform(0, 1, size=n_points)
-    phi_points_wrong = np.pi*phi_dist
-    phi_points = np.arccos(2*phi_dist-1)
-
-    points = vect_from_spherical_coords(theta_points_1, phi_points)
-    points_wrong = vect_from_spherical_coords(theta_points_2, phi_points_wrong)
-
-    MyPointCloud = PointCloud(points, point_color="k", display_marker='.', point_size=2, linewidth=0,
-                              name="Uniformly distributed points")
-    MyPointCloud2 = PointCloud(points_wrong, point_color="r", display_marker='^', point_size=2, linewidth=0,
-                               name="Points bunched at poles")
-
-    fig = plt.figure(figsize=plt.figaspect(1))
-    ax = fig.gca(projection='3d')
-    ax.set_aspect('equal')
-
-    scatter_plot_3d(MyPointCloud, ax_object=ax, savefile='hold')
-    scatter_plot_3d(MyPointCloud2, ax_object=ax, savefile='hold')
-
-    ax.legend()
-
-    plt.show()

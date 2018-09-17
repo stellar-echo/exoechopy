@@ -9,8 +9,8 @@ import numpy as np
 from astropy import units as u
 from astropy.utils.exceptions import AstropyUserWarning
 
-from exoechopy.simulate.models.flares.active_regions import *
-from exoechopy.utils import *
+from .flares.active_regions import *
+from ...utils import *
 from .stars import *
 
 __all__ = ['Telescope']
@@ -202,8 +202,3 @@ class Telescope:
             warnings.warn("Casting observation_time, input as "+str(observation_time)+", to s.", AstropyUserWarning)
 
 
-# ******************************************************************************************************************** #
-# ************************************************  TEST & DEMO CODE  ************************************************ #
-
-if __name__ == "__main__":
-    import matplotlib.pyplot as plt

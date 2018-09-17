@@ -9,9 +9,10 @@ from astropy import units as u
 from astropy.visualization import quantity_support
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import animation
-from exoechopy.simulate.models.orbital_physics import *
+
 from ..simulate.models import *
-from exoechopy.visualize.standard_3d_plots import *
+from .standard_3d_plots import *
+
 
 __all__ = ['render_3d_planetary_system', 'plot_3d_keplerian_orbit', 'animate_3d_planetary_system']
 
@@ -19,9 +20,26 @@ __all__ = ['render_3d_planetary_system', 'plot_3d_keplerian_orbit', 'animate_3d_
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 
-def plot_3d_keplerian_orbit(keplerian_orbit,
-                            time=None,
-                            axes_object=None):
+def plot_3d_keplerian_orbit(keplerian_orbit: KeplerianExoplanet,
+                            time: u.Quantity=None,
+                            axes_object: plt.Axes=None) -> dict:
+    """Tool to plot positions along a Keplerian orbit
+
+    Parameters
+    ----------
+    keplerian_orbit
+        Class instance to be plotted
+    time
+        Optional argument to provide a specific time for the plot, otherwise plots at 0-deg
+    axes_object
+        Optional axes object to plot keplerian_orbit onto
+
+    Returns
+    -------
+    dict
+        Returns a dictionary of axes objects that provide access to the various orbital plots.
+
+    """
     all_plots_dict = {}
     if not isinstance(keplerian_orbit, KeplerianOrbit):
         raise TypeError("Must provide a KeplerianOrbit class for plotting.")
@@ -51,28 +69,41 @@ def plot_3d_keplerian_orbit(keplerian_orbit,
 
     ascending_node_xyz = keplerian_orbit.calc_xyz_ascending_node_au()
     all_plots_dict['planet_asc_node'] = ax.plot([0, ascending_node_xyz[0]],
-            [0, ascending_node_xyz[1]],
-            [0, ascending_node_xyz[2]],
-            lw=keplerian_orbit.linewidth/2,
-            linestyle='dashed',
-            c=keplerian_orbit.point_color)
+                                                [0, ascending_node_xyz[1]],
+                                                [0, ascending_node_xyz[2]],
+                                                lw=keplerian_orbit.linewidth/2,
+                                                linestyle='dashed',
+                                                c=keplerian_orbit.point_color)
     return all_plots_dict
 
 
 #  ------------------------------------------------  #
 
-def render_3d_planetary_system(star_system,
-                               savefile=None,
-                               show_earth_vector=True):
-    """
+def render_3d_planetary_system(star_system: Star,
+                               savefile: str=None,
+                               show_earth_vector: bool=True) -> dict:
+    """Generates a visualization of a Star system
+
     Accepts a Star class object and generates a visualization of the planets orbiting and observation angles.
     Plots in u.au units
 
-    :param Star star_system:
-    :param bool show_earth_vector: Whether or not to draw the vector that points towards Earth
-    :param str savefile: If None, Show(), if filepath str, saves to savefile location (must include file extension)
-    :return dict: If successful, returns a dictionary with the various plots
+    Parameters
+    ----------
+    star_system
+    savefile
+        If None, runs plt.show()
+        If filepath str, saves to savefile location (must include file extension)
+        If 'return_axes', returns a dictionary with the various axes
+    show_earth_vector
+        Whether or not to draw the vector that points towards Earth
+
+    Returns
+    -------
+    dict
+        If savefile=='return_axes', returns a dictionary with the various axes for external control
+
     """
+
     if not isinstance(star_system, Star):
         raise TypeError("star_system must be an instance of Star")
 
@@ -122,18 +153,28 @@ def render_3d_planetary_system(star_system,
 
 #  ------------------------------------------------  #
 
-def animate_3d_planetary_system(star_system,
-                                savefile=None,
-                                show_earth_vector=True,
-                                num_frames=500):
+def animate_3d_planetary_system(star_system: Star,
+                                savefile: str=None,
+                                show_earth_vector: bool=True,
+                                num_frames: int=500):
     """
     Accepts a Star class object and generates a visualization of the planets orbiting and observation angles.
     Plots in u.au units
 
-    :param num_frames: number of frames to include in animation
-    :param Star star_system:
-    :param str savefile: If None, Show(), if filepath str, saves to savefile location (must include file extension)
-    :param bool show_earth_vector: Whether or not to draw the vector that points towards Earth
+    Parameters
+    ----------
+    star_system
+    savefile
+        If None, runs plt.show()
+        If filepath str, saves to savefile location (must include file extension)
+    show_earth_vector
+        Whether or not to draw the vector that points towards Earth
+    num_frames
+        Number of frames to include in animation
+
+    Returns
+    -------
+
     """
     if not isinstance(star_system, Star):
         raise TypeError("star_system must be an instance of Star")
@@ -165,7 +206,22 @@ def animate_3d_planetary_system(star_system,
 
 #  ------------------------------------------------  #
 
-def update_orbits(frame, plot_dict, exoplanet_list):
+def update_orbits(frame: float, plot_dict: dict, exoplanet_list: list):
+    """Used in animations to move planets within an exoplanet system.
+
+    Parameters
+    ----------
+    frame
+        A value passed to update the planet positions
+    plot_dict
+        A dictionary of axes with a key of 'planet_pos' that contains their 3d scatter plots
+    exoplanet_list
+        The list of exoplanets that are to be plotted
+
+    Returns
+    -------
+
+    """
     for key, exoplanet in enumerate(exoplanet_list):
         new_position = exoplanet.calc_xyz_at_time_au(frame)
         plot_dict[key]['planet_pos']._offsets3d = ([new_position[0]], [new_position[1]], [new_position[2]])

@@ -4,25 +4,41 @@ This module provides base classes for objects that can be plotted with the visua
 
 import numpy as np
 from collections import Sequence
-from .globals import mpl_colors
+
 
 __all__ = ['Plottable', 'PointCloud']
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
+
 class Plottable:
     """Mixin that describes how to plot an object."""
 
     # ------------------------------------------------------------------------------------------------------------ #
     def __init__(self,
-                 point_color=None,
-                 point_size=None,
-                 path_color=None,
-                 linewidth=None,
-                 name=None,
-                 display_marker=None,
+                 point_color: str=None,
+                 point_size: int=None,
+                 path_color: str=None,
+                 linewidth: float=None,
+                 name: str=None,
+                 display_marker: str=None,
                  **kwargs):
+        """A mixin that can be added to endow a Class with a variety of useful plotting properties
+
+        By making a physics object Plottable, many of the built-in visualization tools will be able
+        to automagically add them to plots.
+
+        Parameters
+        ----------
+        point_color
+        point_size
+        path_color
+        linewidth
+        name
+        display_marker
+        kwargs
+        """
 
         super().__init__(**kwargs)
 
@@ -116,11 +132,16 @@ class Plottable:
 
 class PointCloud(Plottable, Sequence):
     def __init__(self,
-                 point_array: np.array,
+                 point_array: np.ndarray,
                  **kwargs):
-        """
-        A class to help plot point clouds from an array of (x, y, z) points
-        :param point_array:
+        """A class to help plot point clouds from an array of (x, y, z) points
+
+        PointCloud extends Plottable by adding an array of points and indexing capabilities.
+
+        Parameters
+        ----------
+        point_array
+        kwargs
         """
         super().__init__(**kwargs)
         self._point_array = np.transpose(point_array)

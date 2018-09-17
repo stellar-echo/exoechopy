@@ -11,9 +11,9 @@ from astropy.coordinates import Angle
 from astropy.coordinates import Distance
 from astropy import constants as const
 from astropy.utils.exceptions import AstropyUserWarning
-from exoechopy.utils.plottables import *
-from exoechopy.utils.astropyio import *
-from exoechopy.utils.globals import *
+from ....utils.plottables import *
+from ....utils.astropyio import *
+from ....utils.constants import *
 
 __all__ = ['KeplerianOrbit', 'true_anomaly_from_mean']
 
