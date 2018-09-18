@@ -114,6 +114,7 @@ class DeltaStar(Plottable):
             _duration = duration.to(u.s)
             all_flares = FlareCollection()
             for active_region in self._active_region_list:
+                all_flares.append(active_region(duration))
                 raise NotImplementedError
                 # n_flares = active_region.
         else:
@@ -218,7 +219,8 @@ class Star(DeltaStar):
         :param Distance dist_to_earth: Currently not used, may be useful if absolute magnitudes get implemented
         """
 
-        super().__init__(mass=mass, spectral_type=spectral_type,
+        super().__init__(mass=mass,
+                         spectral_type=spectral_type,
                          earth_longitude=earth_longitude,
                          earth_latitude=earth_latitude,
                          dist_to_earth=dist_to_earth,

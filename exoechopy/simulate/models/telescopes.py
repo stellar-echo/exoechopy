@@ -9,9 +9,9 @@ import numpy as np
 from astropy import units as u
 from astropy.utils.exceptions import AstropyUserWarning
 
+from .stars import *
 from .flares.active_regions import *
 from ...utils import *
-from .stars import *
 
 __all__ = ['Telescope']
 
@@ -23,27 +23,36 @@ class Telescope:
 
     # ------------------------------------------------------------------------------------------------------------ #
     def __init__(self,
-                 collection_area=None,
-                 efficiency=None,
-                 cadence=None,
-                 observation_target=None,
-                 random_seed=None,
-                 name=None):
-        """
-        Defines a simple telescope with a variety of properties.
+                 collection_area: u.Quantity=None,
+                 efficiency: float=None,
+                 cadence: u.Quantity=None,
+                 observation_target: DeltaStar=None,
+                 random_seed: int=None,
+                 name: str=None):
+        """Defines a simple telescope with a variety of properties.
+
         Can be given a star system for observation to generate a synthetic light curve.
 
-        :param u.Quantity collection_area: Total collection area
-        :param float efficiency: Total telescope efficiency
-        :param u.Quantity cadence: Data is integrated and binned at this cadence
-        :param DeltaStar observation_target: Star system for observation
-        :param int random_seed: Optional random seed for this telescope to make results reproducible
-        :param str name: Optional name for the telescope
+
+        Parameters
+        ----------
+        collection_area
+            Total collection area of telescope.  Subtract out an obstructions to collection area.
+        efficiency
+            Total telescope efficiency, including detectors
+        cadence
+            Data is integrated and binned at this cadence
+        observation_target
+            Star system for observation
+        random_seed
+            Optional random seed for this telescope to make results precisely reproducible
+        name
+            Optional name for the telescope
         """
 
         self._area = None
         if collection_area is not None:
-            self.area = collection_area
+            self.collection_area = collection_area
 
         self._efficiency = efficiency
 
@@ -84,15 +93,26 @@ class Telescope:
             raise ValueError("A cadence is required to run an observation.")
 
     #  ~~~   ~~~   ~~~   ~~~   ~~~   ~~~   ~~~   ~~~   ~~~   ~~~  #
-    def prepare_continuous_observational_run(self, observation_time, cadence=None, print_report=False):
-        """
-        Prepares to generate a synthetic light curve over a pre-determined period of time.
+    def prepare_continuous_observational_run(self,
+                                             observation_time: u.Quantity,
+                                             cadence: u.Quantity=None,
+                                             print_report: bool=False):
+        """Prepares to generate a synthetic light curve over a pre-determined period of time.
 
-        :param u.Quantity observation_time: Total observation time
-        :param u.Quantity cadence: Observation cadence (will overwrite initialized cadence!)
-        :param bool print_report: Whether or not to print() some info about the observation
-        :return:
+        Parameters
+        ----------
+        observation_time
+            Total observation time to simulate
+        cadence
+            Observation cadence (will overwrite initialized cadence!)
+        print_report
+            Whether or not to print() some info about the observation
+
+        Returns
+        -------
+
         """
+
         self.observation_time = observation_time
 
         self._prep_observations(cadence=cadence)
