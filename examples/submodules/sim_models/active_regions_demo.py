@@ -195,6 +195,7 @@ def run():
 
     # With explicit times:
     observation_duration = .2 * u.hr
+    print("observation_duration.to(u.s): ", observation_duration.to(u.s))
     MyActiveRegion = active_regions.ActiveRegion(flare_activity=[MyExpFlareActivity, MyDeltaFlareActivity],
                                                  occurrence_freq_pdf=10 / observation_duration,
                                                  region=MyRegion,
@@ -205,7 +206,7 @@ def run():
     print("All flare times: ", ar_flare_collection.all_flare_times)
     print("All flare vectors: ", ar_flare_collection.all_flare_vectors)
 
-    fig = plt.figure(figsize=(12, 4))
+    fig = plt.figure(figsize=(14, 4))
     ax = fig.add_subplot(111)
 
     num_plot_points = 2000
@@ -225,12 +226,13 @@ def run():
         local_flare_times = all_time[i0: i1]
         integrated_flare = flare.evaluate_over_array(local_flare_times-flare_time) * flare_mag
         lightcurve[i0: i1] += integrated_flare.value
+        ax.scatter([flare_time.value], [0], color='orange', marker='^')
 
     ax.plot(all_time, lightcurve,
             color='.4', lw=1, drawstyle='steps-post',
             marker='s', markersize=3, markerfacecolor='k', markeredgewidth=0)
     ax.tick_params('x', top=True, direction='in')
-    ax.set_ylim(0, 1.1 * max(ar_flare_collection.all_flare_intensities))
+    # ax.set_ylim(0, 1.1 * max(ar_flare_collection.all_flare_intensities))
     ax.set_xlabel('Time (sec)')
     ax.set_ylabel('Counts')
 

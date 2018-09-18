@@ -39,9 +39,25 @@ def run():
 
     plt.show()
 
+    #  =============================================================  #
+
+    max_val = 100
+    rv_gen_1 = stats.uniform(0, 10)
+    random_walk_1 = math_operations.stochastic_flare_process(stop_value=max_val,
+                                                             distribution=rv_gen_1)
+    plt.plot(random_walk_1, color='r', label="Uniform")
+
+    rv_gen_2 = stats.maxwell(0, 3)
+    random_walk_2 = math_operations.stochastic_flare_process(stop_value=max_val,
+                                                             distribution=rv_gen_2)
+    plt.plot(random_walk_2, color='k', label='Maxwell')
+
+    plt.legend()
+    plt.show()
 
 # ******************************************************************************************************************** #
 # ************************************************  TEST & DEMO CODE  ************************************************ #
+
 
 if __name__ == "__main__":
 

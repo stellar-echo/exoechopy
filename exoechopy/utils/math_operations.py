@@ -49,8 +49,9 @@ def stochastic_flare_process(stop_value,
     total_displacement = start_value
     while ct < max_iter:
         next_val = distribution.rvs(*dist_args)
-        if total_displacement + next_val < stop_value:
-            all_values.append(next_val)
+        test_val = total_displacement + next_val
+        if test_val < stop_value:
+            all_values.append(test_val)
             total_displacement += next_val
         else:
             break
