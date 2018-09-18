@@ -22,6 +22,12 @@ def run():
     ax1.set_title("Solar intensity approx. by angle", y=1.5)
 
     #  =============================================================  #
+    zero_limb_infinity = [limbs.no_limb_darkening(angular_position=ai)
+                          for ai in angle_array]
+    ax1.plot(angle_array, zero_limb_infinity, color='gray', lw=1, ls='--', label="Sharp limb, inf")
+
+    #  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  #
+
     infinity_limb = [limbs.calculate_basic_limb_darkening(angular_position=ai,
                                                           max_limb_angle=0)
                      for ai in angle_array]
@@ -34,6 +40,14 @@ def run():
                                                         sun_radius / parker_probe_min_distance).value)
                    for ai in angle_array]
     ax1.plot(angle_array, parker_limb, color='r', lw=1, label="Parker probe min dist")
+
+    #  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  #
+    close_dist = 0.01 * u.au
+    zero_limb = [limbs.no_limb_darkening(angular_position=ai,
+                                         star_radius_over_distance=(
+                                             sun_radius / close_dist).value)
+                 for ai in angle_array]
+    ax1.plot(angle_array, zero_limb, color='salmon', lw=1, ls='--', label="Sharp limb, 0.01au")
 
     #  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  #
     mercury_distance = 0.39 * u.au

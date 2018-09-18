@@ -48,6 +48,7 @@ class ProtoFlare:
                 - self._counts:                 total integrated counts, analytically evaluated if possible
                 - self._integrated_flare_lw():  the analytically computed piecewise integration of the flare
                 - self._evaluate_at_time_lw():  the analytical form of the flare's lightcurve
+                - self._flare_duration = 1.*u.s
 
         Currently, flares are designed to be normalized to one at their peak intensity.
         Alternatively, they can be normalized by total intensity by dividing by flare.integrated_counts
@@ -63,6 +64,9 @@ class ProtoFlare:
         # Explicit definition of where the function is piecewise/discontinuous:
         self._discontinuities = None
         self.discontinuities = [0.]
+
+        # Provide a minimum or recommended flare duration to help plotting and lightcurve routines:
+        self._flare_duration = 1.*u.s
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
@@ -82,6 +86,11 @@ class ProtoFlare:
                 raise ValueError("counts must be int/float/u.Quantity or None")
         else:
             self._counts = 1.
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    @property
+    def flare_duration(self):
+        return self._flare_duration
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
@@ -144,7 +153,7 @@ class ProtoFlare:
             Provides the discretized values for the times provided by the time_array
         """
         time_array_lw = time_array.to(lw_time_unit).value
-        return self.evaluate_over_array_lw(time_array_lw)*lw_time_unit
+        return self.evaluate_over_array_lw(time_array_lw)*u.ph
 
     # ------------------------------------------------------------------------------------------------------------ #
     def _integrate_between_times_lw(self, t0: float, t1: float) -> float:
@@ -320,15 +329,15 @@ class ExponentialFlare1(ProtoFlare):
         super().__init__(**kwargs)
 
         if isinstance(onset, u.Quantity):
-            self._onset = onset.to(u.s).value
+            self._onset = onset.to(lw_time_unit).value
         else:
-            self._onset = u.Quantity(onset, u.s).value
+            self._onset = u.Quantity(onset, lw_time_unit).value
             warnings.warn("Casting onset, input as " + str(onset) + ", to seconds", AstropyUserWarning)
 
         if isinstance(decay, u.Quantity):
-            self._decay = decay.to(u.s).value
+            self._decay = decay.to(lw_time_unit).value
         else:
-            self._decay = u.Quantity(decay, u.s).value
+            self._decay = u.Quantity(decay, lw_time_unit).value
             warnings.warn("Casting decay, input as " + str(decay) + ", to seconds", AstropyUserWarning)
 
         if self._decay < self._onset/2:
@@ -346,6 +355,8 @@ class ExponentialFlare1(ProtoFlare):
 
         # Total counts, as determined through analytical integration of the piecewise flare function:
         self.integrated_counts = self._onset/3. + self._decay - self._decay_duration*self._epsilon/(1.-self._epsilon)
+
+        self._flare_duration = (self._onset+self._decay_duration) * lw_time_unit
 
     # ------------------------------------------------------------------------------------------------------------ #
     def _evaluate_at_time_lw(self, t: float) -> float:

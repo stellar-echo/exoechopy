@@ -25,21 +25,26 @@ class SpectralBand:
 
     # ------------------------------------------------------------------------------------------------------------ #
     def __init__(self,
-                 wavelength=None,
-                 bandwidth=None,
-                 flux_m0=None):
-        """
-        The SpectralBand class provides a single spectral band.
+                 wavelength: u.Quantity=None,
+                 bandwidth: u.Quantity=None,
+                 flux_m0: u.Quantity=None):
+        """The SpectralBand class provides a single spectral band.
 
-        :param u.Quantity wavelength: Center wavelength of the band
-        :param u.Quantity bandwidth: Width of band
-        :param u.Quantity flux_m0: Flux of band at m=0
+        Parameters
+        ----------
+        wavelength
+            Center wavelength of the band
+        bandwidth
+            Width of band
+        flux_m0
+            Flux of band at m=0
         """
         self._band = None
         if wavelength is None and flux_m0 is None:
             # In future, may have some reasons to provide an empty spectral container, but not currently.
             raise ValueError("No wavelength provided.")
         elif wavelength is None and flux_m0 is not None:
+            # Treat flux as ct/s, ignore band (assume it is accounted for in flux by experimenter)
             if isinstance(flux_m0, u.Quantity):
                 self._flux_m0 = flux_m0.to(u.ct/u.s/u.m**2)
                 self._wavelength = None
@@ -62,14 +67,28 @@ class SpectralBand:
                 else:
                     self._bandwidth = bandwidth * u.nm
                     warnings.warn("Casting bandwidth, input as " + str(bandwidth) + ", to nm", AstropyUserWarning)
+            if isinstance(flux_m0, u.Quantity):
+                self._flux_m0 = flux_m0.to(u.photon/u.m**2/u.s/u.nm, equivalencies=u.spectral_density(self._wavelength))
+            else:
+                self._flux_m0 = flux_m0 * u.photon/u.m**2/u.s/u.nm
+                warnings.warn("Casting flux_m0, input as "+str(flux_m0)+", to ct/s/m²/nm", AstropyUserWarning)
 
     # ------------------------------------------------------------------------------------------------------------ #
-    def get_flux(self, magnitude):
+    def get_flux(self, magnitude: IntFloat) -> u.Quantity:
+        """Returns the flux in photons/sec for the given band
+
+        Parameters
+        ----------
+        magnitude
+            star magnitude
+
+        Returns
+        -------
+        u.Quantity
+            Photons/sec-m²
+
         """
-        Returns the flux in photons/sec for the given band
-        :param float magnitude: star magnitude
-        :return float: Photons/sec
-        """
+
         if self._wavelength is None:  # flux is ct/s, no spectral dependencies
             return self._flux_m0 * 10**(-.4*magnitude)
         else:  # flux has a spectral dependence
@@ -92,9 +111,9 @@ class JohnsonPhotometricBand(SpectralBand):
         if band in johnson_band_center_dict:
             self._band = band
             SpectralBand.__init__(self,
-                                  johnson_band_center_dict[self._band],
-                                  johnson_bandwidth_dict[self._band],
-                                  johnson_band_flux_dict[self._band]
+                                  wavelength=johnson_band_center_dict[self._band],
+                                  bandwidth=johnson_bandwidth_dict[self._band],
+                                  flux_m0=johnson_band_flux_dict[self._band]
                                   )
         else:
             raise TypeError("Band "+str(band)+" is unknown.")
@@ -118,8 +137,10 @@ class SpectralEmitter:
         """
         if isinstance(spectra, SpectralBand):
             self._spectra = spectra
-        if isinstance(magnitude, float):
+        if isinstance(magnitude, IntFloat):
             self._magnitude = magnitude
+        else:
+            raise ValueError("magnitude, entered as ", magnitude, "is unknown type")
 
     def relative_flux(self):
         """Returns the relative flux from the SpectralEmitter"""

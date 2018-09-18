@@ -9,3 +9,4 @@ from .planets import *
 from .stars import *
 from .orbital_physics import *
 from .spectral import *
+from .telescopes import *

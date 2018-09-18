@@ -12,7 +12,8 @@ from astropy.utils.exceptions import AstropyUserWarning
 from ...utils.constants import *
 
 
-__all__ = ['calculate_basic_limb_darkening', '_calculate_basic_limb_darkening_lw', 'limb_darkened_radial_position']
+__all__ = ['no_limb_darkening',
+           'calculate_basic_limb_darkening', '_calculate_basic_limb_darkening_lw', 'limb_darkened_radial_position']
 
 # TODO Implement spectral dependencies
 # TODO Create a Limb class?  Could handle spectral stuff and other models more easily?
@@ -23,15 +24,75 @@ __all__ = ['calculate_basic_limb_darkening', '_calculate_basic_limb_darkening_lw
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 
-def calculate_basic_limb_darkening(angular_position, star_radius_over_distance=0, **kwargs):
-    """
-    Calculates the effective intensity of a point on a surface relative to an observer position.
+def no_limb_darkening(angular_position: Angle,
+                      star_radius_over_distance: float=0,
+                      **kwargs) -> float:
+    """Returns 1 if visible from the position, 0 if on the far side of the star.
 
-    :param angular_position: Angle between star_origin-->observer and star_origin-->point_on_star
-    :param star_radius_over_distance: radius of star / Distance to star
-    :return:
-    """
+    Parameters
+    ----------
+    angular_position
+        Angle between star_origin-->observer and star_origin-->point_on_star
+    star_radius_over_distance
+        Radius of star / Distance to star
+    kwargs
+        To cooperate with other limb darkening arguments
 
+    Returns
+    -------
+    float
+        0 or 1 depending on if the point is on the far side of the star
+    """
+    if isinstance(angular_position, Angle) or isinstance(angular_position, u.Quantity):
+        _angular_position = angular_position.to(u.rad)
+    else:
+        _angular_position = Angle(angular_position, unit=u.rad)
+        warnings.warn("Casting angular_position, input as " + str(angular_position) + ", to radians",
+                      AstropyUserWarning)
+
+    mod_angle = np.mod(_angular_position.value, 2 * np.pi)*u.rad
+    if pi_u / 2 <= mod_angle <= 3 * pi_u / 2:  # If it's beyond the limb from any distance...
+        return 0.
+
+    max_limb_angle = np.arcsin(star_radius_over_distance)*u.rad
+    # If viewed from Earth, max_limb_angle is effectively 0
+    if max_limb_angle.value == 0:
+        # Already ruled out that it's not behind the star in previous if test
+        return 1.
+
+    # If user requests an angle on the other side of the star, currently assume star is opaque and blocks light:
+    max_angle = pi_u/2 - max_limb_angle
+    if np.abs(_angular_position) > max_angle:
+        return 0.
+
+    # If viewed within the star system at a realistic angle:
+    else:
+        return 1.
+
+
+#  =============================================================  #
+
+
+def calculate_basic_limb_darkening(angular_position: Angle,
+                                   star_radius_over_distance: float=0,
+                                   **kwargs) -> float:
+    """Calculates the effective intensity of a point on a surface relative to an observer position.
+
+    Parameters
+    ----------
+    angular_position
+        Angle between star_origin-->observer and star_origin-->point_on_star
+    star_radius_over_distance
+        Radius of star / Distance to star
+    kwargs
+        Arguments for limb darkening equation
+
+    Returns
+    -------
+    float
+        Value from [0, 1] for visibility of the point on the surface
+
+    """
     if isinstance(angular_position, Angle) or isinstance(angular_position, u.Quantity):
         _angular_position = angular_position.to(u.rad)
     else:

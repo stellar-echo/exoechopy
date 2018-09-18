@@ -25,9 +25,9 @@ def run():
 
     number_of_flares = 1000
 
-    points = MyRegion.get_xyz_vectors(number_of_flares)
+    vect_points = MyRegion.gen_xyz_vectors(number_of_flares)
 
-    MyPointCloud = PointCloud(points, point_color="k", display_marker='.', point_size=3, linewidth=0,
+    MyPointCloud = PointCloud(vect_points, point_color="k", display_marker='.', point_size=3, linewidth=0,
                               name="Flare locations")
 
     ax_dic = scatter_plot_3d(MyPointCloud, savefile='hold')
@@ -236,7 +236,7 @@ def run():
     ax.set_xlabel('Time (sec)')
     ax.set_ylabel('Counts')
 
-    fig.suptitle("MyActiveRegion ActiveRegion demo")
+    fig.suptitle("MyActiveRegion ActiveRegion synthetic light curve demo")
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.show()
 

@@ -13,10 +13,14 @@ from astropy.utils.exceptions import AstropyUserWarning
 
 from .flares.active_regions import *
 from .spectral import *
-from ...utils.plottables import *
+from ...utils import *
 from .planets import *
+from .limbs import *
 
 __all__ = ['DeltaStar', 'Star']
+
+# TODO Add binary stars
+# TODO Add nonspherical stars (fast rotators)
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
@@ -93,11 +97,20 @@ class DeltaStar(Plottable):
         #         warnings.warn("Casting x, input as " + str(x) + ", to zz", AstropyUserWarning)
 
     # ------------------------------------------------------------------------------------------------------------ #
-    def add_active_region(self, active_region):
-        if isinstance(active_region, ActiveRegion):
-            self._active_region_list.append(active_region)
-        else:
-            raise TypeError("Active regions must be ActiveRegion class instance")
+    def add_active_regions(self, *active_regions: ActiveRegion):
+        """Add active region(s) to star
+
+        Parameters
+        ----------
+        active_regions
+            ActiveRegion(s) to add to the star
+
+        """
+        for ar in active_regions:
+            if isinstance(ar, ActiveRegion):
+                self._active_region_list.append(ar)
+            else:
+                raise TypeError("Active regions must be ActiveRegion class instance")
 
     # ------------------------------------------------------------------------------------------------------------ #
     def get_position(self, *args):
@@ -110,15 +123,16 @@ class DeltaStar(Plottable):
 
     # ------------------------------------------------------------------------------------------------------------ #
     def generate_flares_over_time(self, duration):
-        if isinstance(duration, u.Quantity):
-            _duration = duration.to(u.s)
-            all_flares = FlareCollection()
-            for active_region in self._active_region_list:
-                all_flares.append(active_region(duration))
-                raise NotImplementedError
-                # n_flares = active_region.
-        else:
+        if not isinstance(duration, u.Quantity):
             raise ValueError("duration must be u.Quantity")
+
+        duration = duration.to(u.s)
+        all_flares = FlareCollection({})
+        for active_region in self._active_region_list:
+            all_flares.append(active_region(duration))
+            # raise NotImplementedError
+            # n_flares = active_region.
+        return all_flares
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
@@ -195,30 +209,42 @@ class Star(DeltaStar):
 
     # ------------------------------------------------------------------------------------------------------------ #
     def __init__(self,
-                 mass=None,
-                 radius=None,
-                 spectral_type=None,
-                 rotation_rate=None,
-                 differential_rotation=None,
-                 earth_longitude=None,
-                 earth_latitude=None,
-                 dist_to_earth=None,
+                 mass: u.Quantity=None,
+                 radius: u.Quantity=None,
+                 spectral_type: SpectralEmitter=None,
+                 rotation_rate: u.Quantity=None,
+                 differential_rotation: float=None,
+                 earth_longitude: Angle=None,
+                 earth_latitude: Angle=None,
+                 dist_to_earth: Distance=None,
+                 limb_function: FunctionType=None,
+                 limb_args: dict=None,
                  **kwargs
                  ):
-        """
-        Defines a simple star with a variety of properties.
-        Can be given orbital objects that move around it and different spectral properties.
+        """Defines a simple star with a variety of physical properties.
 
-        :param u.Quantity mass:
-        :param u.Quantity radius:
-        :param SpectralEmitter spectral_type:
-        :param u.Quantity rotation_rate:
-        :param float differential_rotation: relative differential rotational rate (d_omega/omega)
-        :param Angle earth_longitude: [0, 2 pi)
-        :param Angle earth_latitude: [0, pi)
-        :param Distance dist_to_earth: Currently not used, may be useful if absolute magnitudes get implemented
-        """
+        Can be given orbital objects that move around it
+        Can be given different spectral properties
 
+        Parameters
+        ----------
+        mass
+        radius
+        spectral_type
+        rotation_rate
+            rad/day, typically
+        differential_rotation
+            Relative differential rotational rate (d_omega/omega)
+        earth_longitude
+            [0, 2 pi)
+        earth_latitude
+            [0,  pi)
+        dist_to_earth
+            Currently not used, may be useful if absolute magnitudes get implemented
+        limb_function
+            Function to use for calculating limb darkening
+        kwargs
+        """
         super().__init__(mass=mass,
                          spectral_type=spectral_type,
                          earth_longitude=earth_longitude,
@@ -239,9 +265,72 @@ class Star(DeltaStar):
         self._differential_rotation = None
         self.set_rotation_parameters(rotation_rate, differential_rotation)
 
+        #  Holder for a limb darkening model:
+        if limb_function is None:
+            self._limb_func = no_limb_darkening
+            self._limb_args = {}
+        else:
+            self._limb_func = limb_function
+            if limb_args is None:
+                self._limb_args = {}
+            else:
+                self._limb_args = limb_args
+
     # ------------------------------------------------------------------------------------------------------------ #
-    def generate_flares_over_time(self, duration):
-        raise NotImplementedError("Need to override delta-function flare method still.")
+    def star_limb(self,
+                  angular_position: Angle,
+                  star_radius_over_distance: float=0) -> float:
+        """Calculates the effective intensity of a point on a surface relative to an observer position.
+
+        Parameters
+        ----------
+        angular_position
+            Angle between star_origin-->observer and star_origin-->point_on_star
+        star_radius_over_distance
+            Radius of star / Distance to star
+
+        Returns
+        -------
+        float
+            Value from [0, 1] for visibility of the point on the surface
+
+        """
+        return self._limb_func(angular_position, star_radius_over_distance, **self._limb_args)
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    def generate_flares_over_time(self, duration: u.Quantity) -> FlareCollection:
+        """Given a duration, generate a FlareCollection
+
+        Parameters
+        ----------
+        duration
+            Duration of time to simulate flares over
+
+        Returns
+        -------
+        FlareCollection
+            The dictionary of all flares that occurred and their properties
+        """
+        if not isinstance(duration, u.Quantity):
+            raise ValueError("duration must be u.Quantity")
+
+        duration = duration.to(lw_time_unit)
+        all_flares = FlareCollection({})
+        for active_region in self._active_region_list:
+            updated_active_region = active_region(duration)
+            long_i, lat_i = active_region.center_of_region
+            keys = updated_active_region.sub_dict_keys
+            for k in keys:
+                times = updated_active_region[k]['flare_times']
+                d_long_array = self.get_rotation(times, lat=lat_i)
+                print("d_long_array: ", d_long_array)
+                print("updated_active_region[k]['flare_longitude_array']: ", updated_active_region[k]['flare_longitude_array'])
+                updated_active_region[k]['flare_longitude_array'] += d_long_array
+                updated_active_region[k]['flare_vector_array'] = \
+                    self.radius*vect_from_spherical_coords(updated_active_region[k]['flare_longitude_array'],
+                                                           updated_active_region[k]['flare_latitude_array'])
+            all_flares.append(updated_active_region)
+        return all_flares
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
@@ -276,7 +365,9 @@ class Star(DeltaStar):
 
     @property
     def differential_rotation(self):
-        """Star relative differential rotation rate, see https://en.wikipedia.org/wiki/Differential_rotation"""
+        """Star relative differential rotation rate
+
+        See https://en.wikipedia.org/wiki/Differential_rotation"""
         return self._differential_rotation
 
     @differential_rotation.setter
@@ -294,4 +385,30 @@ class Star(DeltaStar):
     def set_rotation_parameters(self, rotation_rate, differential_rotation):
         self.rotation_rate = rotation_rate
         self.differential_rotation = differential_rotation
+
+    def get_rotation(self,
+                     time: u.Quantity,
+                     lat: Angle=pi_u/2) -> u.Quantity:
+        """Determine the angle of a point on the star after a given time
+
+        Parameters
+        ----------
+        time
+            Time since relative epoch
+        lat
+            Optional latitude of interest, only useful if differential rotation is in play
+
+        Returns
+        -------
+        u.Quantity
+            Longitudinal shift in angle at the given latitude of the star
+
+        """
+        if isinstance(time, u.Quantity):
+            time = time.to(u.d)
+        else:
+            raise TypeError("get_rotation requires time be specified as a u.Quantity")
+        print("time: ", time)
+        print("self.rotation_rate: ", self.rotation_rate)
+        return time*self.rotation_rate*(1 - self.differential_rotation*np.sin(np.abs(pi_u/2-lat))**2)
 

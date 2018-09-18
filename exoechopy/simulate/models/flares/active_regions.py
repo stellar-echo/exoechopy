@@ -27,7 +27,7 @@ class FlareCollection(dict):
                            'flare_intensities': np.array([]),
                            'flare_vector_array': np.array([])}  # shape (n, 3)
 
-    def __init__(self, init_dict=None):
+    def __init__(self, init_dict: dict=None):
         """Flare collection is a series of dictionaries stored in a dictionary.
 
         Flare dictionaries are keyed with an integer, other global properties are stored as strings
@@ -89,14 +89,17 @@ class FlareCollection(dict):
         if not isinstance(another_flare_collection, (dict, FlareCollection)):
             raise TypeError("FlareCollection can only be appended to another FlareCollection")
         # Avoid dupes:
-        start_val = max(list(self.keys()))+1
+        if len(self.keys()) > 0:
+            start_val = max(self.sub_dict_keys)+1
+        else:
+            start_val = 0
         for k in another_flare_collection.keys():
             if isinstance(k, int):
                 self[start_val+k] = another_flare_collection[k]
             else:
                 if k not in self.keys():
                     self[k] = another_flare_collection[k]
-        self.current_dict_key = max(list(self.keys()))
+        self.current_dict_key = max(self.sub_dict_keys)
 
     # ------------------------------------------------------------------------------------------------------------ #
     def assign_property(self, property_key: str, property_val):
@@ -161,33 +164,53 @@ class FlareCollection(dict):
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
-    def num_flares(self):
+    def sub_dict_keys(self):
         valid_keys = [ki for ki in self.keys() if isinstance(ki, int)]
+        return valid_keys
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    @property
+    def num_flares(self):
+        valid_keys = self.sub_dict_keys
         return np.sum([len(sub_dict['all_flares']) for sub_dict in [self[ki] for ki in valid_keys]])
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
     def all_flares(self):
-        valid_keys = [ki for ki in self.keys() if isinstance(ki, int)]
+        valid_keys = self.sub_dict_keys
         return np.concatenate([sub_dict['all_flares'] for sub_dict in [self[ki] for ki in valid_keys]])
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
     def all_flare_times(self):
-        valid_keys = [ki for ki in self.keys() if isinstance(ki, int)]
-        return np.concatenate([sub_dict['flare_times'] for sub_dict in [self[ki] for ki in valid_keys]])*lw_time_unit
+        valid_keys = self.sub_dict_keys
+        # See http://docs.astropy.org/en/latest/known_issues.html#quantities-lose-their-units-with-some-operations
+        flare_time_list = [sub_dict['flare_times'] for sub_dict in [self[ki] for ki in valid_keys]]
+        # Flatten list, since u.Quantity cannot handle unequal lists:
+        flare_time_list = [item for sublist in flare_time_list for item in sublist]
+        return u.Quantity(flare_time_list).flatten()
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
     def all_flare_intensities(self):
-        valid_keys = [ki for ki in self.keys() if isinstance(ki, int)]
+        valid_keys = self.sub_dict_keys
         return np.concatenate([sub_dict['flare_intensities'] for sub_dict in [self[ki] for ki in valid_keys]])
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
     def all_flare_vectors(self):
-        valid_keys = [ki for ki in self.keys() if isinstance(ki, int)]
+        valid_keys = self.sub_dict_keys
         return np.concatenate([sub_dict['flare_vector_array'] for sub_dict in [self[ki] for ki in valid_keys]])
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    @property
+    def all_flare_angles(self):
+        valid_keys = self.sub_dict_keys
+        # See http://docs.astropy.org/en/latest/known_issues.html#quantities-lose-their-units-with-some-operations
+        flare_angle_list = [sub_dict['flare_angle_array'] for sub_dict in [self[ki] for ki in valid_keys]]
+        # Flatten list, since u.Quantity cannot handle unequal lists:
+        flare_angle_list = [item for sublist in flare_angle_list for item in sublist]
+        return u.Quantity(flare_angle_list).flatten()
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -385,9 +408,9 @@ class Region:
 
         Methods
         ----------
-        get_latitudes
-        get_longitudes
-        get_xyz_vectors
+        gen_latitudes
+        gen_longitudes
+        gen_xyz_vectors
 
         Attributes
         -----------
@@ -450,7 +473,20 @@ class Region:
             raise TypeError("latitude_pdf must be None or PDFType")
 
     # ------------------------------------------------------------------------------------------------------------ #
-    def get_latitudes(self, num_latitudes: int) -> np.ndarray:
+    @property
+    def center_of_region(self):
+        if isinstance(self.latitude_pdf, CountType):
+            mean_lat = self.latitude_pdf
+        else:
+            mean_lat = self.latitude_pdf.expect()
+        if isinstance(self.longitude_pdf, CountType):
+            mean_long = self.longitude_pdf
+        else:
+            mean_long = self.longitude_pdf.expect()
+        return mean_long*u.rad, mean_lat*u.rad
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    def gen_latitudes(self, num_latitudes: int) -> np.ndarray:
         """Generates an array of latitude values based on the latitude_pdf
 
         Parameters
@@ -468,7 +504,7 @@ class Region:
         else:
             return self.latitude_pdf.rvs(size=num_latitudes)
 
-    def get_longitudes(self, num_longitudes: int) -> np.array:
+    def gen_longitudes(self, num_longitudes: int) -> np.array:
         """Generates an array of longitudes values based on the longitude_pdf
 
         Parameters
@@ -486,7 +522,9 @@ class Region:
         else:
             return self.longitude_pdf.rvs(size=num_longitudes)
 
-    def get_xyz_vectors(self, n_flares: int) -> np.ndarray:
+    def gen_xyz_vectors(self,
+                        n_flares: int,
+                        return_angles: bool=False) -> (np.ndarray, np.ndarray, np.ndarray):
         """Generate an array of x, y, z points
 
         Draws longitude and latitude points from the defined _pdf's, then converts to cartesian coordinates.
@@ -495,16 +533,23 @@ class Region:
         ----------
         n_flares
             Number of points to sample.
+        return_angles
+            Whether or not to explicitly return the angles, or just the vectors
 
         Returns
         -------
         np.ndarray
             Array of points in xyz
+            or
+            array of longitude angles, latitude angles, and points in xyz
         """
-        longitude_points = self.get_longitudes(n_flares)
-        latitude_points = self.get_latitudes(n_flares)
+        longitude_points = self.gen_longitudes(n_flares)
+        latitude_points = self.gen_latitudes(n_flares)
         vectors = vect_from_spherical_coords(longitude_points, latitude_points)
-        return vectors
+        if return_angles:
+            return longitude_points, latitude_points, vectors
+        else:
+            return vectors
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -635,7 +680,7 @@ class ActiveRegion:
                               + str(duration) + ", to " + str(lw_time_unit),
                               AstropyUserWarning)
             flare_times = stochastic_flare_process(duration, self._occurrence_freq_pdf, max_iter=max_flares)
-            self._generate_flares_at_times(flare_times)
+            self._generate_flares_at_times_lw(flare_times)
         self._generate_flare_locations()
         return self._all_flares
 
@@ -656,7 +701,7 @@ class ActiveRegion:
         self._all_flares = all_flares
 
     # ------------------------------------------------------------------------------------------------------------ #
-    def _generate_flares_at_times(self, list_of_times: list):
+    def _generate_flares_at_times_lw(self, list_of_times: list):
         n_flares = len(list_of_times)
         self._generate_n_flares(n_flares)
         list_of_times = np.array(list_of_times)
@@ -664,13 +709,48 @@ class ActiveRegion:
         for ai, activity in enumerate(self._flare_activity_list):
             self._all_flares.current_dict_key = ai
             self._all_flares.assign_property('flare_times',
-                                             list_of_times[np.where(activity_selections == ai)])
+                                             list_of_times[np.where(activity_selections == ai)]*lw_time_unit)
 
     # ------------------------------------------------------------------------------------------------------------ #
     def _generate_flare_locations(self):
         for (k, sub_dict) in self._all_flares.items():
             if isinstance(k, int):
-                vectors = self._region.get_xyz_vectors(len(sub_dict['all_flares']))
+                longitudes, latitudes, vectors = self._region.gen_xyz_vectors(len(sub_dict['all_flares']),
+                                                                              return_angles=True)
                 sub_dict['flare_vector_array'] = vectors
+                sub_dict['flare_latitude_array'] = latitudes*u.rad
+                sub_dict['flare_longitude_array'] = longitudes*u.rad
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    def generate_background(self, time_domain: u.Quantity,
+                            observation_vector: np.ndarray) -> (np.ndarray, np.ndarray):
+        """Prepare a background intensity level that changes with time and orientation
+
+        Active regions can have brightening or darkening (starspots) effects.
+        These effects depend on the star opacity and viewing orientation.
+        ActiveRegion is not aware of star opacity effects, so it just provides a relative angle for external use.
+        This function takes a time_domain and an observation vector (or array of vectors of len(duration))
+        and provides the background intensity variation.
+
+        Parameters
+        ----------
+        time_domain
+            Times to evaluate the background at
+        observation_vector
+            A single vector pointing in the direction of observation
+            or an array of vectors of equal length to time_domain
+
+        Returns
+        -------
+        (np.ndarray, np.ndarray)
+            Array of intensities and array of angles between observation_vector and the star surface normal
+        """
+        raise NotImplementedError("No means of tracking regional variations implemented yet")
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    @property
+    def center_of_region(self):
+        return self._region.center_of_region
+
 
 
