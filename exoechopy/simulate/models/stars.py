@@ -316,19 +316,19 @@ class Star(DeltaStar):
 
         duration = duration.to(lw_time_unit)
         all_flares = FlareCollection({})
-        for active_region in self._active_region_list:
+        for ar_i, active_region in enumerate(self._active_region_list):
             updated_active_region = active_region(duration)
             long_i, lat_i = active_region.center_of_region
             keys = updated_active_region.sub_dict_keys
             for k in keys:
                 times = updated_active_region[k]['flare_times']
                 d_long_array = self.get_rotation(times, lat=lat_i)
-                print("d_long_array: ", d_long_array)
-                print("updated_active_region[k]['flare_longitude_array']: ", updated_active_region[k]['flare_longitude_array'])
                 updated_active_region[k]['flare_longitude_array'] += d_long_array
                 updated_active_region[k]['flare_vector_array'] = \
                     self.radius*vect_from_spherical_coords(updated_active_region[k]['flare_longitude_array'],
                                                            updated_active_region[k]['flare_latitude_array'])
+                # For potential future applications:
+                updated_active_region[k]['region_ID'] = ar_i
             all_flares.append(updated_active_region)
         return all_flares
 
@@ -408,7 +408,5 @@ class Star(DeltaStar):
             time = time.to(u.d)
         else:
             raise TypeError("get_rotation requires time be specified as a u.Quantity")
-        print("time: ", time)
-        print("self.rotation_rate: ", self.rotation_rate)
         return time*self.rotation_rate*(1 - self.differential_rotation*np.sin(np.abs(pi_u/2-lat))**2)
 

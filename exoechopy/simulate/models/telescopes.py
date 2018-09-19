@@ -179,13 +179,13 @@ class Telescope:
         dt = self.cadence
 
         # A few lists of things that are computed, useful for diagnostics:
-        all_earth_flare_angles = np.zeros(num_flares)
+        all_earth_flare_angles = np.zeros(num_flares)*u.rad
         earth_flare_visibility = np.zeros(num_flares)
 
         for f_i, (flare, flare_time, flare_vect, flare_mag) in enumerate(zip(flares,
-                                                                           flare_times,
-                                                                           flare_positions,
-                                                                           flare_intensities)):
+                                                                             flare_times,
+                                                                             flare_positions,
+                                                                             flare_intensities)):
             flare_duration = flare.flare_duration
             num_plot_points = max(int(flare_duration/dt), 1)
             # Determine start/stop indices for flare, pad by an index on either side:
@@ -198,9 +198,7 @@ class Telescope:
             local_flare_times = self._time_domain[i0: i1]
             flare_signal = flare.evaluate_over_array(local_flare_times - flare_time) * flare_mag
 
-            print("flare_signal.unit: ", flare_signal.unit)
-
-            earth_flare_angle = angle_between_vectors(earth_vect, flare_vect.value)
+            earth_flare_angle = angle_between_vectors(earth_vect, flare_vect.value)*u.rad
             all_earth_flare_angles[f_i] = earth_flare_angle
 
             earth_flare_limb = target.star_limb(earth_flare_angle)
@@ -215,6 +213,8 @@ class Telescope:
             # To add: Echo lag, echo magnitude, flare location, etc.
             np.save(output_folder / (base_filename + " pure_signal.npy"), self._pure_lightcurve)
             # To add: stellar variability, degraded signals
+
+        return all_earth_flare_angles, earth_flare_visibility
 
     # ------------------------------------------------------------------------------------------------------------ #
     def observation_report(self):

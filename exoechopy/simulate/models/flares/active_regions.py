@@ -5,6 +5,7 @@ This module provides active region classes and methods for stars.
 
 import warnings
 import numpy as np
+import pandas as pd
 from scipy import stats
 from astropy import units as u
 from astropy.utils.exceptions import AstropyUserWarning
@@ -15,6 +16,8 @@ from ....utils import *
 
 __all__ = ['FlareCollection', 'FlareActivity', 'Region', 'ActiveRegion']
 
+
+# TODO Make it possible to use joint probability distributions and include conditional requirements (like decay > onset)
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
@@ -248,14 +251,13 @@ class FlareActivity:
         self._intensity_pdf = None
         self.intensity_pdf = intensity_pdf
 
-        print("flare_kwargs: ", kwargs)
         self._flare_kwarg_vals = None  # Holds the distribution functions
         self._flare_kwarg_types = None  # Holds the type of distribution, typically a float or RVFrozen
         self._flare_new_kwargs = None  # Holds the prefix from the kwarg, to be used in the future
         self._kw_units = None
         self.flare_kwargs = kwargs
-        print(self._flare_new_kwargs)
 
+        # Activity name
         self._name = name
 
     # ------------------------------------------------------------------------------------------------------------ #
@@ -284,17 +286,21 @@ class FlareActivity:
         flare_collection.assign_property(property_key='flare_intensities', property_val=intensity_list)
 
         if len(self.flare_kwargs) > 0:
-            arg_array = np.zeros((n_flares, len(self.flare_kwargs)))
-            for ai, (flare_arg, arg_unit) in enumerate(zip(self.flare_kwargs, self._kw_units)):
+            arg_array = np.zeros(n_flares, dtype=self._flare_kwarg_types)
+            arg_dataframe = pd.DataFrame(arg_array)
+            for flare_arg, arg_label in zip(self.flare_kwargs, arg_dataframe.columns):
                 if isinstance(flare_arg, CountType):
-                    arg_array[:, ai] = np.ones(n_flares) * flare_arg
+                    arg_dataframe[arg_label] = np.ones(n_flares) * flare_arg
                 elif isinstance(flare_arg, RVFrozen):
-                    arg_array[:, ai] = flare_arg.rvs(size=n_flares)
+                    arg_dataframe[arg_label] = flare_arg.rvs(size=n_flares)
+                else:
+                    arg_dataframe[arg_label] = flare_arg
 
             # Repack the original units with the computed values using the fancy dict keywords:
             flare_list = [self._flare_type(**dict(zip(self._flare_new_kwargs,
-                                                      [ai*ui for ai, ui in zip(arg_i, self._kw_units)])))
-                          for arg_i in arg_array]
+                                                      [ai*ui if ui!='str' else ai
+                                                       for ai, ui in zip(arg_i, self._kw_units)])))
+                          for arg_i in arg_dataframe.values]
         else:
             flare_list = [self._flare_type() for ni in range(n_flares)]
 
@@ -303,6 +309,16 @@ class FlareActivity:
 
     # ------------------------------------------------------------------------------------------------------------ #
     def _interpret_kwarg_types(self, _kwargs):
+        """Interprets custom kwargs to pass flexible options to underlying flares
+
+        Parameters
+        ----------
+        _kwargs
+
+        Returns
+        -------
+
+        """
         arg_type_list = []
         new_args = []
         new_kw = []
@@ -313,33 +329,40 @@ class FlareActivity:
                 if isinstance(val, u.Quantity):
                     if isinstance(val.value, np.ndarray):
                         new_args.append(stats.uniform(loc=val[0], scale=val[1] - val[0]))
-                        arg_type_list.append(RVFrozen)
                     else:
-                        arg_type_list.append(type(val.value))
                         new_args.append(val.value)
                     kw_units.append(val.unit)
                 else:
-                    arg_type_list.append(type(val))
                     new_args.append(val)
                     kw_units.append(1.)
+                arg_type_list.append((str(kw), 'float64'))
             elif isinstance(val, (list, tuple)):
-                print("val: ", val)
                 if isinstance(val[1], u.IrreducibleUnit):
                     new_args.append(val[0])
-                    arg_type_list.append(type(val[0]))
                     kw_units.append(val[1])
                 else:
                     new_args.append(stats.uniform(loc=val[0], scale=val[1]-val[0]))
-                    arg_type_list.append(RVFrozen)
                     kw_units.append(1.)
+                arg_type_list.append((str(kw), 'float64'))
             elif isinstance(val, RVFrozen):
-                arg_type_list.append(RVFrozen)
+                arg_type_list.append((str(kw), 'float64'))
                 new_args.append(val)
                 kw_units.append(1.)
             else:
-                arg_type_list.append(type(val))
-                new_args.append(val)
-                kw_units.append(1.)
+                if isinstance(val, str):
+                    string_length = 16
+                    # For use in a structured numpy array:
+                    arg_type_list.append((str(kw), 'U'+str(string_length)))
+                    if len(val) > string_length:
+                        AstropyUserWarning("Structured numpy array only configured to accept U"+str(string_length)+" strings, received "
+                                           + val +", converting to "+val[:string_length])
+                        val = val[:string_length]
+                    new_args.append(val)
+                    kw_units.append("str")
+                else:
+                    arg_type_list.append(type(val))
+                    new_args.append(val)
+                    kw_units.append(1)
 
             if kw[-4:] == '_pdf':
                 new_kw.append(kw[:-4])
@@ -692,7 +715,6 @@ class ActiveRegion:
                                                p=self._flare_activity_ratios)
         flare_counts = np.bincount(activity_selections, minlength=len(self._flare_activity_list))
         for ii, (activity, n_counts) in enumerate(zip(self._flare_activity_list, flare_counts)):
-            # print("activity: ", activity.name, "\tn_counts: ", n_counts)
             if ii == 0:
                 all_flares = FlareCollection(activity.generate_n_flares(n_counts))
             else:

@@ -18,7 +18,9 @@ __all__ = ['ProtoFlare', 'DeltaFlare', 'ExponentialFlare1']
 
 class ProtoFlare:
     """Template class for flares, generates no signal."""
-    def __init__(self, **kwargs):
+    def __init__(self,
+                 label=None,
+                 **kwargs):
         """Provides a generic flare flass meant for subclassing.
 
         Parameters
@@ -59,6 +61,8 @@ class ProtoFlare:
         ExponentialFlare1
         MultipeakFlare
         """
+        self._label = label
+
         self._counts = None
         self.integrated_counts = None
         # Explicit definition of where the function is piecewise/discontinuous:
@@ -67,6 +71,11 @@ class ProtoFlare:
 
         # Provide a minimum or recommended flare duration to help plotting and lightcurve routines:
         self._flare_duration = 1.*u.s
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    @property
+    def label(self):
+        return self._label
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
@@ -267,7 +276,7 @@ class DeltaFlare(ProtoFlare):
         MultipeakFlare
         """
 
-        super().__init__()
+        super().__init__(**kwargs)
 
         self.integrated_counts = counts
 
@@ -341,7 +350,8 @@ class ExponentialFlare1(ProtoFlare):
             warnings.warn("Casting decay, input as " + str(decay) + ", to seconds", AstropyUserWarning)
 
         if self._decay < self._onset/2:
-            warnings.warn("Decay, " + str(decay) + ", shorter than onset/2, " + str(onset), AstropyUserWarning)
+            warnings.warn("Decay, " + str(decay.round(3)) + ", shorter than onset/2, "
+                          + str(onset.round(3)) + ", may generate backward-looking flares", AstropyUserWarning)
 
         if isinstance(max_decay, IntFloat):
             self._decay_duration = self._decay * max_decay

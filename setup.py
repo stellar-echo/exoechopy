@@ -39,6 +39,7 @@ setup(
     'numpy >= 1.11',
     'scipy >= 0.18',
     'matplotlib >= 2.0',
+    'pandas >= 0.23',
     'astropy >= 3.0.4'],
     extras_require={
     'docs': [
