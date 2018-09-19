@@ -9,6 +9,8 @@ from exoechopy.simulate.models.orbital_physics import true_anomaly_from_mean
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
+# TODO make sure orbits are animated correctly, Mercury is moving too fast?
+
 
 def run():
 
@@ -98,6 +100,8 @@ def run():
     # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
     EarthyPlanet.about_orbit()
+
+    eep.visualize.orbit_plot(MercurialPlanet)
 
     eep.visualize.render_3d_planetary_system(MyStar)
 

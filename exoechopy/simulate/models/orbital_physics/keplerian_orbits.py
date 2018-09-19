@@ -19,6 +19,7 @@ __all__ = ['KeplerianOrbit', 'true_anomaly_from_mean']
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
+# TODO Fix the problem with initial_anomaly causing garbage results
 
 class KeplerianOrbit(Plottable):
     """

@@ -27,7 +27,7 @@ def run():
     i_1 = 20*u.deg
     L_1 = 0*u.deg
     w_1 = 0*u.deg
-    m0_1 = 0*u.deg
+    m0_1 = 180*u.deg
     name_1 = "e: "+str(e_1)+", a: "+u_str(a_1)+", i: "+u_str(i_1)+", Ω: "+u_str(L_1)+", ω: "+u_str(w_1)+", M0: "+u_str(m0_1)
     Planet1 = eep.simulate.KeplerianExoplanet(semimajor_axis=a_1,
                                               eccentricity=e_1,
@@ -46,7 +46,7 @@ def run():
 
     eep.visualize.orbit_plot(Planet1)
 
-    eep.visualize.animate_3d_planetary_system(MyStar, num_frames=200)
+    eep.visualize.animate_3d_planetary_system(MyStar, num_frames=100)
 
 # ******************************************************************************************************************** #
 # ************************************************  TEST & DEMO CODE  ************************************************ #

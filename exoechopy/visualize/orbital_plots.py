@@ -14,7 +14,25 @@ __all__ = ['orbit_plot']
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 
-def orbit_plot(keplerian_orbit, num_points=100, savefile=None):
+def orbit_plot(keplerian_orbit: KeplerianOrbit,
+               num_points: int=100,
+               savefile: str=None):
+    """Plots a few useful things for a KeplerianOrbit instance
+
+    Parameters
+    ----------
+    keplerian_orbit
+        Instance of a KeplerianOrbit for plotting
+    num_points
+        Number of points to plot
+    savefile
+        If None, plt.show()
+        Else, saves to savefile = location+filename
+
+    Returns
+    -------
+
+    """
     if not isinstance(keplerian_orbit, KeplerianOrbit):
         raise TypeError("Must provide a KeplerianOrbit class for plotting.")
 
@@ -25,7 +43,7 @@ def orbit_plot(keplerian_orbit, num_points=100, savefile=None):
     positions_time = np.array(keplerian_orbit.generate_orbital_positions_by_time(num_points)).transpose()
 
     #  ---------------------------------------------------------  #
-    fig, (ax1a, ax2a, ax3a) = plt.subplots(1, 3)
+    fig, (ax1a, ax2a, ax3a, ax4a) = plt.subplots(1, 4, figsize=(10, 4))
     ax1a.plot(np.linspace(0, 2, num_points), positions_angle[0], color=angle_color)
     ax1a.set_xlabel('Angle (pi)', color=angle_color)
     ax1a.tick_params('x', color=angle_color, labelcolor=angle_color)
@@ -51,12 +69,25 @@ def orbit_plot(keplerian_orbit, num_points=100, savefile=None):
     ax3a.plot(np.linspace(0, 2, num_points), positions_angle[2], color=angle_color)
     ax3a.set_xlabel('Angle (pi)', color=angle_color)
     ax3a.tick_params('x', color=angle_color, labelcolor=angle_color)
-    ax3a.set_ylabel('y position (AU)')
+    ax3a.set_ylabel('z position (AU)')
 
     ax3b = ax3a.twiny()
     ax3b.plot(np.linspace(0, 1, num_points), positions_time[2], color=time_color)
     ax3b.set_xlabel('Time (t/T)', color=time_color)
     ax3b.tick_params('x', color=time_color, labelcolor=time_color)
+
+    #  ---------------------------------------------------------  #
+    r_pos_angle = np.linalg.norm(positions_angle, axis=0)
+    r_pos_time = np.linalg.norm(positions_time, axis=0)
+    ax4a.plot(np.linspace(0, 2, num_points), r_pos_angle, color=angle_color)
+    ax4a.set_xlabel('Angle (pi)', color=angle_color)
+    ax4a.tick_params('x', color=angle_color, labelcolor=angle_color)
+    ax4a.set_ylabel('Distance (AU)')
+
+    ax4b = ax4a.twiny()
+    ax4b.plot(np.linspace(0, 1, num_points), r_pos_time, color=time_color)
+    ax4b.set_xlabel('Time (t/T)', color=time_color)
+    ax4b.tick_params('x', color=time_color, labelcolor=time_color)
 
     #  ---------------------------------------------------------  #
     plt.tight_layout()
