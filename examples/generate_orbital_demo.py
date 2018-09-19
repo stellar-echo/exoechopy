@@ -22,12 +22,12 @@ def run():
     planet_albedo = eep.simulate.models.spectral.Albedo(spectral_band, 1.)
 
     #   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^   #
-    e_1 = 0.3
-    a_1 = 0.01 * u.au
-    i_1 = 20*u.deg
-    L_1 = 0*u.deg
-    w_1 = 0*u.deg
-    m0_1 = 180*u.deg
+    e_1 = 0.3           # eccentricity
+    a_1 = 0.01 * u.au   # semimajor axis
+    i_1 = 20*u.deg      # inclination
+    L_1 = 0*u.deg       # longitude
+    w_1 = 90*u.deg      # arg of periapsis
+    m0_1 = -90*u.deg      # initial anomaly
     name_1 = "e: "+str(e_1)+", a: "+u_str(a_1)+", i: "+u_str(i_1)+", Ω: "+u_str(L_1)+", ω: "+u_str(w_1)+", M0: "+u_str(m0_1)
     Planet1 = eep.simulate.KeplerianExoplanet(semimajor_axis=a_1,
                                               eccentricity=e_1,
@@ -44,7 +44,9 @@ def run():
 
     Planet1.about_orbit()
 
-    eep.visualize.orbit_plot(Planet1)
+    eep.visualize.orbit_plot(Planet1, num_points=250)
+
+    # eep.visualize.render_3d_planetary_system(MyStar)
 
     eep.visualize.animate_3d_planetary_system(MyStar, num_frames=100)
 

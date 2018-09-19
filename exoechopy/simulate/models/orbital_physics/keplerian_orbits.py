@@ -247,7 +247,7 @@ class KeplerianOrbit(Plottable):
         :param Angle theta: true anomaly of the object
         :return np.array: xyz array for position as a function of angle
         """
-        true_anom = theta + self._initial_anomaly + self._periapsis_arg
+        true_anom = theta + self._periapsis_arg
         r = self.distance_at_angle(true_anom)
         x = r*(np.cos(self._longitude)*np.cos(true_anom)
                - np.sin(self._longitude)*np.sin(true_anom)*np.cos(self._inclination))
@@ -262,7 +262,7 @@ class KeplerianOrbit(Plottable):
         :param Angle theta: true anomaly of the object
         :return np.array: xyz array for position as a function of angle
         """
-        true_anom = theta + self._initial_anomaly_lw + self._periapsis_arg_lw
+        true_anom = theta + self._periapsis_arg_lw
         r = self.distance_at_angle(true_anom)
         x = r*(np.cos(self._longitude)*np.cos(true_anom)
                - np.sin(self._longitude)*np.sin(true_anom)*np.cos(self._inclination))
@@ -310,7 +310,7 @@ class KeplerianOrbit(Plottable):
         :return list:
         """
         all_angles = np.linspace(0 * u.rad, 2 * pi_u, num_points)
-        orbit_positions = [self.calc_xyz_at_angle_au(ang) for ang in all_angles]
+        orbit_positions = [self.calc_xyz_at_angle_au(ang + self.initial_anomaly) for ang in all_angles]
         return orbit_positions
 
     # ------------------------------------------------------------------------------------------------------------ #

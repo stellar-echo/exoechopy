@@ -52,7 +52,7 @@ def plot_3d_keplerian_orbit(keplerian_orbit: KeplerianExoplanet,
     positions = np.array(keplerian_orbit.generate_orbital_positions_by_angle(100)).transpose()
 
     if time is None:
-        x0, y0, z0 = keplerian_orbit.calc_xyz_at_angle_au(0 * u.deg)
+        x0, y0, z0 = keplerian_orbit.calc_xyz_at_angle_au(keplerian_orbit.initial_anomaly)
     else:
         x0, y0, z0 = keplerian_orbit.calc_xyz_at_time_au(time)
 

@@ -5,7 +5,8 @@ This module generates plots of individual orbits for diagnostic and visualizatio
 
 import numpy as np
 import matplotlib.pyplot as plt
-
+from astropy import constants
+from astropy import units as u
 from ..simulate.models.orbital_physics import *
 
 __all__ = ['orbit_plot']
@@ -43,7 +44,7 @@ def orbit_plot(keplerian_orbit: KeplerianOrbit,
     positions_time = np.array(keplerian_orbit.generate_orbital_positions_by_time(num_points)).transpose()
 
     #  ---------------------------------------------------------  #
-    fig, (ax1a, ax2a, ax3a, ax4a) = plt.subplots(1, 4, figsize=(10, 4))
+    fig, (ax1a, ax2a, ax3a, ax4a, ax5) = plt.subplots(1, 5, figsize=(14, 4))
     ax1a.plot(np.linspace(0, 2, num_points), positions_angle[0], color=angle_color)
     ax1a.set_xlabel('Angle (pi)', color=angle_color)
     ax1a.tick_params('x', color=angle_color, labelcolor=angle_color)
@@ -88,6 +89,24 @@ def orbit_plot(keplerian_orbit: KeplerianOrbit,
     ax4b.plot(np.linspace(0, 1, num_points), r_pos_time, color=time_color)
     ax4b.set_xlabel('Time (t/T)', color=time_color)
     ax4b.tick_params('x', color=time_color, labelcolor=time_color)
+
+    #  ---------------------------------------------------------  #
+    # Pad the positions to support differentiation:
+    # print("positions_time[:, 0]: ", positions_time[:, 0], "\tpositions_time[:, -1]", positions_time[:, -1])
+    # r_pos_time_2 = np.hstack((positions_time, positions_time[:, 0, np.newaxis]))*u.au
+    dt = keplerian_orbit.orbital_period/num_points
+    v_time = (positions_time[:, 2:]-positions_time[:, :-2])/(2*dt)
+    kinetic_energy = .5*np.linalg.norm(v_time, axis=0)**2*u.kg*u.au**2/u.s**2
+    ax5.plot(np.linspace(0, 1, len(kinetic_energy)), kinetic_energy.to(u.erg), color=angle_color, label='KE')
+
+    potential_energy = -keplerian_orbit.star_mass*constants.G/(r_pos_time*u.au)*u.kg
+    ax5.plot(np.linspace(0, 1, num_points), potential_energy.to(u.erg), color=time_color, label='PE')
+
+    ax5.plot(np.linspace(0, 1, len(kinetic_energy)), (potential_energy[1:-1]+kinetic_energy).to(u.erg), color='k', label='PE+KE')
+
+    ax5.set_xlabel('Time (t/T)')
+    ax5.set_ylabel('Energy (erg)')
+    ax5.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
 
     #  ---------------------------------------------------------  #
     plt.tight_layout()
