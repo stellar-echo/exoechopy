@@ -139,14 +139,16 @@ class ProtoFlare:
         np.ndarray
             Provides the discretized values for the times provided by the time_array
         """
+        if isinstance(time_array, u.Quantity):
+            time_array = time_array.value
         dt = time_array[1] - time_array[0]
         # Provide an end-point for the last bin to integrate over:
         edge_adjusted_time_array = np.append(time_array, time_array[-1]+dt)
         return np.array([self._integrate_between_times_lw(t0, t1)
-                         for t0, t1 in zip(edge_adjusted_time_array[:-1], edge_adjusted_time_array[1:])])
+                         for t0, t1 in zip(edge_adjusted_time_array[:-1], edge_adjusted_time_array[1:])])/dt
 
     def evaluate_over_array(self, time_array: u.Quantity) -> u.Quantity:
-        """Evaluate the flare over a time domain.
+        """Evaluate the flare over a time domain to get counts/time.
 
         This discretizes and 'analytically' integrates the time bins
         Need to re-implement with faster array handling, such as np.where().  For now, just getting it working correctly
@@ -158,11 +160,12 @@ class ProtoFlare:
 
         Returns
         -------
-        np.ndarray
+        u.Quantity
             Provides the discretized values for the times provided by the time_array
         """
         time_array_lw = time_array.to(lw_time_unit).value
-        return self.evaluate_over_array_lw(time_array_lw)*u.ph
+        dt = time_array[1]-time_array[0]
+        return self.evaluate_over_array_lw(time_array_lw)/time_array.unit*u.ph/(u.m)**2
 
     # ------------------------------------------------------------------------------------------------------------ #
     def _integrate_between_times_lw(self, t0: float, t1: float) -> float:
@@ -226,7 +229,7 @@ class ProtoFlare:
         else:
             _time = u.Quantity(time, u.s).value
             warnings.warn("Casting time, input as " + str(time) + ", to seconds", AstropyUserWarning)
-        return self._evaluate_at_time_lw(_time)*u.ct/u.s
+        return self._evaluate_at_time_lw(_time)*u.ph/u.s/(u.m)**2
 
     def _evaluate_at_time_lw(self, t: float) -> float:
         """Unitless version of flare lightcurve.

@@ -8,7 +8,7 @@ from scipy import stats
 import matplotlib.pyplot as plt
 from exoechopy.visualize.standard_3d_plots import *
 from exoechopy.simulate.models import flares, active_regions
-from exoechopy.utils.plottables import PointCloud
+from exoechopy.utils import *
 
 
 def run():
@@ -61,19 +61,20 @@ def run():
     fig, ax_list = plt.subplots(1, num_test_flares, figsize=(10, 4))
     time_scale = 10 * u.s
     num_plot_points = 20
-    times = np.linspace(-time_scale.value / 2, time_scale.value / 2, num_plot_points)
+    times = np.linspace(-time_scale / 2, time_scale / 2, num_plot_points)
+    dt = times[1]-times[0]
 
     for flare, flare_mag, ax in zip(delta_flare_collection.all_flares,
                                     delta_flare_collection.all_flare_intensities,
                                     ax_list):
-        integrated_flare = flare.evaluate_over_array_lw(times) * flare_mag
-        ax.plot(times, integrated_flare,
+        evaluated_flare = flare.evaluate_over_array_lw(times) * flare_mag
+        ax.plot(times, evaluated_flare,
                 color='.4', lw=1, drawstyle='steps-post',
                 marker='s', markersize=3, markerfacecolor='k', markeredgewidth=0)
         ax.tick_params('x', top=True, direction='in')
-        ax.set_ylim(0, 1.1 * max(delta_flare_collection.all_flare_intensities))
+        ax.set_ylim(0, 1.1 * max((delta_flare_collection.all_flare_intensities/dt).value))
         ax.set_xlabel('Time (sec)')
-        ax.set_ylabel('Counts')
+        ax.set_ylabel(u_labelstr(evaluated_flare))
 
     fig.suptitle("DeltaFlare FlareActivity demo")
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
@@ -108,21 +109,20 @@ def run():
     fig, ax_list = plt.subplots(1, num_test_flares, figsize=(10, 4))
     time_scale = 30 * u.s
     num_plot_points = 40
-    times = np.linspace(-time_scale.value / 6, 5 * time_scale.value / 6, num_plot_points)
+    times = np.linspace(-time_scale / 6, 5 * time_scale / 6, num_plot_points)
+    dt = times[1]-times[0]
 
     for flare, flare_mag, ax in zip(exp_flare_collection.all_flares,
                                     exp_flare_collection.all_flare_intensities,
                                     ax_list):
-        # Normalize to integrated flare peak for display purposes:
-        integrated_flare = flare.evaluate_over_array_lw(times) * flare_mag / np.max(
-            flare.evaluate_over_array_lw(times))
-        ax.plot(times, integrated_flare,
+        evaluated_flare = flare.evaluate_over_array_lw(times) * flare_mag
+        ax.plot(times, evaluated_flare,
                 color='.4', lw=1, drawstyle='steps-post',
                 marker='s', markersize=3, markerfacecolor='k', markeredgewidth=0)
         ax.tick_params('x', top=True, direction='in')
-        ax.set_ylim(0, 1.1 * max(exp_flare_collection.all_flare_intensities))
+        ax.set_ylim(0, 1.1 * max((exp_flare_collection.all_flare_intensities/dt).value))
         ax.set_xlabel('Time (sec)')
-        ax.set_ylabel('Counts')
+        ax.set_ylabel(u_labelstr(evaluated_flare))
 
     fig.suptitle("ExponentialFlare1 FlareActivity demo")
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
@@ -151,21 +151,22 @@ def run():
     fig, ax_list = plt.subplots(1, num_test_flares, figsize=(12, 4))
     time_scale = 30 * u.s
     num_plot_points = 40
-    times = np.linspace(-time_scale.value / 6, 5 * time_scale.value / 6, num_plot_points)
+    times = np.linspace(-time_scale / 6, 5 * time_scale / 6, num_plot_points)
+    dt = times[1] - times[0]
 
     for flare, flare_mag, ax in zip(ar_flare_collection.all_flares,
                                     ar_flare_collection.all_flare_intensities,
                                     ax_list):
         # Normalize to integrated flare peak for display purposes:
-        integrated_flare = flare.evaluate_over_array_lw(times) * flare_mag / np.max(
-            flare.evaluate_over_array_lw(times))
-        ax.plot(times, integrated_flare,
+        evaluated_flare = flare.evaluate_over_array_lw(times) * flare_mag / np.max(
+            flare.evaluate_over_array_lw(times.value))
+        ax.plot(times, evaluated_flare,
                 color='.4', lw=1, drawstyle='steps-post',
                 marker='s', markersize=3, markerfacecolor='k', markeredgewidth=0)
         ax.tick_params('x', top=True, direction='in')
-        ax.set_ylim(0, 1.1 * max(ar_flare_collection.all_flare_intensities))
+        ax.set_ylim(0, 1.1 * max(ar_flare_collection.all_flare_intensities.value))
         ax.set_xlabel('Time (sec)')
-        ax.set_ylabel('Counts')
+        ax.set_ylabel(u_labelstr(evaluated_flare))
 
     fig.suptitle("MyActiveRegion ActiveRegion demo")
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
@@ -211,7 +212,8 @@ def run():
 
     num_plot_points = 2000
     all_time = np.linspace(0, observation_duration.to(u.s), num_plot_points)
-    lightcurve = np.zeros(num_plot_points)
+    dt = all_time[1] - all_time[0]
+    lightcurve = u.Quantity(np.zeros(num_plot_points), u.ph/u.s/u.m**2)
 
     dt = all_time[1] - all_time[0]
     print("dt: ", dt)
@@ -224,8 +226,8 @@ def run():
         i0 = int(flare_time/dt)
         i1 = int(flare_time/dt)+num_plot_points_per_flare
         local_flare_times = all_time[i0: i1]
-        integrated_flare = flare.evaluate_over_array(local_flare_times-flare_time) * flare_mag
-        lightcurve[i0: i1] += integrated_flare.value
+        evaluated_flare = flare.evaluate_over_array_lw(local_flare_times-flare_time) * flare_mag
+        lightcurve[i0: i1] += evaluated_flare
         ax.scatter([flare_time.value], [0], color='orange', marker='^')
 
     ax.plot(all_time, lightcurve,
@@ -234,7 +236,7 @@ def run():
     ax.tick_params('x', top=True, direction='in')
     # ax.set_ylim(0, 1.1 * max(ar_flare_collection.all_flare_intensities))
     ax.set_xlabel('Time (sec)')
-    ax.set_ylabel('Counts')
+    ax.set_ylabel(u_labelstr(lightcurve))
 
     fig.suptitle("MyActiveRegion ActiveRegion synthetic light curve demo")
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])

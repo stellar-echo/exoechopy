@@ -197,7 +197,11 @@ class FlareCollection(dict):
     @property
     def all_flare_intensities(self):
         valid_keys = self.sub_dict_keys
-        return np.concatenate([sub_dict['flare_intensities'] for sub_dict in [self[ki] for ki in valid_keys]])
+        # See http://docs.astropy.org/en/latest/known_issues.html#quantities-lose-their-units-with-some-operations
+        flare_intensity_list = [sub_dict['flare_intensities'] for sub_dict in [self[ki] for ki in valid_keys]]
+        # Flatten list, since u.Quantity cannot handle unequal lists:
+        flare_intensity_list = [item for sublist in flare_intensity_list for item in sublist]
+        return u.Quantity(flare_intensity_list).flatten()
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
@@ -249,6 +253,7 @@ class FlareActivity:
             raise TypeError("flare_type must be a child class of ProtoFlare")
 
         self._intensity_pdf = None
+        self._intensity_pdf_unit = None
         self.intensity_pdf = intensity_pdf
 
         self._flare_kwarg_vals = None  # Holds the distribution functions
@@ -275,12 +280,11 @@ class FlareActivity:
             The FlareCollection of the requested number of flares
 
         """
-
         flare_collection = FlareCollection()
         if isinstance(self.intensity_pdf, CountType):
-            intensity_list = np.ones(n_flares)*self.intensity_pdf
+            intensity_list = np.ones(n_flares)*self.intensity_pdf*self._intensity_pdf_unit
         elif isinstance(self.intensity_pdf, RVFrozen):
-            intensity_list = self.intensity_pdf.rvs(size=n_flares)
+            intensity_list = self.intensity_pdf.rvs(size=n_flares)*self._intensity_pdf_unit
         else:
             raise NotImplementedError("self.intensity_pdf does not have a generic handling solution yet")
         flare_collection.assign_property(property_key='flare_intensities', property_val=intensity_list)
@@ -338,8 +342,11 @@ class FlareActivity:
                 arg_type_list.append((str(kw), 'float64'))
             elif isinstance(val, (list, tuple)):
                 if isinstance(val[1], u.IrreducibleUnit):
-                    new_args.append(val[0])
                     kw_units.append(val[1])
+                    if isinstance(val[0], (list, tuple)):
+                        new_args.append(stats.uniform(loc=val[0][0], scale=val[0][1] - val[0][0]))
+                    else:
+                        new_args.append(val[0])
                 else:
                     new_args.append(stats.uniform(loc=val[0], scale=val[1]-val[0]))
                     kw_units.append(1.)
@@ -396,18 +403,37 @@ class FlareActivity:
         if isinstance(intensity_pdf, PDFType):
             if isinstance(intensity_pdf, CountType):
                 self._intensity_pdf = intensity_pdf
+                if isinstance(intensity_pdf, u.Quantity):
+                    # Strip unit, recombine later (just to be consistent between types)
+                    self._intensity_pdf = intensity_pdf.value
+                    self._intensity_pdf_unit = intensity_pdf.unit
             elif isinstance(intensity_pdf, (list, tuple)):
-                self._intensity_pdf = stats.uniform(loc=intensity_pdf[0], scale=intensity_pdf[1]-intensity_pdf[0])
+                if len(intensity_pdf) > 1:
+                    if isinstance(intensity_pdf[1], CountType):
+                        self._intensity_pdf = stats.uniform(loc=intensity_pdf[0], scale=intensity_pdf[1]-intensity_pdf[0])
+                    elif isinstance(intensity_pdf[1], u.UnitBase):
+                        # Strip list structure, call recursively:
+                        self.intensity_pdf = intensity_pdf[0]
+                        self._intensity_pdf_unit = intensity_pdf[1]
+                    else:
+                        warnings.warn("intensity_pdf is list with unanticipated type, proceed with caution", AstropyUserWarning)
+                        self._intensity_pdf = intensity_pdf
+                else:
+                    # Strip list structure, call recursively:
+                    self.intensity_pdf = intensity_pdf[0]
             elif isinstance(intensity_pdf, RVFrozen):
                 self._intensity_pdf = intensity_pdf
             else:
-                AstropyUserWarning("intensity_pdf is unanticipated type, proceed with caution")
+                warnings.warn("intensity_pdf is unanticipated type, proceed with caution", AstropyUserWarning)
                 self._intensity_pdf = intensity_pdf
         else:
             raise TypeError("intensity_pdf must be None or PDFType")
+        if self._intensity_pdf_unit is None:
+            warnings.warn("intensity_pdf unit is being cast to ph/s-m²", AstropyUserWarning)
+        self._intensity_pdf_unit = u.ph/u.s/u.m**2
 
 
-# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+    # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 
 class Region:
@@ -463,7 +489,15 @@ class Region:
             if isinstance(longitude_pdf, CountType):
                 self._longitude_pdf = longitude_pdf
             elif isinstance(longitude_pdf, (list, tuple)):
-                self._longitude_pdf = stats.uniform(loc=longitude_pdf[0], scale=longitude_pdf[1]-longitude_pdf[0])
+                # Stats distributions struggle with astropy units, ensure radians then strip them:
+                min_long = longitude_pdf[0]
+                max_long = longitude_pdf[1]
+                if isinstance(min_long, u.Quantity):
+                    min_long = min_long.to(u.rad).value
+                if isinstance(max_long, u.Quantity):
+                    max_long = max_long.to(u.rad).value
+                # Create, then freeze the distribution:
+                self._longitude_pdf = stats.uniform(loc=min_long, scale=max_long-min_long)
             elif isinstance(longitude_pdf, RVFrozen):
                 self._longitude_pdf = longitude_pdf
             else:
@@ -485,8 +519,15 @@ class Region:
             if isinstance(latitude_pdf, CountType):
                 self._latitude_pdf = latitude_pdf
             elif isinstance(latitude_pdf, (list, tuple)):
+                # Stats distributions struggle with astropy units, ensure radians then strip them:
+                min_lat = latitude_pdf[0]
+                max_lat = latitude_pdf[1]
+                if isinstance(min_lat, u.Quantity):
+                    min_lat = min_lat.to(u.rad).value
+                if isinstance(max_lat, u.Quantity):
+                    max_lat = max_lat.to(u.rad).value
                 # Create, then freeze the distribution:
-                self._latitude_pdf = SphericalLatitudeGen(a=latitude_pdf[0], b=latitude_pdf[1], name='lat_gen')
+                self._latitude_pdf = SphericalLatitudeGen(a=min_lat, b=max_lat, name='lat_gen')
             elif isinstance(latitude_pdf, RVFrozen):
                 self._latitude_pdf = latitude_pdf
             else:
@@ -506,7 +547,7 @@ class Region:
             mean_long = self.longitude_pdf
         else:
             mean_long = self.longitude_pdf.expect()
-        return mean_long*u.rad, mean_lat*u.rad
+        return u.Quantity(mean_long, u.rad), u.Quantity(mean_lat, u.rad)
 
     # ------------------------------------------------------------------------------------------------------------ #
     def gen_latitudes(self, num_latitudes: int) -> np.ndarray:
@@ -740,8 +781,8 @@ class ActiveRegion:
                 longitudes, latitudes, vectors = self._region.gen_xyz_vectors(len(sub_dict['all_flares']),
                                                                               return_angles=True)
                 sub_dict['flare_vector_array'] = vectors
-                sub_dict['flare_latitude_array'] = latitudes*u.rad
-                sub_dict['flare_longitude_array'] = longitudes*u.rad
+                sub_dict['flare_latitude_array'] = u.Quantity(latitudes, u.rad)
+                sub_dict['flare_longitude_array'] = u.Quantity(longitudes, u.rad)
 
     # ------------------------------------------------------------------------------------------------------------ #
     def generate_background(self, time_domain: u.Quantity,

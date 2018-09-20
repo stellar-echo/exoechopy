@@ -112,7 +112,7 @@ def render_3d_planetary_system(star_system: Star,
     ax.set_aspect('equal')
     # ax = fig.add_subplot(111, projection='3d')
 
-    system_plot_dict = {'system_plot':fig}
+    system_plot_dict = {'system_plot': fig}
 
     with quantity_support():
         orbiting_bodies = star_system.get_exoplanets()
@@ -121,7 +121,7 @@ def render_3d_planetary_system(star_system: Star,
                 system_plot_dict[i] = plot_3d_keplerian_orbit(body, axes_object=ax)
             representative_distance = (orbiting_bodies[-1].semimajor_axis.to(u.au)).value
         else:
-            representative_distance = 1.
+            representative_distance = star_system.radius.to(u.au).value*3
 
         if show_earth_vector:
             # Show which direction Earth is located at:
