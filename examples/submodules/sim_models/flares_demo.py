@@ -2,11 +2,12 @@
 
 """Shows how the flares module functions through examples."""
 
+import matplotlib.cm as mplcm
+import matplotlib.pyplot as plt
 import numpy as np
 from astropy import units as u
-import matplotlib.pyplot as plt
-import matplotlib.cm as mplcm
-from exoechopy.simulate.models import flares
+
+from exoechopy.simulate import flares
 from exoechopy.utils import *
 
 color_map = mplcm.copper_r

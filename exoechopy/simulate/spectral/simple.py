@@ -9,8 +9,7 @@ from astropy import units as u
 from astropy.utils.exceptions import AstropyUserWarning
 
 from .values import *
-from .maths import *
-from ....utils.constants import *
+from ...utils.constants import *
 
 
 __all__ = ['SpectralBand', 'JohnsonPhotometricBand', 'SpectralEmitter', 'Albedo']
@@ -174,12 +173,15 @@ class Albedo:
             self._spectra = spectra
         if isinstance(albedo, float):
             self._albedo = albedo
-        self._phase_function = "Lambertian"
+        if phase_function is None:
+            from exoechopy.simulate import lambertian_phase_law
+            self._phase_function = lambertian_phase_law
+        else:
+            self._phase_function = phase_function
 
     # ------------------------------------------------------------------------------------------------------------ #
-    def phase_law(self, angle):
-        if self._phase_function == "Lambertian":
-            return lambertian_phase_law(angle)
+    def calculate_albedo_from_phase_law(self, *args):
+        return self._phase_function(*args)*self._albedo
 
     # ------------------------------------------------------------------------------------------------------------ #
     def phase_law_bidirectional(self, angle_incident, angle_observed):

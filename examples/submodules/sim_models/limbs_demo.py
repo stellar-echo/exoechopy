@@ -2,10 +2,11 @@
 
 """Shows how the Limb module functions through examples."""
 
+import matplotlib.pyplot as plt
 import numpy as np
 from astropy import units as u
-import matplotlib.pyplot as plt
-from exoechopy.simulate.models import limbs
+
+from exoechopy.simulate import limbs
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #

@@ -7,8 +7,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button
 from astropy import units as u
+
 from ..utils import *
-from ..simulate.models import *
+from ..simulate import *
 
 __all__ = ['interactive_lightcurve', 'render_telescope_lightcurve']
 

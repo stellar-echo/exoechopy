@@ -11,9 +11,8 @@ from astropy.coordinates import Angle
 from astropy.coordinates import Distance
 from astropy import constants as const
 from astropy.utils.exceptions import AstropyUserWarning
-from ....utils.plottables import *
-from ....utils.astropyio import *
-from ....utils.constants import *
+
+from ...utils import *
 
 __all__ = ['KeplerianOrbit', 'true_anomaly_from_mean']
 
@@ -26,28 +25,39 @@ class KeplerianOrbit(Plottable):
     """
     # ------------------------------------------------------------------------------------------------------------ #
     def __init__(self,
-                 semimajor_axis=None,
-                 eccentricity=None,
-                 star_mass=None,
-                 initial_anomaly=None,
-                 inclination=None,
-                 longitude=None,
-                 periapsis_arg=None,
+                 semimajor_axis: (u.Quantity, Distance)=None,
+                 eccentricity: float=None,
+                 star_mass: u.Quantity=None,
+                 initial_anomaly: (u.Quantity, Angle)=None,
+                 inclination: (u.Quantity, Angle)=None,
+                 longitude: (u.Quantity, Angle)=None,
+                 periapsis_arg: (u.Quantity, Angle)=None,
                  **kwargs):
-        """
-        Provides a base class for objects that obey a Keplerian orbit.
+        """Provides a base class for objects that obey a Keplerian orbit.
+
         Provides several methods for retrieving relevant orbital parameters, such as 3D position as a function of time.
         Solves using Newton's method, not recommended for unusual or complex orbits.
 
-        :param Distance semimajor_axis: semimajor axis as an astropy quantity
-        Default 1 AU
-        :param float eccentricity: orbit eccentricity
-        :param u.Quantity star_mass: mass of star as an astropy quantity
-        Default 1 M_sun
-        :param Angle initial_anomaly: initial anomaly relative to star
-        :param Angle inclination: orbital inclination relative to star
-        :param Angle longitude: longitude of ascending node
-        :param Angle periapsis_arg: argument of the periapsis
+        Parameters
+        ----------
+        semimajor_axis
+            Semimajor axis as an astropy quantity
+            Default 1 AU
+        eccentricity
+            Orbit eccentricity
+        star_mass
+            Mass of star as an astropy quantity
+            Default 1 M_sun
+        initial_anomaly
+            Initial anomaly relative to star
+        inclination
+            Orbital inclination relative to star
+        longitude
+            Longitude of ascending node
+        periapsis_arg
+            Argument of the periapsis
+        kwargs
+            kwargs are currently only passed to Plottable
         """
         super().__init__(**kwargs)
 
@@ -240,11 +250,19 @@ class KeplerianOrbit(Plottable):
         return u.Quantity(self._distance_at_angle_radians_lw(theta), unit=u.au)
 
     # ------------------------------------------------------------------------------------------------------------ #
-    def calc_xyz_at_angle_au(self, theta):
-        """
-        Provides the 3D position of the object relative to star for a given angle
-        :param Angle theta: true anomaly of the object
-        :return np.array: xyz array for position as a function of angle
+    def calc_xyz_at_angle_au(self, theta: (Angle, u.Quantity)) -> np.ndarray:
+        """Provides the 3D position of the object relative to star for a given angle
+
+        Parameters
+        ----------
+        theta
+            Angle in star coordinates
+
+        Returns
+        -------
+        np.ndarray
+            xyz array for position as a function of angle
+
         """
         true_anom = theta + self._periapsis_arg
         r = self.distance_at_angle(true_anom)
@@ -255,12 +273,20 @@ class KeplerianOrbit(Plottable):
         z = r*(np.sin(self._inclination)*np.sin(true_anom))
         return np.array((x.to(u.au).value, y.to(u.au).value, z.to(u.au).value))
 
-    def _calc_xyz_at_angle_au_lw(self, theta):
+    def _calc_xyz_at_angle_au_lw(self, theta: float) -> np.ndarray:
+        """Provides the unitless 3D position of the object relative to star for a given angle
+
+        Parameters
+        ----------
+        theta
+            Angle relative to star coordinates
+
+        Returns
+        -------
+        np.ndarray
+            xyz array for position as a function of angle
         """
-        Provides the unitless 3D position of the object relative to star for a given angle
-        :param Angle theta: true anomaly of the object
-        :return np.array: xyz array for position as a function of angle
-        """
+
         true_anom = theta + self._periapsis_arg_lw
         r = self.distance_at_angle(true_anom)
         x = r*(np.cos(self._longitude)*np.cos(true_anom)
@@ -271,19 +297,42 @@ class KeplerianOrbit(Plottable):
         return np.array((x.to(u.au).value, y.to(u.au).value, z.to(u.au).value))
 
     # ------------------------------------------------------------------------------------------------------------ #
-    def calc_xyz_at_time_au(self, t0):
+    def calc_xyz_at_time_au_lw(self, t0: u.Quantity) -> np.ndarray:
+        """Provides the distance at a time, or np.array of times
+
+        Parameters
+        ----------
+        t0
+            Time for evaluation
+
+        Returns
+        -------
+        np.ndarray
+            Position relative to star at the designated time(s) in au (but not unit quantity)
         """
-        Provides the distance at a time, or np.array of times
-        :param u.Quantity t0: Time for evaluation
-        :return u.Quantity: Distance from star at the designated time(s)
-        """
+
         mean_anomaly = (self._orbital_frequency * t0 + self._initial_anomaly).to(u.rad).value
         root = optimize.newton(kepler, mean_anomaly, args=(self._eccentricity, mean_anomaly),
                                tol=1.48e-09, maxiter=500,
                                fprime=D_kepler, fprime2=D2_kepler)
         root %= 2 * np.pi
         theta = 2 * np.arctan(self._eccentric_factor * np.tan(root / 2))
-        return self.calc_xyz_at_angle_au(theta*u.rad)
+        return self.calc_xyz_at_angle_au(u.Quantity(theta, u.rad))
+
+    def calc_xyz_at_time(self, t0: u.Quantity) -> u.Quantity:
+        """Provides the distance at a time, or np.array of times
+
+        Parameters
+        ----------
+        t0
+            Time for evaluation
+
+        Returns
+        -------
+        u.Quantity
+            Position relative to star at the designated time(s)
+        """
+        return u.Quantity(self.calc_xyz_at_time_au_lw(t0), u.au)
 
     # ------------------------------------------------------------------------------------------------------------ #
     def calc_xyz_ascending_node_au(self):
@@ -320,7 +369,7 @@ class KeplerianOrbit(Plottable):
         :return list:
         """
         all_times = np.linspace(0 * u.s, self.orbital_period, num_points)
-        orbit_positions = [self.calc_xyz_at_time_au(ti) for ti in all_times]
+        orbit_positions = [self.calc_xyz_at_time_au_lw(ti) for ti in all_times]
         return orbit_positions
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #

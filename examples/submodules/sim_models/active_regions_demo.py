@@ -2,13 +2,15 @@
 
 """Shows how the active_regions module functions through examples."""
 
+import matplotlib.pyplot as plt
 import numpy as np
 from astropy import units as u
 from scipy import stats
-import matplotlib.pyplot as plt
-from exoechopy.visualize.standard_3d_plots import *
-from exoechopy.simulate.models import flares, active_regions
+
+from exoechopy.simulate import flares
+from exoechopy.simulate import active_regions
 from exoechopy.utils import *
+from exoechopy.visualize.standard_3d_plots import *
 
 
 def run():

@@ -13,7 +13,7 @@ from astropy.utils.exceptions import AstropyUserWarning
 
 from .flares.active_regions import *
 from .spectral import *
-from ...utils import *
+from ..utils import *
 from .planets import *
 from .limbs import *
 
@@ -72,11 +72,16 @@ class DeltaStar(Plottable):
                               AstropyUserWarning)
 
     # ------------------------------------------------------------------------------------------------------------ #
-    def add_exoplanet(self, exoplanet):
+    def add_exoplanet(self, exoplanet: Exoplanet):
+        """Add an Exoplanet object to the star
+
+        Parameters
+        ----------
+        exoplanet
+            Exoplanet object to be added to the star
+
         """
-        Add an Exoplanet object to the star
-        :param Exoplanet exoplanet:
-        """
+
         if isinstance(exoplanet, Exoplanet):
             exoplanet.star_mass = self._mass
             self._orbiting_bodies_list.append(exoplanet)
@@ -84,17 +89,15 @@ class DeltaStar(Plottable):
             raise TypeError("exoplanet must be an Exoplanet class instance")
 
     # ------------------------------------------------------------------------------------------------------------ #
-    def get_exoplanets(self):
-        return self._orbiting_bodies_list.copy()
+    def get_exoplanets(self) -> [Exoplanet]:
+        """Return a *copy* of the list of exoplanets held by the Star
 
-        # if x is None:
-        #     self._x = zz
-        # else:
-        #     if isinstance(x, u.Quantity):
-        #         self._x = x.to(zz)
-        #     else:
-        #         self._x = u.Quantity(x, unit=zz)
-        #         warnings.warn("Casting x, input as " + str(x) + ", to zz", AstropyUserWarning)
+        Returns
+        -------
+        [*Exoplanet]
+            List of exoplanet instances
+        """
+        return self._orbiting_bodies_list.copy()
 
     # ------------------------------------------------------------------------------------------------------------ #
     def add_active_regions(self, *active_regions: ActiveRegion):
@@ -167,14 +170,23 @@ class DeltaStar(Plottable):
     def earth_direction_vector(self):
         return self._earth_direction_vector
 
-    def set_view_from_earth(self, earth_longitude, earth_latitude):
-        """
-        Sets or resets the vector that points from the star to Earth
-        :param Angle earth_longitude: [0, 2 pi)
-        :param Angle earth_latitude: [0, pi)
-        :return np.array: new unit direction vector
-        """
+    def set_view_from_earth(self,
+                            earth_longitude: (u.Quantity, Angle),
+                            earth_latitude: (u.Quantity, Angle)) -> np.ndarray:
+        """Sets or resets the vector that points from the star to Earth
 
+        Parameters
+        ----------
+        earth_longitude
+            [0, 2 pi) relative to star coordinates
+        earth_latitude
+            [0, pi) relative to star coordinates
+
+        Returns
+        -------
+        np.ndarray
+            New unit direction vector
+        """
         if earth_longitude is None:
             self._earth_longitude = Angle(0, u.rad)
         else:

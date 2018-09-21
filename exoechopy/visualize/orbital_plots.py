@@ -3,11 +3,12 @@
 This module generates plots of individual orbits for diagnostic and visualization purposes.
 """
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 from astropy import constants
 from astropy import units as u
-from ..simulate.models.orbital_physics import *
+
+from ..simulate.orbital_physics import *
 
 __all__ = ['orbit_plot']
 

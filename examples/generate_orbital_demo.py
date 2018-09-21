@@ -6,12 +6,13 @@ from astropy import units as u
 import exoechopy as eep
 from exoechopy.utils import u_str
 
+
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 
 def run():
-    spectral_band = eep.simulate.models.spectral.JohnsonPhotometricBand('U')
-    emission_type = eep.simulate.models.spectral.SpectralEmitter(spectral_band, magnitude=16)
+    spectral_band = eep.simulate.spectral.JohnsonPhotometricBand('U')
+    emission_type = eep.simulate.spectral.SpectralEmitter(spectral_band, magnitude=16)
 
     MyStar = eep.simulate.Star(mass=.6*u.M_sun, radius=.6*u.R_sun, spectral_type=emission_type,
                                name="My Star", point_color='saddlebrown')
@@ -19,7 +20,7 @@ def run():
 
     # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
-    planet_albedo = eep.simulate.models.spectral.Albedo(spectral_band, 1.)
+    planet_albedo = eep.simulate.spectral.Albedo(spectral_band, 1.)
 
     #   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^   #
     e_1 = 0.3           # eccentricity

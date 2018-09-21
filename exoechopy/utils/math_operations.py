@@ -6,16 +6,31 @@ Will be broken into separate modules once I know all of the math that is needed.
 
 import numpy as np
 from scipy import stats
+from astropy import units as u
+from astropy import constants
 
-__all__ = ['angle_between_vectors', 'vect_from_spherical_coords',
+__all__ = ['angle_between_vectors', 'vect_from_spherical_coords', 'compute_lag',
            'SphericalLatitudeGen', 'stochastic_flare_process',
            'window_range']
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 # Vector math
 
+def angle_between_vectors(v1: np.ndarray, v2: np.ndarray) -> float:
+    """Smallest angle between two unnormalized vectors
 
-def angle_between_vectors(v1, v2):
+    Parameters
+    ----------
+    v1
+        Vector 1
+    v2
+        Vector 2
+
+    Returns
+    -------
+    float
+        Angle in radians as a float
+    """
     return 2*np.arctan2(np.linalg.norm(np.linalg.norm(v2)*v1-np.linalg.norm(v1)*v2),
                         np.linalg.norm(np.linalg.norm(v2)*v1+np.linalg.norm(v1)*v2))
 
@@ -25,6 +40,40 @@ def vect_from_spherical_coords(longitude, latitude) -> np.ndarray:
                      np.sin(latitude) * np.sin(longitude),
                      np.cos(latitude) * np.ones(np.shape(longitude))))
     return np.transpose(vect)
+
+
+def compute_lag(start_vect: u.Quantity,
+                echo_vect: u.Quantity,
+                detect_vect: np.ndarray,
+                return_v2_norm: bool=False) -> u.Quantity:
+    """Calculate the lag from a flare echo
+
+    Parameters
+    ----------
+    start_vect
+        Starting point of the flare
+    echo_vect
+        Location of the echo-ing object
+    detect_vect
+        *Normalized* vector in the direction of the detection (Earth)
+    return_v2_norm
+        Whether or not to return the norm of echo_vect - start_vect
+        Since this value is often used in other calculations, can reduce the number of times it's calculated.
+
+    Returns
+    -------
+    u.Quantity
+        Echo lag quantity
+
+    """
+    # Vector from the starting point to the echo source:
+    v2 = echo_vect-start_vect
+    v2_norm = u.Quantity(np.linalg.norm(v2), v2.unit)
+    if return_v2_norm:
+        return (v2_norm-u.Quantity(np.dot(v2, detect_vect), v2.unit))/constants.c, v2_norm
+    else:
+        return (v2_norm-u.Quantity(np.dot(v2, detect_vect), v2.unit))/constants.c
+
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 # Stats math

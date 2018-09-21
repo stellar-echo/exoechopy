@@ -10,7 +10,7 @@ from astropy.visualization import quantity_support
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import animation
 
-from ..simulate.models import *
+from ..simulate import *
 from .standard_3d_plots import *
 
 
@@ -54,7 +54,7 @@ def plot_3d_keplerian_orbit(keplerian_orbit: KeplerianExoplanet,
     if time is None:
         x0, y0, z0 = keplerian_orbit.calc_xyz_at_angle_au(keplerian_orbit.initial_anomaly)
     else:
-        x0, y0, z0 = keplerian_orbit.calc_xyz_at_time_au(time)
+        x0, y0, z0 = keplerian_orbit.calc_xyz_at_time_au_lw(time)
 
     all_plots_dict['planet_pos'] = ax.scatter(x0, y0, z0,
                                               c=keplerian_orbit.point_color,
@@ -223,7 +223,7 @@ def update_orbits(frame: float, plot_dict: dict, exoplanet_list: list):
 
     """
     for key, exoplanet in enumerate(exoplanet_list):
-        new_position = exoplanet.calc_xyz_at_time_au(frame)
+        new_position = exoplanet.calc_xyz_at_time_au_lw(frame)
         plot_dict[key]['planet_pos']._offsets3d = ([new_position[0]], [new_position[1]], [new_position[2]])
 
 

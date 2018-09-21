@@ -12,7 +12,7 @@ from astropy.utils.exceptions import AstropyUserWarning
 
 from .orbital_physics import *
 from .spectral import *
-from ...utils.plottables import *
+from ..utils.plottables import *
 
 
 __all__ = ['Exoplanet', 'KeplerianExoplanet']
@@ -25,34 +25,43 @@ class Exoplanet(Plottable):
 
     # ------------------------------------------------------------------------------------------------------------ #
     def __init__(self,
-                 contrast=None,
-                 albedo=None,
-                 semimajor_axis=None,
-                 radius=None,
-                 mass=None,
+                 contrast: float=None,
+                 albedo: (float, Albedo)=None,
+                 semimajor_axis: u.Quantity=None,
+                 radius: u.Quantity=None,
+                 mass: u.Quantity=None,
                  **kwargs
                  ):
-        """
-        Simplest class of exoplanets.
+        """Simplest class of exoplanets.
 
-        :param float contrast: exoplanet-star contrast, overrides albedo if provided
-        :param float albedo: [0, 1]
-        :param u.Quantity semimajor_axis:
-        :param u.Quantity radius:
-        :param u.Quantity mass:
+        Parameters
+        ----------
+        contrast
+            Exoplanet-star contrast, *overrides albedo if provided*
+        albedo
+            Albedo instance or float in [0, 1]
+        semimajor_axis
+            Semimajor axis of orbit
+        radius
+            Radius of exoplanet
+        mass
+            Mass of exoplanet
+        kwargs
+            kwargs are currently only passed to Plottable
         """
+
         super().__init__(**kwargs)
 
         if contrast is None:
             self._contrast = None
-            if isinstance(albedo, float) or albedo == 0 or albedo == 1:
+            if isinstance(albedo, (int, float)):
                 self._albedo = float(albedo)
             elif isinstance(albedo, Albedo):
                 self._albedo = albedo
             elif albedo is None:
                 self._albedo = None
             else:
-                raise TypeError("Albedo, input as" + str(albedo) + ", doesn't make sense.")
+                raise TypeError("Albedo, input as" + str(albedo) + ", doesn't make sense to Exoplanet.__init__.")
         else:
             if isinstance(contrast, float):
                 self._contrast = contrast
@@ -89,6 +98,51 @@ class Exoplanet(Plottable):
     @property
     def semimajor_axis(self):
         return self._semimajor_axis
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    @property
+    def radius(self):
+        return self._radius
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    @property
+    def mass(self):
+        return self._mass
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    def get_echo_magnitude(self,
+                           dist_to_source: (Distance, u.Quantity)=None,
+                           earth_angle: (u.Quantity, Angle)=None,
+                           *phase_law_args) -> float:
+        """Calculate the echo magnitude from the planet
+
+        If contrast was specified, will return that value
+        Otherwise, will use the albedo and planet properties to calculate
+
+        Parameters
+        ----------
+        dist_to_source
+            Distance between planet and light source
+            If None, will use semimajor_axis
+        earth_angle
+            Used for phase law calculations
+
+        Returns
+        -------
+
+        """
+        if self._contrast is not None:
+            return self._contrast
+        else:
+            if dist_to_source is None:
+                dist_to_source = self.semimajor_axis
+                warnings.warn("No distance specified, using semimajor axis for echo magnitude", AstropyUserWarning)
+            # echo_relative_magnitude works with Albedo objects to compute phase law:
+            return echo_relative_magnitude(distance_to_star=dist_to_source,
+                                           phase_angle=earth_angle,
+                                           geometric_albedo=self._albedo,
+                                           planet_radius=self.radius,
+                                           *phase_law_args)
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #

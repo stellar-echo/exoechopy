@@ -10,7 +10,8 @@ from astropy.utils.exceptions import AstropyUserWarning
 from astropy.coordinates import Angle
 from astropy.coordinates import Distance
 
-from ....utils.constants import *
+from ...utils.constants import *
+from .simple import Albedo
 
 __all__ = ['lambertian_phase_law', 'echo_relative_magnitude']
 
@@ -39,12 +40,11 @@ def lambertian_phase_law(angle: Angle):
 
 # --------------------------------------------------------------------- #
 
-
 def echo_relative_magnitude(distance_to_star: Distance,
                             phase_angle: Angle,
-                            geometric_albedo: float,
+                            geometric_albedo: (float, Albedo),
                             planet_radius: u.Quantity,
-                            phase_law: FunctionType=lambertian_phase_law):
+                            *phase_law_args):
     """Approximate echo relative magnitude
 
     From 'Direct Imaging of Exoplanets' by Traub & Oppenheimer
@@ -52,13 +52,14 @@ def echo_relative_magnitude(distance_to_star: Distance,
     Parameters
     ----------
     distance_to_star
+        Separation between the source (like the flare) and the planet
     phase_angle
         Angle relative to Earth, 0 = superior conjunction, Pi/2 = max elongation, Pi = inferior conjunction
     geometric_albedo
         In VIS, Earth is 0.367, Venus is 0.84, moon is 0.113, jupiter is 0.52
     planet_radius
-    phase_law
-        Which phase law to use
+    phase_law_args
+        Pass additional variables to the phase_law, if relevant
 
     Returns
     -------
@@ -66,8 +67,10 @@ def echo_relative_magnitude(distance_to_star: Distance,
         Reflected-light contrast of an exoplanet
 
     """
-
-    phase = phase_law(phase_angle)  # Fix to enable *flare_kwargs
+    if isinstance(geometric_albedo, (int, float)):
+        alb = geometric_albedo
+    else:
+        alb = geometric_albedo.calculate_albedo_from_phase_law(phase_angle, *phase_law_args)
     inverse_falloff = (planet_radius/distance_to_star)**2
-    return geometric_albedo*phase*inverse_falloff
+    return alb*inverse_falloff
 

@@ -9,7 +9,7 @@ from astropy import units as u
 from astropy.coordinates import Angle
 from astropy.utils.exceptions import AstropyUserWarning
 
-from ...utils.constants import *
+from ..utils.constants import *
 
 
 __all__ = ['no_limb_darkening',

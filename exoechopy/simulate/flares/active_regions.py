@@ -11,7 +11,7 @@ from astropy import units as u
 from astropy.utils.exceptions import AstropyUserWarning
 
 from .flares import *
-from ....utils import *
+from ...utils import *
 
 
 __all__ = ['FlareCollection', 'FlareActivity', 'Region', 'ActiveRegion']
