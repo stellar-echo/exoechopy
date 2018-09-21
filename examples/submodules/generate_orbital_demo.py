@@ -37,7 +37,7 @@ def run():
                                               periapsis_arg=w_1,
                                               initial_anomaly=m0_1,
                                               albedo=planet_albedo,
-                                              point_color='.1', path_color='.5',
+                                              point_color='k', path_color='dimgray',
                                               name=name_1)
     MyStar.add_exoplanet(Planet1)
 

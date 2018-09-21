@@ -38,7 +38,7 @@ def interactive_lightcurve(time_domain: np.ndarray,
 
     """
     if len(time_domain) < max_plot_points:
-        max_plot_points = len(time_domain)
+        max_plot_points = len(time_domain)-1
 
     if isinstance(time_domain, u.Quantity):
         x_label = "Time ("+u_labelstr(time_domain)+")"

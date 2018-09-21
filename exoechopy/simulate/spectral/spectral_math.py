@@ -34,8 +34,8 @@ def lambertian_phase_law(angle: Angle):
     if not isinstance(angle, Angle):
         angle = Angle(angle, u.rad)
         warnings.warn("Casting phase angle, input as " + str(angle) + ", to radians", AstropyUserWarning)
-    angle %= (2 * pi_u * u.rad)
-    return (np.sin(angle) + (pi_u - angle) * np.cos(angle)) / pi_u
+    angle %= (2 * pi_u)
+    return (np.sin(angle)*u.rad + (pi_u - angle) * np.cos(angle)) / pi_u
 
 
 # --------------------------------------------------------------------- #

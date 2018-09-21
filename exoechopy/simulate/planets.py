@@ -77,6 +77,7 @@ class Exoplanet(Plottable):
                 warnings.warn("Casting semimajor axis, input as "+str(semimajor_axis)+", to AU", AstropyUserWarning)
 
         if radius is None:
+            warnings.warn("Exoplanet has no radius", AstropyUserWarning)
             self._radius = None
         else:
             if isinstance(radius, u.Quantity):

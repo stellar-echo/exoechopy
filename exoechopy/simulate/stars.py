@@ -154,7 +154,7 @@ class DeltaStar(Plottable):
         """
         if mass is None:
             print("Using default star mass: 1 M_Sol")
-            self._mass = u.M_sun
+            self._mass = u.Quantity(1, u.M_sun)
         else:
             if isinstance(mass, u.Quantity):
                 self._mass = mass.to(u.solMass)
@@ -211,6 +211,21 @@ class DeltaStar(Plottable):
                                                  np.sin(self._earth_latitude) * np.sin(self._earth_longitude),
                                                  np.cos(self._earth_latitude)))
         return self._earth_direction_vector
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    @property
+    def star_limb(self, *args):
+        """Delta star has no limb, but need a placeholder
+
+        Parameters
+        ----------
+        args
+
+        Returns
+        -------
+
+        """
+        return lambda x: 1.
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #

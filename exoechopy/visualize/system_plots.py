@@ -47,7 +47,8 @@ def plot_3d_keplerian_orbit(keplerian_orbit: KeplerianExoplanet,
         ax = axes_object
     else:  # Is being used as a stand-alone function, typically
         fig = plt.figure(figsize=plt.figaspect(1))
-        ax = fig.gca(projection='3d')
+        # ax = fig.gca(projection='3d')
+        ax = fig.add_subplot(111, projection='3d')
         ax.set_aspect('equal')
     positions = np.array(keplerian_orbit.generate_orbital_positions_by_angle(100)).transpose()
 
@@ -59,9 +60,9 @@ def plot_3d_keplerian_orbit(keplerian_orbit: KeplerianExoplanet,
     all_plots_dict['planet_pos'] = ax.scatter(x0, y0, z0,
                                               c=keplerian_orbit.point_color,
                                               s=keplerian_orbit.point_size,
-                                              zorder=10,
                                               label=keplerian_orbit.name,
-                                              marker=keplerian_orbit.display_marker)
+                                              marker=keplerian_orbit.display_marker)  #
+
 
     all_plots_dict['planet_orbit'] = ax.plot(positions[0], positions[1], positions[2],
                                              color=keplerian_orbit.path_color,
@@ -79,7 +80,7 @@ def plot_3d_keplerian_orbit(keplerian_orbit: KeplerianExoplanet,
 
 #  ------------------------------------------------  #
 
-def render_3d_planetary_system(star_system: Star,
+def render_3d_planetary_system(star_system: DeltaStar,
                                savefile: str=None,
                                show_earth_vector: bool=True) -> dict:
     """Generates a visualization of a Star system
@@ -104,11 +105,12 @@ def render_3d_planetary_system(star_system: Star,
 
     """
 
-    if not isinstance(star_system, Star):
+    if not isinstance(star_system, DeltaStar):
         raise TypeError("star_system must be an instance of Star")
 
     fig = plt.figure(figsize=plt.figaspect(1))
-    ax = fig.gca(projection='3d')
+    # ax = fig.gca(projection='3d')
+    ax = fig.add_subplot(111, projection='3d')
     ax.set_aspect('equal')
     # ax = fig.add_subplot(111, projection='3d')
 
@@ -121,7 +123,10 @@ def render_3d_planetary_system(star_system: Star,
                 system_plot_dict[i] = plot_3d_keplerian_orbit(body, axes_object=ax)
             representative_distance = (orbiting_bodies[-1].semimajor_axis.to(u.au)).value
         else:
-            representative_distance = star_system.radius.to(u.au).value*3
+            try:
+                representative_distance = star_system.radius.to(u.au).value*3
+            except AttributeError:
+                representative_distance = .3
 
         if show_earth_vector:
             # Show which direction Earth is located at:
@@ -131,8 +136,11 @@ def render_3d_planetary_system(star_system: Star,
                       representative_distance * earth_direction_vector[1],
                       representative_distance * earth_direction_vector[2],
                       color='r', arrow_length_ratio=.1)
-
-        system_plot_dict['star_surface'] = plot_sphere(ax_object=ax, rad=star_system.radius.to(u.au),
+        try:
+            star_radius = star_system.radius.to(u.au)
+        except AttributeError:
+            star_radius = (.5*u.R_sun).to(u.au)
+        system_plot_dict['star_surface'] = plot_sphere(ax_object=ax, rad=star_radius,
                                                        mesh_res=20, sphere_color=star_system.point_color, alpha=.5)
 
         ax.set_xbound(-representative_distance, representative_distance)

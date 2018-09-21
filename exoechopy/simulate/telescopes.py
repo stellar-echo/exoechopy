@@ -87,6 +87,7 @@ class Telescope:
         self._earth_flare_visibility = None  # np.array of the earth-flare visibility, based on the limb function
         self._all_exoplanet_flare_angles = None  # np.array of exoplanet-flare visibility, based on the limb function
         self._all_exoplanet_contrasts = None  # np.array of exoplanet phase function values at flare times
+        self._all_exoplanet_lags = None
 
         self._quiescent_intensity_sec = None
         self._quiescent_intensity_sample = None
@@ -174,6 +175,8 @@ class Telescope:
         flares = self._all_flares.all_flares
         flare_times = self._all_flares.all_flare_times
         flare_positions = self._all_flares.all_flare_vectors
+        if flare_positions is None:
+            flare_positions = [None for f in flares]
         flare_intensities = self._all_flares.all_flare_intensities
         num_flares = len(flares)
 
@@ -189,6 +192,7 @@ class Telescope:
             earth_flare_visibility = np.zeros(num_flares)
             all_exoplanet_flare_angles = np.zeros((num_flares, len(exo_list)))*u.rad
             all_exoplanet_contrasts = np.zeros((num_flares, len(exo_list)))
+            all_exoplanet_lags = np.zeros((num_flares, len(exo_list)))
 
         for f_i, (flare, flare_time, flare_vect, flare_mag) in enumerate(zip(flares,
                                                                              flare_times,
@@ -207,7 +211,10 @@ class Telescope:
 
             #  =============================================================  #
             #  Determine what is observed at Earth from the flares:
-            earth_flare_angle = angle_between_vectors(earth_vect, flare_vect.value)*u.rad
+            if flare_vect is not None:
+                earth_flare_angle = u.Quantity(angle_between_vectors(earth_vect, flare_vect.value), u.rad)
+            else:
+                earth_flare_angle = 0
             earth_flare_limb = target.star_limb(earth_flare_angle)
 
             if save_diagnostic_data:
@@ -230,17 +237,22 @@ class Telescope:
                 # Note, this ignores motion that occurs as the light from the flare travels to the exoplanet
                 exo_vect = exoplanet.calc_xyz_at_time(flare_time)
 
-                # Determine the visibility of the flare from the exoplanet:
-                flare_exo_angle = angle_between_vectors(exo_vect, flare_vect.value)
-                exo_flare_limb = target.star_limb(flare_exo_angle)
-
-                if save_diagnostic_data:
-                    all_exoplanet_flare_angles[f_i, e_i] = flare_exo_angle
+                if flare_vect is not None:
+                    # Determine the visibility of the flare from the exoplanet:
+                    flare_exo_angle = u.Quantity(angle_between_vectors(exo_vect.value, flare_vect.value), u.rad)
+                    exo_flare_limb = target.star_limb(flare_exo_angle)
+                    if save_diagnostic_data:
+                        all_exoplanet_flare_angles[f_i, e_i] = flare_exo_angle
+                else:
+                    flare_vect = np.zeros(3)
+                    exo_flare_limb = 1
 
                 # If flare is on the other side of star from planet, no need to do more math.  Otherwise:
                 if exo_flare_limb > 0:
                     # Get the lag:
-                    echo_lag, ev_norm = compute_lag(start_vect=flare_vect, echo_vect=exo_vect, detect_vect=earth_vect,
+                    echo_lag, ev_norm = compute_lag(start_vect=flare_vect,
+                                                    echo_vect=exo_vect,
+                                                    detect_vect=earth_vect,
                                                     return_v2_norm=True)
 
                     # Slightly speed up calculations by reducing number of norms:
@@ -250,6 +262,7 @@ class Telescope:
                                                                               earth_angle=earth_exo_phase_angle)
                     if save_diagnostic_data:
                         all_exoplanet_contrasts[f_i, e_i] = exoplanet_earth_visibility
+                        all_exoplanet_lags[f_i, e_i] = echo_lag.to(u.s).value
 
                     flare_echo_time = flare_time + echo_lag
                     # Determine start/stop indices for echo, pad by an index on either side:
@@ -277,6 +290,7 @@ class Telescope:
             self._earth_flare_visibility = earth_flare_visibility
             self._all_exoplanet_flare_angles = all_exoplanet_flare_angles
             self._all_exoplanet_contrasts = all_exoplanet_contrasts
+            self._all_exoplanet_lags = all_exoplanet_lags
 
         #  Save files, if a Path is given:
         if output_folder is not None:
@@ -286,6 +300,7 @@ class Telescope:
                 np.save(output_folder / (base_filename + " earth_flare_visibility.npy"), earth_flare_visibility)
                 np.save(output_folder / (base_filename + " all_exoplanet_flare_angles.npy"), all_exoplanet_flare_angles)
                 np.save(output_folder / (base_filename + " all_exoplanet_contrasts.npy"), all_exoplanet_contrasts)
+                np.save(output_folder / (base_filename + " all_exoplanet_lags.npy"), all_exoplanet_lags)
             # To add: Echo lag, echo magnitude, flare location, etc.
             np.save(output_folder / (base_filename + " pure_signal.npy"), self._pure_lightcurve)
             # To add: stellar variability, degraded signals

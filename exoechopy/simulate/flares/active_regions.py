@@ -207,7 +207,13 @@ class FlareCollection(dict):
     @property
     def all_flare_vectors(self):
         valid_keys = self.sub_dict_keys
-        return np.concatenate([sub_dict['flare_vector_array'] for sub_dict in [self[ki] for ki in valid_keys]])
+        flare_vector_list = [sub_dict['flare_vector_array'] for sub_dict in [self[ki] for ki in valid_keys]]
+        if len(flare_vector_list[0]) == 0:
+            return None
+        else:
+            flare_vector_list = [item for sublist in flare_vector_list for item in sublist]
+            all_vects = u.Quantity(flare_vector_list)
+            return all_vects.reshape(-1, all_vects.shape[-1])
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
@@ -696,7 +702,7 @@ class ActiveRegion:
                 raise ValueError("num_flares must be an integer or None")
 
         if region is None:
-            self._region = Region()
+            self._region = None
         elif isinstance(region, Region):
             self._region = region
         else:
@@ -745,7 +751,8 @@ class ActiveRegion:
                               AstropyUserWarning)
             flare_times = stochastic_flare_process(duration, self._occurrence_freq_pdf, max_iter=max_flares)
             self._generate_flares_at_times_lw(flare_times)
-        self._generate_flare_locations()
+        if self._region is not None:
+            self._generate_flare_locations()
         return self._all_flares
 
     # ------------------------------------------------------------------------------------------------------------ #
