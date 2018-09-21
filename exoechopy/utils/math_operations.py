@@ -8,7 +8,8 @@ import numpy as np
 from scipy import stats
 
 __all__ = ['angle_between_vectors', 'vect_from_spherical_coords',
-           'SphericalLatitudeGen', 'stochastic_flare_process']
+           'SphericalLatitudeGen', 'stochastic_flare_process',
+           'window_range']
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 # Vector math
@@ -56,5 +57,38 @@ def stochastic_flare_process(stop_value,
         else:
             break
     return all_values
+
+
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+# Plot math
+
+def window_range(ind: int, max_ind: int, width: int) -> [int, int]:
+    """Constrain a sub-window from exceeding a range while maintaing a fixed width
+
+    Parameters
+    ----------
+    ind
+        "central" index
+    max_ind
+        Largest index value allowed-- typically len(whatever)-1
+    width
+        fixed window width
+
+    Returns
+    -------
+    [int, int]
+        Lowest index, highest index
+
+    """
+    w1 = width//2 + width%2
+    w2 = width//2
+    min1 = ind - w1
+    max2 = ind + w2
+    if min1 < 0:
+        return [0, width-1]
+    elif max2 >= max_ind:
+        return [max_ind - width, max_ind-1]
+    else:
+        return [ind - w1, ind + w2 - 1]
 
 

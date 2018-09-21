@@ -5,16 +5,104 @@ This module generates plots of lightcurves for diagnostic and visualization purp
 
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.widgets import Slider, Button
 from astropy import units as u
 from ..utils import *
 from ..simulate.models import *
 
-__all__ = ['render_telescope_lightcurve']
+__all__ = ['interactive_lightcurve', 'render_telescope_lightcurve']
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 # TODO generalize render_telescope_lightcurve, make it work outside the demo
-# TODO make a simpler plotter for showing flares and the light curve
+# TODO add flare times to interactive_lightcurve
+
+
+def interactive_lightcurve(time_domain: np.ndarray,
+                           lightcurve: np.ndarray,
+                           flare_times: np.ndarray=None,
+                           max_plot_points: int=5000):
+    """Provides an interactive plot of a lightcurve
+
+    Parameters
+    ----------
+    time_domain
+        x-values for the plot
+    lightcurve
+        y values for the plot
+    flare_times
+        times that flares occur, for optional visualization
+    max_plot_points
+        default maximum number of points to plot
+
+    """
+    if len(time_domain) < max_plot_points:
+        max_plot_points = len(time_domain)
+
+    if isinstance(time_domain, u.Quantity):
+        x_label = "Time ("+u_labelstr(time_domain)+")"
+        time_domain = time_domain.value
+    else:
+        x_label = "Time"
+
+    if isinstance(lightcurve, u.Quantity):
+        y_label = "Intensity ("+u_labelstr(lightcurve)+")"
+        lightcurve = lightcurve.value
+    else:
+        y_label = "Intensity (arb)"
+
+    fig, ax = plt.subplots(figsize=(14, 6))
+    plt.subplots_adjust(bottom=0.25)
+
+    line1, = ax.plot(time_domain[:max_plot_points], lightcurve[:max_plot_points],
+                     lw=1, drawstyle='steps-post', color='k')
+    ax.set_xlim(time_domain[0], time_domain[max_plot_points])
+    y0 = min(lightcurve[:max_plot_points])
+    y1 = max(lightcurve[:max_plot_points])
+    dy = max(1, (y1 - y0) * .025)
+    ax.set_ylim(y0 - dy, y1 + dy)
+
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
+
+    slider_bg_color = 'whitesmoke'
+    pos_ax = plt.axes([0.1, 0.1, 0.65, 0.03], facecolor=slider_bg_color)
+    scale_ax = plt.axes([0.1, 0.15, 0.65, 0.03], facecolor=slider_bg_color)
+
+    pos_slider = Slider(pos_ax, "Time", 0, len(time_domain), valinit=max_plot_points//2, valstep=1)
+    scale_slider = Slider(scale_ax, "Window", 100, max_plot_points, valinit=max_plot_points, valstep=1)
+
+    reset_ax = plt.axes([0.8, 0.025, 0.1, 0.04])
+    reset_button = Button(reset_ax, 'Reset', color=slider_bg_color, hovercolor='0.975')
+
+    def update_lightcurve_inner(val):
+        ind = pos_slider.val
+        width = scale_slider.val
+        low_ind, high_ind = window_range(int(ind), len(time_domain)-1, int(width))
+        line1.set_data(time_domain[low_ind:high_ind], lightcurve[low_ind:high_ind])
+        ax.set_xlim(time_domain[low_ind], time_domain[high_ind])
+        y0 = min(lightcurve[low_ind:high_ind])
+        y1 = max(lightcurve[low_ind:high_ind])
+        dy = max(1, (y1-y0)*.025)
+        ax.set_ylim(y0-dy, y1+dy)
+        # Future: add np.where( ) to capture correct scatter plot values
+        # I'm hesitating because the number of points will change...
+        # Also iterate through all axes
+        fig.canvas.draw_idle()
+
+    pos_slider.on_changed(update_lightcurve_inner)
+    scale_slider.on_changed(update_lightcurve_inner)
+
+    def reset(event):
+        pos_slider.reset()
+        scale_slider.reset()
+
+    reset_button.on_clicked(reset)
+
+    plt.show()
+
+
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 
 def render_telescope_lightcurve(telescope: Telescope,

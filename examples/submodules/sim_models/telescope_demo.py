@@ -114,6 +114,12 @@ def run():
                                                                         region_2_name: "b"})
 
 
+    #  =============================================================  #
+    MyTelescope.prepare_continuous_observational_run(observation_duration*5)
+    MyTelescope.collect_data()
+
+    eep.visualize.interactive_lightcurve(MyTelescope._time_domain, MyTelescope._pure_lightcurve)
+
 # ******************************************************************************************************************** #
 # ************************************************  TEST & DEMO CODE  ************************************************ #
 
