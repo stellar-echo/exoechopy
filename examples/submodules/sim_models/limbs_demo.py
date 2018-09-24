@@ -30,7 +30,7 @@ def run():
     #  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  #
 
     infinity_limb = [limbs.calculate_basic_limb_darkening(angular_position=ai,
-                                                          max_limb_angle=0)
+                                                          star_radius_over_distance=0)
                      for ai in angle_array]
     ax1.plot(angle_array, infinity_limb, color='k', lw=1, label="Infinity")
 

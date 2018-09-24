@@ -6,3 +6,4 @@ Many of these tools are wrappers and interfaces for scipy and astropy methods.
 """
 
 from .flare_extraction import *
+from .autocorrelation import *

@@ -111,7 +111,6 @@ def run():
     eep.visualize.render_telescope_lightcurve(MyTelescope, flare_color={region_1_name: "orange",
                                                                         region_2_name: "b"})
 
-
     #  =============================================================  #
     MyTelescope.prepare_continuous_observational_run(observation_duration*5)
     MyTelescope.collect_data(save_diagnostic_data=True)
@@ -120,6 +119,7 @@ def run():
 
 # ******************************************************************************************************************** #
 # ************************************************  TEST & DEMO CODE  ************************************************ #
+
 
 if __name__ == "__main__":
 

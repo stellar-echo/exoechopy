@@ -1,6 +1,6 @@
 
 
-"""Shows how the telescopes module functions through examples."""
+"""Shows how to identify echoes through examples."""
 
 import numpy as np
 from astropy import units as u
@@ -19,8 +19,8 @@ def run():
 
     telescope_area = np.pi * (5*u.m)**2
     total_efficiency = 0.8
-    observation_cadence = 2 * u.s
-    observation_duration = 1 * u.hr
+    observation_cadence = .5 * u.s
+    observation_duration = 2 * u.hr
     telescope_random_seed = 99
     approximate_num_flares = 10
 
@@ -94,10 +94,23 @@ def run():
     print("MyTelescope._all_exoplanet_contrasts: ", MyTelescope._all_exoplanet_contrasts)
     print("MyTelescope._all_exoplanet_lags: ", MyTelescope._all_exoplanet_lags)
 
+    print("""
+    The echoes are typically extremely small, even in this case where we haven't introduced noise yet.
+    First, see if you can find them in the plot--they should occur near 10s after the flare peak.
+    In this scenario, with a perfect albedo on a super jupiter that is incredibly close to its star,
+    the echo intensity is <0.001 times the flare strength.
+    """)
+
     eep.visualize.interactive_lightcurve(MyTelescope._time_domain, MyTelescope._pure_lightcurve)
+
+    print("""
+    Next, we process the data blindly with the autocorrelation algorithm""")
+
+
 
 # ******************************************************************************************************************** #
 # ************************************************  TEST & DEMO CODE  ************************************************ #
+
 
 if __name__ == "__main__":
 
