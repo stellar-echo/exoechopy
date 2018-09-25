@@ -8,10 +8,12 @@ import numpy as np
 from scipy import stats
 from astropy import units as u
 from astropy import constants
+from scipy.signal import savgol_filter
 
 __all__ = ['angle_between_vectors', 'vect_from_spherical_coords', 'compute_lag',
            'SphericalLatitudeGen', 'stochastic_flare_process',
-           'window_range']
+           'window_range',
+           'take_noisy_derivative', 'take_noisy_2nd_derivative']
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 # Vector math
@@ -141,3 +143,54 @@ def window_range(ind: int, max_ind: int, width: int) -> [int, int]:
         return [ind - w1, ind + w2 - 1]
 
 
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+# Signal processing math
+
+def take_noisy_derivative(data_array: np.ndarray,
+                          window_size: int=19,
+                          sample_cadence: float=0.2) -> np.ndarray:
+    """Applies Savitzky-Golay filter to estimate the first derivative, which is robust to noise
+
+    Essentially an easy-to-remember wrapper for the scipy savgol_filter
+
+    Parameters
+    ----------
+    data_array
+        Data for analysis
+    window_size
+        Size of window for polynomial fit
+    sample_cadence
+        Scale factor for derivative
+
+    Returns
+    -------
+    np.ndarray
+        Returns the Savitzky-Golay estimate of the first derivative
+    """
+    return savgol_filter(data_array, window_length=window_size, polyorder=2, deriv=1, delta=sample_cadence,
+                         mode='mirror')
+
+
+def take_noisy_2nd_derivative(data_array: np.ndarray,
+                              window_size: int=19,
+                              sample_cadence: float=0.2) -> np.ndarray:
+    """Applies Savitzky-Golay filter to estimate the second derivative, which is robust to noise
+
+    Essentially an easy-to-remember wrapper for the scipy savgol_filter
+
+    Parameters
+    ----------
+    data_array
+        Data for analysis
+    window_size
+        Size of window for polynomial fit
+    sample_cadence
+        Scale factor for derivative
+
+    Returns
+    -------
+    np.ndarray
+        Returns the Savitzky-Golay estimate of the second derivative
+    """
+    return savgol_filter(data_array, window_length=window_size, polyorder=2, deriv=2, delta=sample_cadence,
+                         mode='mirror')

@@ -38,7 +38,7 @@ def autocorrelate_array(data_array: (u.Quantity, np.ndarray),
     """
     if isinstance(data_array, u.Quantity):
         data_array = data_array.value
-    data_array -= np.mean(data_array)
+    data_array = data_array - np.mean(data_array)
     corr_vals = np.correlate(data_array, data_array, mode='same')
     # Need to center the data before returning:
     return corr_vals[len(corr_vals)//2+min_lag:len(corr_vals)//2+max_lag+1]/corr_vals[len(corr_vals)//2]

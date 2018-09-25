@@ -4,3 +4,4 @@ This subpackage provides tools and functionality for analyzing lightcurves for e
 This includes flare identification, autocorrelators, statistical validation methods, and orbit simulations.
 """
 
+from .methods import *
