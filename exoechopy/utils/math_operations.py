@@ -4,6 +4,7 @@ This module provides functions that are useful in computing values with vectors.
 Will be broken into separate modules once I know all of the math that is needed.
 """
 
+import decimal
 import numpy as np
 from scipy import stats
 from astropy import units as u
@@ -13,7 +14,8 @@ from scipy.signal import savgol_filter
 __all__ = ['angle_between_vectors', 'vect_from_spherical_coords', 'compute_lag',
            'SphericalLatitudeGen', 'stochastic_flare_process',
            'window_range',
-           'take_noisy_derivative', 'take_noisy_2nd_derivative']
+           'take_noisy_derivative', 'take_noisy_2nd_derivative',
+           'round_dec', 'row_col_grid']
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 # Vector math
@@ -194,3 +196,44 @@ def take_noisy_2nd_derivative(data_array: np.ndarray,
     """
     return savgol_filter(data_array, window_length=window_size, polyorder=2, deriv=2, delta=sample_cadence,
                          mode='mirror')
+
+
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+# Indexing and integer math
+
+def round_dec(val: float) -> int:
+    """Round a number to an integer in the way that rounding is expected to behave
+
+    In python 3, round(2.5) = 2, round(3.5) = 4.
+    This can really screw up indexing that relies on decimal rounding.
+    This function rounds the way I expect a number that is entered like a decimal to be rounded.
+
+    Parameters
+    ----------
+    val
+        Value to be rounded
+
+    Returns
+    -------
+    int
+        The round-half-up version of val
+
+    """
+    return int(decimal.Decimal(val).quantize(decimal.Decimal('1'), rounding=decimal.ROUND_HALF_UP))
+
+
+def row_col_grid(num_pts: int) -> (int, int):
+    """Generate a number of rows and columns for displaying a grid of num_pts objects
+
+    Parameters
+    ----------
+    num_pts
+        Number of values to break into rows and columns
+
+    Returns
+    -------
+    tuple
+        rows, columns
+
+    """
+    return int(np.sqrt(num_pts)), int(np.ceil(num_pts/int(np.sqrt(num_pts))))

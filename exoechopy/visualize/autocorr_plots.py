@@ -18,7 +18,8 @@ def plot_autocorr_with_derivatives(raw_autocorr: np.ndarray,
                                    lag_index_spotlight: int=None,
                                    lag_index_spotlight_width: int=None,
                                    savefile: str=None,
-                                   deriv_window: int=7):
+                                   deriv_window: int=7,
+                                   title: str=None):
     """Shows a three-plot inspection of an autocorrelation function (or related curve)
 
     Parameters
@@ -36,6 +37,8 @@ def plot_autocorr_with_derivatives(raw_autocorr: np.ndarray,
         Else, saves to savefile = location+filename
     deriv_window
         Derivative window width
+    title
+        Optional plot title
 
     """
     fig, (ax_raw, ax_deriv, ax_2nd_deriv) = plt.subplots(1, 3, figsize=(12, 4))
@@ -83,6 +86,9 @@ def plot_autocorr_with_derivatives(raw_autocorr: np.ndarray,
         inset_ax = ax_2nd_deriv.inset_axes([0.5, 0.5, 0.45, 0.45])
         inset_ax.plot(autocorr_time_domain[ind_min:ind_max], deriv_corr_2[ind_min:ind_max],
                       color='k', lw=1, drawstyle='steps-post')
+
+    if title is not None:
+        fig.suptitle(title, y=1.01)
 
     fig.tight_layout()
 

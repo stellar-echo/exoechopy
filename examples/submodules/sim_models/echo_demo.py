@@ -21,12 +21,12 @@ def run():
     and give it a big bright planet...
     """)
 
-    telescope_area = np.pi * (2*u.m)**2
+    telescope_area = np.pi * (4*u.m)**2
     total_efficiency = 0.8
     observation_cadence = .5 * u.s
-    observation_duration = 2 * u.hr
+    observation_duration = 4 * u.hr
     telescope_random_seed = 99
-    approximate_num_flares = 12
+    approximate_num_flares = 35
 
     # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
     #  Create an observation target:
@@ -43,7 +43,7 @@ def run():
     planet_albedo = eep.simulate.spectral.Albedo(spectral_band, 1.)
     planet_radius = 2*u.R_jup
     e_1 = 0.  # eccentricity
-    a_1 = 0.05 * u.au  # semimajor axis
+    a_1 = 0.06 * u.au  # semimajor axis
     i_1 = 0 * u.deg  # inclination
     L_1 = 0 * u.deg  # longitude
     w_1 = 0 * u.deg  # arg of periapsis
@@ -78,13 +78,12 @@ def run():
 
     MyExpFlareActivity = eep.simulate.active_regions.FlareActivity(eep.simulate.flares.ExponentialFlare1,
                                                                    intensity_pdf=flare_intensities,
-                                                                   onset_pdf=[1, 10] * u.s,
+                                                                   onset_pdf=[1, 5] * u.s,
                                                                    decay_pdf=(stats.rayleigh(scale=6), u.s))
 
     # For a first test, we don't want it to get too complicated,
     # so we'll use a probability distribution that prevents overlapping flares
     scale_factor = 2/approximate_num_flares*observation_duration.to(u.s).value
-    print("scale_factor: ", scale_factor)
     occurrence_freq_pdf = stats.uniform(loc=50/observation_cadence.value,
                                         scale=scale_factor-50/observation_cadence.value)
     Starspot = eep.simulate.active_regions.ActiveRegion(flare_activity=MyExpFlareActivity,
@@ -120,10 +119,11 @@ def run():
     print("""
     Next, process the data blindly with the autocorrelation algorithm, because...why not try it.""")
 
+    max_lag = approx_index_lag*3
     autocorr = eep.analyze.autocorrelate_array(lightcurve,
-                                               max_lag=int(40/observation_cadence.to(u.s).value))
+                                               max_lag=max_lag)
 
-    subplot_width = 40
+    subplot_width = 60
 
     fig, ax = plt.subplots()
     autocorr_domain = np.arange(0, len(autocorr)*observation_cadence.value, observation_cadence.value)
@@ -162,7 +162,7 @@ def run():
     """)
 
     autocorr = eep.analyze.autocorrelate_array(filtered_signal,
-                                               max_lag=int(40/observation_cadence.to(u.s).value))
+                                               max_lag=max_lag)
     plot_autocorr_with_derivatives(autocorr, autocorr_domain,
                                    lag_index_spotlight=approx_index_lag, lag_index_spotlight_width=40,
                                    deriv_window=7)
@@ -172,18 +172,16 @@ def run():
         Now that it works without noise, we'll try again with counting noise in the background.
         """)
 
-    noisy_signal = 1.*np.random.poisson(lightcurve.value)
+    noisy_signal = eep.simulate.methods.add_poisson_noise(lightcurve)
+
     eep.visualize.interactive_lightcurve(time_domain, noisy_signal)
 
-    filter_kernel = signal.gaussian(40, std=3)
-    filter_kernel /= np.sum(filter_kernel)
-    filtered_signal = noisy_signal \
-                      - signal.fftconvolve(noisy_signal, filter_kernel, mode='same')
+    filtered_noisy_signal = noisy_signal - signal.fftconvolve(noisy_signal, filter_kernel, mode='same')
 
-    eep.visualize.interactive_lightcurve(time_domain, filtered_signal)
+    eep.visualize.interactive_lightcurve(time_domain, filtered_noisy_signal)
 
-    autocorr = eep.analyze.autocorrelate_array(filtered_signal,
-                                               max_lag=int(40 / observation_cadence.to(u.s).value))
+    autocorr = eep.analyze.autocorrelate_array(filtered_noisy_signal,
+                                               max_lag=max_lag)
 
     print("""
     Unfortunately, the signal is now buried in the noise.  More effort is required to convincingly extract the echo.  
@@ -191,9 +189,81 @@ def run():
     """)
 
     plot_autocorr_with_derivatives(autocorr, autocorr_domain,
-                                   lag_index_spotlight=approx_index_lag, lag_index_spotlight_width=40,
+                                   lag_index_spotlight=approx_index_lag, lag_index_spotlight_width=subplot_width,
                                    deriv_window=25)
 
+    # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
+    flare_indices = eep.analyze.find_peaks_stddev_thresh(noisy_signal-np.mean(noisy_signal),
+                                                         std_dev_threshold=3,
+                                                         smoothing_radius=3,
+                                                         min_index_gap=approx_index_lag,
+                                                         extra_search_pad=4)
+
+    print("By picking out each flare and processing it individually, "
+          "the signal from the quiescent background is suppressed.")
+
+    num_flares = len(flare_indices)
+    if num_flares > 0:
+        num_row, num_col = row_col_grid(num_flares)
+        fig, all_axes = plt.subplots(num_row, num_col, figsize=(10, 6))
+        for f_i, flare_index in enumerate(flare_indices):
+            c_i = f_i//num_row
+            r_i = f_i-num_row*c_i
+            all_axes[r_i, c_i].plot(
+                noisy_signal[flare_index-subplot_width//2:flare_index+subplot_width*3],
+                color='k', lw=1, drawstyle='steps-post')
+            all_axes[r_i, c_i].text(.95, .95, str(flare_index),
+                                    transform=all_axes[r_i, c_i].transAxes,
+                                    verticalalignment='top', horizontalalignment='right',
+                                    color='b')
+        for r_i in range(num_row):
+            for c_i in range(num_col):
+                all_axes[r_i, c_i].set_xticklabels([])
+                all_axes[r_i, c_i].set_yticklabels([])
+        fig.subplots_adjust(hspace=0, wspace=0)
+        plt.show()
+
+    back_index = 200
+    forward_index = back_index*4
+    sum_autocorr = np.zeros(max_lag+1)
+    sum_autocorr_noisy = np.zeros(max_lag+1)
+    ct = 0
+    for flare_index in flare_indices:
+        if flare_index-back_index > 0 and flare_index+forward_index < len(noisy_signal):
+            sum_autocorr_noisy += eep.analyze.autocorrelate_array(filtered_noisy_signal[flare_index-
+                                                                  back_index:flare_index+forward_index],
+                                                                  max_lag=max_lag)
+            sum_autocorr += eep.analyze.autocorrelate_array(filtered_signal[flare_index-
+                                                            back_index:flare_index+forward_index],
+                                                            max_lag=max_lag)
+            ct += 1
+    sum_autocorr /= ct
+    sum_autocorr_noisy /= ct
+    plot_autocorr_with_derivatives(sum_autocorr, np.arange(0, observation_cadence.value*len(sum_autocorr),
+                                                           observation_cadence.value),
+                                   lag_index_spotlight=approx_index_lag,
+                                   lag_index_spotlight_width=subplot_width,
+                                   deriv_window=7,
+                                   title="Summed autocorrelation")
+
+    plot_autocorr_with_derivatives(sum_autocorr_noisy, np.arange(0, observation_cadence.value * len(sum_autocorr),
+                                                                 observation_cadence.value),
+                                   lag_index_spotlight=approx_index_lag,
+                                   lag_index_spotlight_width=subplot_width,
+                                   deriv_window=21,
+                                   title="Noisy summed autocorrelation")
+
+    print("""
+    Ultimately, the echo starts to emerge even in the noisy data, but only barely.  
+    More flares or a bigger telescope are needed to improve the signal-to-noise ratio.
+    This is where the art of stellar echo starts: 
+     - How can we better identify flare echoes?
+     - How can we determine if these small peaks are real?
+     - How can we place confidence intervals on the data? 
+    The purpose of this library is to open-source our research to help others develop methods 
+    for extracting faint echoes from the light curves of active stars.
+    """)
 
 # ******************************************************************************************************************** #
 # ************************************************  TEST & DEMO CODE  ************************************************ #

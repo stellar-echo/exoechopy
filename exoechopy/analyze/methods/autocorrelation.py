@@ -47,6 +47,46 @@ def autocorrelate_array(data_array: (u.Quantity, np.ndarray),
 #  =============================================================  #
 
 
+def calculate_bromley_correlator(data_array: (u.Quantity, np.ndarray),
+                                 peak_width: int,
+                                 max_lag: int,
+                                 min_lag: int=0) -> np.ndarray:
+    """Computes the correlator for a flare described in 'A framework for planet detection with faint lightcurve echoes'
+
+    https://arxiv.org/abs/1808.07029
+
+    Parameters
+    ----------
+    data_array
+        Data array around a flare
+    peak_width
+        How many indices around the peak to pick for the correlator
+    max_lag
+        Largest lag value to compute
+    min_lag
+        Smallest lag value to compute
+
+    Returns
+    -------
+    np.ndarray
+        Returns the correlator as a function of lag for the data_array
+    """
+    if isinstance(data_array, u.Quantity):
+        data_array = data_array.value
+    data_array = data_array - np.mean(data_array)
+    corr_vals = np.correlate(data_array, data_array, mode='same')
+    mid_ind = len(corr_vals)//2
+    central_peak = corr_vals[mid_ind-peak_width//2:mid_ind+peak_width//2]
+    central_peak -= np.mean(central_peak)
+    correlators = np.convolve(corr_vals, central_peak, mode='same')
+    return correlators[mid_ind+min_lag: mid_ind+max_lag+1]
+
+# TODO Test calculate_bromley_correlator!
+
+
+#  =============================================================  #
+
+
 def autocorrelation_overlapping_windows(data_array: (u.Quantity, np.ndarray),
                                         window_length: int,
                                         max_lag: int,

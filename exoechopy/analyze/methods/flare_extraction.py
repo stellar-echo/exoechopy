@@ -13,30 +13,38 @@ from scipy import signal
 __all__ = ['find_peaks_stddev_thresh']
 
 
-def find_peaks_stddev_thresh(lightcurve_data,
-                             std_dev_threshold=None,
-                             smoothing_radius=None,
-                             min_index_gap=None,
-                             extra_search_pad=None,
-                             window_multiplier=None):
-    """
-    Relatively low-overhead peak finder for an array based on deviation above a threshold.
+def find_peaks_stddev_thresh(lightcurve_data: np.ndarray,
+                             std_dev_threshold: float=None,
+                             smoothing_radius: float=None,
+                             min_index_gap: int=None,
+                             extra_search_pad: int=None,
+                             num_smoothing_rad: int=None) -> np.ndarray:
+    """Relatively low-overhead peak finder for an array based on deviation above a threshold.
+
     Has some filtering functionality to prevent detection of multiple peaks within the same flare event.
     Works best if slowly varying background has already been subtracted.
+    
+    Parameters
+    ----------
+    lightcurve_data
+        Input data with low or subtracted low-frequency variability
+    std_dev_threshold
+        Threshold multiples of sigma above background to consider for peak extraction
+        Defaults to sigma=1
+    smoothing_radius
+        Optional Gaussian smoothing filter to run prior to peak finding, helps eliminate salt & pepper noise
+    min_index_gap
+        Require each peak be at least this many indices from another peak
+    extra_search_pad
+        Add an optional extra search on either side of a peak, useful if Gaussian is aggressive
+    num_smoothing_rad
+        How many points to include in filter window, based on smoothing_radius
 
-    :param numpy.ndarray lightcurve_data: Input data with low or subtracted low-frequency variability
-    Default float(1)
-    :param float std_dev_threshold: Threshold multiples of sigma above background to consider for peak extraction
-    :param float smoothing_radius: Optional Gaussian smoothing filter to run prior to peak finding
-    :param int min_index_gap: Require each peak be at least this many indices from another peak
-    :param int extra_search_pad: Add an optional extra search on either side of a peak, useful if Gaussian is aggressive
-    :param int window_multiplier: How many points to include in filter window, based on smoothing_radius
+    Returns
+    -------
+    numpy.ndarray(dtype=int)
+        Array containing the indices at which peaks were detected in signal_data
 
-    :return numpy.ndarray(dtype=int): Array containing the indices at which peaks were detected in signal_data
-
-    See Also
-    --------
-    # Add the other algorithms in this module
     """
 
     # Using median instead of mean, assumes activity is primarily excess photon events (like flares)
@@ -47,9 +55,9 @@ def find_peaks_stddev_thresh(lightcurve_data,
         std_dev_threshold = 1.
 
     if smoothing_radius is not None:
-        if window_multiplier is None:
-            window_multiplier = 5  # Number of radii to include in Gaussian
-        _num_window_points = max(smoothing_radius * window_multiplier, 5)  # Ensure a minimum of 5 points in window
+        if num_smoothing_rad is None:
+            num_smoothing_rad = 5  # Number of radii to include in Gaussian
+        _num_window_points = max(smoothing_radius * num_smoothing_rad, 5)  # Ensure a minimum of 5 points in window
         _window = signal.gaussian(_num_window_points, smoothing_radius)
         _window /= np.sum(_window)
         filtered_lightcurve = signal.fftconvolve(filtered_lightcurve, _window, 'same')
