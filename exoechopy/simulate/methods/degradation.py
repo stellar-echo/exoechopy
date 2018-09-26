@@ -13,9 +13,12 @@ __all__ = ['add_poisson_noise']
 
 # TODO: Add detector noise
 # TODO: Add readout or other platform noise
-# TODO: Chop up a light curve to imitate limited observation times
+# TODO: Chop up a light curve to imitate constrained observation times
 # TODO: Adjust data to match observations made from orbital platform
 # TODO: Adjust data to match specific observation sites, times, seasons, etc.
+
+
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 
 def add_poisson_noise(data_array: np.ndarray,
@@ -48,3 +51,4 @@ def add_poisson_noise(data_array: np.ndarray,
         warnings.warn("Found " + str(len(test_for_negatives)) + " values below zero, setting to zero.", AstropyUserWarning)
         return_array[return_array < 0] = 0
     return 1. * np.random.poisson(return_array)
+

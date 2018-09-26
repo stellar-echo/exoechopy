@@ -14,7 +14,7 @@ from scipy.signal import savgol_filter
 __all__ = ['angle_between_vectors', 'vect_from_spherical_coords', 'compute_lag',
            'SphericalLatitudeGen', 'stochastic_flare_process',
            'window_range',
-           'take_noisy_derivative', 'take_noisy_2nd_derivative',
+           'take_noisy_derivative', 'take_noisy_2nd_derivative', 'linear_detrend',
            'round_dec', 'row_col_grid']
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -196,6 +196,32 @@ def take_noisy_2nd_derivative(data_array: np.ndarray,
     """
     return savgol_filter(data_array, window_length=window_size, polyorder=2, deriv=2, delta=sample_cadence,
                          mode='mirror')
+
+
+def linear_detrend(data_array: np.ndarray) -> np.ndarray:
+    """Subtract a linear fit from a data set
+
+    Parameters
+    ----------
+    data_array
+        Array to subtract background from
+
+    Returns
+    -------
+    np.ndarray
+        data_array with a linear fit removed
+    """
+    if isinstance(data_array, u.Quantity):
+        unit = data_array.unit
+        data_array = data_array.value
+    else:
+        unit = None
+    xvals = range(len(data_array))
+    fit = np.poly1d(np.polyfit(xvals, data_array, deg=1))
+    if unit is None:
+        return data_array-fit(xvals)
+    else:
+        return u.Quantity(data_array-fit(xvals), unit)
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #

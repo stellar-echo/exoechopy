@@ -9,7 +9,7 @@ Several autocorrelation estimators are provided, each may be relevant to differe
 import numpy as np
 from astropy import units as u
 from scipy import signal
-from ...utils.constants import *
+from exoechopy.utils.constants import *
 
 
 __all__ = ['autocorrelate_array', 'autocorrelation_overlapping_windows', 'period_folded_autocorrelation',
@@ -44,6 +44,56 @@ def autocorrelate_array(data_array: (u.Quantity, np.ndarray),
     corr_vals = np.correlate(data_array, data_array, mode='same')
     # Need to center the data before returning:
     return corr_vals[len(corr_vals)//2+min_lag:len(corr_vals)//2+max_lag+1]/corr_vals[len(corr_vals)//2]
+
+#  =============================================================  #
+
+#
+# def autocorrelate_array_type_2(data_array: (u.Quantity, np.ndarray),
+#                                max_lag: int,
+#                                min_lag: int=0) -> np.ndarray:
+#     """Computes the unnormalized autocorrelation at multiple lags for a dataset
+#
+#     Parameters
+#     ----------
+#     data_array
+#         Preprocessed data array for analysis
+#     max_lag
+#         Largest lag value to compute
+#     min_lag
+#         Smallest lag value to compute
+#
+#     Returns
+#     -------
+#     np.ndarray
+#         Array of autocorrelation values for lags in [min_lag, max_lag]
+#
+#     """
+#     if isinstance(data_array, u.Quantity):
+#         data_array = data_array.value
+#     data_array = data_array - np.mean(data_array)
+#     autocorr = np.array([autocorr_lw(data_array, l_i) for l_i in range(min_lag, max_lag)])
+#     return autocorr/autocorr_lw(data_array)
+#
+#
+# def autocorr_lw(data_array, lag=0):
+#     """Compute the autocorrelation at a single lag
+#
+#     Parameters
+#     ----------
+#     data_array
+#         Preprocessed data array for analysis
+#     lag
+#         Time to compute the value at
+#
+#     Returns
+#     -------
+#     float
+#         The autocorrelation at that lag
+#     """
+#     if lag == 0:
+#         return np.dot(data_array, data_array) / len(data_array[lag:])
+#     else:
+#         return np.dot(data_array[lag:], data_array[:-lag]) / len(data_array[lag:])
 
 
 #  =============================================================  #

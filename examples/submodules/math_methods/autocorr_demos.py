@@ -6,7 +6,7 @@ This module provides examples of autocorrelation and deconvolution methods usefu
 import numpy as np
 import matplotlib.pyplot as plt
 import exoechopy as eep
-from exoechopy.analyze.methods import *
+from exoechopy.analyze import *
 from exoechopy.visualize.lightcurve_plots import *
 from exoechopy.utils.astropyio import *
 from scipy import signal
@@ -124,12 +124,12 @@ def run():
     print("""
     We are starting to develop other correlation estimators, as well.
     Here's an example that is tuned to further accentuate echoes of the same shape as the flare.
-    Look at the structure of the correlation function near 20s
+    Look at the structure of the correlation function near 30s
     """)
 
     isolated_flare_time_domain = u.Quantity(np.linspace(-150, 250, 500), u.s)
     dt = isolated_flare_time_domain[1]-isolated_flare_time_domain[0]
-    lag_time = 20*u.s
+    lag_time = 30*u.s
     echo_mag = .02
     max_lag = 2*int(lag_time/dt)
 
