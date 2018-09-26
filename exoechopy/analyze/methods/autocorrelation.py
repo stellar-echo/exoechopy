@@ -9,9 +9,11 @@ Several autocorrelation estimators are provided, each may be relevant to differe
 import numpy as np
 from astropy import units as u
 from scipy import signal
+from ...utils.constants import *
 
 
-__all__ = ['autocorrelate_array', 'autocorrelation_overlapping_windows', 'period_folded_autocorrelation']
+__all__ = ['autocorrelate_array', 'autocorrelation_overlapping_windows', 'period_folded_autocorrelation',
+           'calculate_bromley_correlator']
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
@@ -50,7 +52,9 @@ def autocorrelate_array(data_array: (u.Quantity, np.ndarray),
 def calculate_bromley_correlator(data_array: (u.Quantity, np.ndarray),
                                  peak_width: int,
                                  max_lag: int,
-                                 min_lag: int=0) -> np.ndarray:
+                                 min_lag: int=0,
+                                 prefilter_function: FunctionType=None,
+                                 **prefilter_function_args) -> np.ndarray:
     """Computes the correlator for a flare described in 'A framework for planet detection with faint lightcurve echoes'
 
     https://arxiv.org/abs/1808.07029
@@ -65,6 +69,11 @@ def calculate_bromley_correlator(data_array: (u.Quantity, np.ndarray),
         Largest lag value to compute
     min_lag
         Smallest lag value to compute
+    prefilter_function
+        Filter function to subtract prior to computing correlator
+        Must be of the form f(x, args)
+    prefilter_function_args
+        Arguments to pass on to the prefilter_function
 
     Returns
     -------
@@ -76,12 +85,13 @@ def calculate_bromley_correlator(data_array: (u.Quantity, np.ndarray),
     data_array = data_array - np.mean(data_array)
     corr_vals = np.correlate(data_array, data_array, mode='same')
     mid_ind = len(corr_vals)//2
-    central_peak = corr_vals[mid_ind-peak_width//2:mid_ind+peak_width//2]
+    corr_vals /= corr_vals[mid_ind]
+    central_peak = corr_vals[mid_ind-peak_width//2:mid_ind+peak_width//2+1].copy()
     central_peak -= np.mean(central_peak)
+    if prefilter_function is not None:
+        corr_vals -= prefilter_function(corr_vals, **prefilter_function_args)
     correlators = np.convolve(corr_vals, central_peak, mode='same')
     return correlators[mid_ind+min_lag: mid_ind+max_lag+1]
-
-# TODO Test calculate_bromley_correlator!
 
 
 #  =============================================================  #
@@ -129,6 +139,7 @@ def autocorrelation_overlapping_windows(data_array: (u.Quantity, np.ndarray),
     return return_array
 
 #  =============================================================  #
+
 
 def period_folded_autocorrelation(data_array: (u.Quantity, np.ndarray),
                                   period_indices: int,

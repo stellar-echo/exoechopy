@@ -11,7 +11,8 @@ from astropy import units as u
 from ..utils import *
 from ..simulate import *
 
-__all__ = ['interactive_lightcurve', 'render_telescope_lightcurve']
+__all__ = ['interactive_lightcurve', 'render_telescope_lightcurve',
+           'plot_flare_array']
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
@@ -215,3 +216,54 @@ def render_telescope_lightcurve(telescope: Telescope,
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
+
+def plot_flare_array(lightcurve: np.ndarray,
+                     flare_indices: np.ndarray,
+                     back_pad: int,
+                     forward_pad: int,
+                     savefile: str=None,
+                     display_index: bool=False):
+    """Plot an array of flares extracted from a lightcurve
+
+    Parameters
+    ----------
+    lightcurve
+        Raw data to extract flare curve profiles from
+    flare_indices
+        Indices to plot around
+    back_pad
+        Indices before each flare index to include in plot
+    forward_pad
+        Indices after each flare index to include in plot
+    savefile
+        If None, runs plt.show()
+        If filepath str, saves to savefile location (must include file extension)
+    """
+
+    num_flares = len(flare_indices)
+
+    num_row, num_col = row_col_grid(num_flares)
+    fig, all_axes = plt.subplots(num_row, num_col, figsize=(10, 6))
+    for f_i, flare_index in enumerate(flare_indices):
+        c_i = f_i // num_row
+        r_i = f_i - num_row * c_i
+        all_axes[r_i, c_i].plot(
+            lightcurve[flare_index - back_pad:flare_index + forward_pad],
+            color='k', lw=1, drawstyle='steps-post')
+        if display_index:
+            all_axes[r_i, c_i].text(.95, .95, "i="+str(flare_index),
+                                    transform=all_axes[r_i, c_i].transAxes,
+                                    verticalalignment='top', horizontalalignment='right',
+                                    color='b')
+    for r_i in range(num_row):
+        for c_i in range(num_col):
+            all_axes[r_i, c_i].set_xticklabels([])
+            all_axes[r_i, c_i].set_yticklabels([])
+    fig.subplots_adjust(hspace=0, wspace=0)
+    plt.show()
+
+    if savefile is None:
+        plt.show()
+    else:
+        plt.savefig(savefile)
+        plt.close()

@@ -205,24 +205,9 @@ def run():
 
     num_flares = len(flare_indices)
     if num_flares > 0:
-        num_row, num_col = row_col_grid(num_flares)
-        fig, all_axes = plt.subplots(num_row, num_col, figsize=(10, 6))
-        for f_i, flare_index in enumerate(flare_indices):
-            c_i = f_i//num_row
-            r_i = f_i-num_row*c_i
-            all_axes[r_i, c_i].plot(
-                noisy_signal[flare_index-subplot_width//2:flare_index+subplot_width*3],
-                color='k', lw=1, drawstyle='steps-post')
-            all_axes[r_i, c_i].text(.95, .95, str(flare_index),
-                                    transform=all_axes[r_i, c_i].transAxes,
-                                    verticalalignment='top', horizontalalignment='right',
-                                    color='b')
-        for r_i in range(num_row):
-            for c_i in range(num_col):
-                all_axes[r_i, c_i].set_xticklabels([])
-                all_axes[r_i, c_i].set_yticklabels([])
-        fig.subplots_adjust(hspace=0, wspace=0)
-        plt.show()
+        eep.visualize.plot_flare_array(noisy_signal, flare_indices,
+                                       back_pad=subplot_width//2, forward_pad=subplot_width*3,
+                                       display_index=True)
 
     back_index = 200
     forward_index = back_index*4
