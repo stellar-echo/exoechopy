@@ -137,6 +137,50 @@ class DeltaStar(Plottable):
             # n_flares = active_region.
         return all_flares
 
+    def generate_n_flares_at_times(self, time_array: np.ndarray) -> FlareCollection:
+        """Generates a flare at each time in time_array
+
+        If multiple active regions are present, selects from them randomly based on the occurrence frequencies
+
+        Parameters
+        ----------
+        time_array
+            Quantity or array of times
+
+        Returns
+        -------
+        FlareCollection
+            The flares generated at the times requested
+        """
+        if isinstance(time_array, u.Quantity):
+            times = time_array.to(lw_time_unit).value
+        else:
+            times = time_array
+
+        num_flares = len(times)
+
+        all_flares = FlareCollection({})
+        num_regions = len(self._active_region_list)
+        if num_regions > 1:
+            flare_ratios = np.zeros(num_regions)
+            for a_i, active_region in enumerate(self._active_region_list):
+                flare_ratios[a_i] = active_region.estimate_num_flares_over_duration(time_array[-1]-time_array[0])
+            if -1 in flare_ratios:
+                warnings.warn("At least one active region does not have an occurrence frequency, "
+                              "giving all regions equal weight", AstropyUserWarning)
+                flare_ratios = np.ones(num_regions)/num_regions
+            else:
+                flare_ratios /= np.sum(flare_ratios)
+            # Draw from regions randomly based on flare frequency occurrence ratios
+            region_selections = np.random.choice(num_regions,
+                                                 size=num_flares,
+                                                 p=flare_ratios)
+        else:
+            region_selections = np.zeros(num_flares, dtype=int)
+        for r_i, time in zip(region_selections, times):
+            all_flares.append(self._active_region_list[r_i]._generate_flares_at_times_lw([time]))
+        return all_flares
+
     # ------------------------------------------------------------------------------------------------------------ #
     @property
     def mass(self):

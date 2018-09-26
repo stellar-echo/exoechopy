@@ -634,8 +634,7 @@ class ActiveRegion:
                  region: Region=None,
                  flare_activity_ratios: list = None,
                  ):
-        """
-        Generates an active region, which produces flares with a variety of tunable statistical properties.
+        """Generates an active region, which produces flares with a variety of tunable statistical properties.
 
         The distributions are currently expected to be a single value, a tuple/list of a [min, max], or a
         scipy.stats frozen distribution.  This may be expanded in the future.
@@ -643,24 +642,26 @@ class ActiveRegion:
         If a [min, max] tuple/list is provided, ActiveRegion will use a uniform distribution over that range.
         If a frozen pdf is provided, ActiveRegion will pull values from the pdf via pdf.rvs(num_flares)
 
-        !If num_flares is given, occurrence_freq_pdf is ignored!
+        If num_flares is given, occurrence_freq_pdf is not used to calculate the number of flares.
+        However, occurrence_freq_pdf can still be used to estimate the relative flare frequency vs other active regions
 
         Currently, distributions are not linked (so, e.g., intensity and decay constant are not correlated)
         That should probably be built into a separate class, eventually...
 
-        :param flare_activity:
-        A FlareActivity instance, or list of instances, that determines how the flares in the region behave
-
-        :param num_flares: Overrides occurrence_freq_pdf if provided
-
-        :param occurrence_freq_pdf: Distirbution function governing how frequently a flare occurs
-
-        :param region: Where the flares occur on the star.  Defaults to uniform coverage.
-
-        :param flare_activity_ratios:
-        If multiple flare_activity instances are provided, can provide a relative distribution of weights,
-        ala np.random.choice p=...
-        If relative weights are not provided, all are weighted equally.
+        Parameters
+        ----------
+        flare_activity
+            A FlareActivity instance, or list of instances, that determines how the flares in the region behave
+        num_flares
+            Overrides occurrence_freq_pdf if provided
+        occurrence_freq_pdf
+            Distribution function governing how frequently a flare occurs
+        region
+            Where the flares occur on the star.  Defaults to uniform coverage.
+        flare_activity_ratios
+            If multiple flare_activity instances are provided, can provide a relative distribution of weights,
+            ala np.random.choice p=...
+            If relative weights are not provided, all are weighted equally.
         """
 
         # flare_activity can be a single instance or several different ones provided as a list
@@ -697,7 +698,7 @@ class ActiveRegion:
         else:
             if isinstance(num_flares, int):
                 self._num_flares = num_flares
-                self._occurrence_freq_pdf = None
+                self._occurrence_freq_pdf = occurrence_freq_pdf
             else:
                 raise ValueError("num_flares must be an integer or None")
 
@@ -769,6 +770,30 @@ class ActiveRegion:
                 all_flares.append(activity.generate_n_flares(n_counts))
         all_flares.assign_collection_properties('activity_selections', activity_selections)
         self._all_flares = all_flares
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    def estimate_num_flares_over_duration(self, duration: u.Quantity) -> int:
+        """Provides an estimate of how many flares this region would produce over a given duration.
+
+        Parameters
+        ----------
+        duration
+            Timescale to make the estimate of the number of flares from
+
+        Returns
+        -------
+        int
+            The number of flares produced over the duration
+            Returns -1 if no occurrence frequency was given
+
+        """
+        if isinstance(duration, u.Quantity):
+            duration = duration.to(lw_time_unit).value
+        if self._occurrence_freq_pdf is not None:
+            flare_times = stochastic_flare_process(duration, self._occurrence_freq_pdf)
+            return len(flare_times)
+        else:
+            return -1
 
     # ------------------------------------------------------------------------------------------------------------ #
     def _generate_flares_at_times_lw(self, list_of_times: list):

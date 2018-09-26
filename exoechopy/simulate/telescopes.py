@@ -148,7 +148,7 @@ class Telescope:
         """Prepares to generate N observable flares.
 
         If a duration is provided, will include background variability associated with the star's activity.
-
+        Flares are distributed uniformly across the duration (for now)
 
         Parameters
         ----------
@@ -161,16 +161,38 @@ class Telescope:
 
         """
         self._prep_observations(cadence=cadence)
-        raise NotImplementedError("This function doesn't work yet!")
+        #  Generate flares
+        if duration is None:
+            exo_list = self._observation_target.get_exoplanets()
+            if len(exo_list) > 0:
+                duration = exo_list[0].orbital_period
+            else:
+                try:
+                    duration = 1/self._observation_target.rotation_rate
+                except AttributeError:
+                    duration = num_flares*u.Quantity(60, u.s)
+
+        self._all_flares = self._observation_target.generate_n_flares_at_times(np.linspace(0,
+                                                                               duration.to(lw_time_unit).value,
+                                                                               num_flares))
+        raise NotImplementedError
 
     # ------------------------------------------------------------------------------------------------------------ #
     def collect_data(self,
                      output_folder: Path=None,
                      base_filename: str=None,
                      save_diagnostic_data: bool=False):
+        """Generate a synthetic light curve
 
-        # TODO - Make sure to handle delta-function stars!!
-        # TODO - Add echoes!!
+        Parameters
+        ----------
+        output_folder
+            Optional location to save the data
+        base_filename
+            Filename for the dataset
+        save_diagnostic_data
+            Whether or not to store additional data about the lightcurve
+        """
 
         flares = self._all_flares.all_flares
         flare_times = self._all_flares.all_flare_times
