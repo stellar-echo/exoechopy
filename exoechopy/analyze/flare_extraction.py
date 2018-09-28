@@ -1,10 +1,6 @@
 
 """
 This module provides different algorithms for identifying and extracting flares from a lightcurve segment.
-
-This module should generally not be used directly.  Everything in
-`__all__` is imported into `exoechopy.analyze`, and hence that package
-should be used for access.
 """
 
 import numpy as np

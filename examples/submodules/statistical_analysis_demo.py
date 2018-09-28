@@ -277,7 +277,7 @@ def run():
     - Analyze the distribution of subsample results somehow.  There are a variety of analysis options available.
     
     There will be one perfect subsample that contains all the hits, and one that contains all the misses.
-    Everything else will be somewhere in between.
+    Everything else will be somewhere in between.  
 
     To be continued...    
     """)
