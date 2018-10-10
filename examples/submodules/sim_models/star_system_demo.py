@@ -42,7 +42,7 @@ def run():
                                               albedo=planet_albedo,
                                               point_color='k', path_color='dimgray',
                                               name=name_1)
-    MyStar.add_exoplanet(Planet1)
+    MyStar.add_orbiting_object(Planet1)
 
     #   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^   #
     e_2 = 0.2
@@ -63,7 +63,7 @@ def run():
                                               albedo=planet_albedo,
                                               point_color='r', path_color='salmon',
                                               name=name_2)
-    MyStar.add_exoplanet(Planet2)
+    MyStar.add_orbiting_object(Planet2)
 
     #   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^   #
     e_3 = 0.
@@ -84,7 +84,7 @@ def run():
                                               albedo=planet_albedo,
                                               point_color='b', path_color='powderblue',
                                               name=name_3)
-    MyStar.add_exoplanet(Planet3)
+    MyStar.add_orbiting_object(Planet3)
 
     #   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^   #
     e_4 = 0.2
@@ -105,7 +105,7 @@ def run():
                                               albedo=planet_albedo,
                                               point_color='g', path_color='darkseagreen',
                                               name=name_4)
-    MyStar.add_exoplanet(Planet4)
+    MyStar.add_orbiting_object(Planet4)
 
     #   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^   #
     e_5 = 0.2
@@ -126,7 +126,7 @@ def run():
                                               albedo=planet_albedo,
                                               point_color='darkviolet', path_color='thistle',
                                               name=name_5)
-    MyStar.add_exoplanet(Planet5)
+    MyStar.add_orbiting_object(Planet5)
 
     # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 

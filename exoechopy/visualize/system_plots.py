@@ -117,7 +117,7 @@ def render_3d_planetary_system(star_system: DeltaStar,
     system_plot_dict = {'system_plot': fig}
 
     with quantity_support():
-        orbiting_bodies = star_system.get_exoplanets()
+        orbiting_bodies = star_system.get_all_orbiting_objects()
         if len(orbiting_bodies) > 0:
             for i, body in enumerate(orbiting_bodies):
                 system_plot_dict[i] = plot_3d_keplerian_orbit(body, axes_object=ax)
@@ -190,7 +190,7 @@ def animate_3d_planetary_system(star_system: Star,
     all_plots_dict = render_3d_planetary_system(star_system,
                                                 savefile='return_axes', show_earth_vector=show_earth_vector)
     fig = all_plots_dict['system_plot']
-    all_exos = star_system.get_exoplanets()
+    all_exos = star_system.get_all_orbiting_objects()
 
     all_orbital_periods = [body.orbital_period for body in all_exos]
     # print('all_orbital_periods: ', all_orbital_periods)

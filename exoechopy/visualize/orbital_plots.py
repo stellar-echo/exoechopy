@@ -100,7 +100,7 @@ def orbit_plot(keplerian_orbit: KeplerianOrbit,
     kinetic_energy = .5*np.linalg.norm(v_time, axis=0)**2*u.kg*u.au**2/u.s**2
     ax5.plot(np.linspace(0, 1, len(kinetic_energy)), kinetic_energy.to(u.erg), color=angle_color, label='KE')
 
-    potential_energy = -keplerian_orbit.star_mass*constants.G/(r_pos_time*u.au)*u.kg
+    potential_energy = -keplerian_orbit.parent_mass * constants.G / (r_pos_time * u.au) * u.kg
     ax5.plot(np.linspace(0, 1, num_points), potential_energy.to(u.erg), color=time_color, label='PE')
 
     ax5.plot(np.linspace(0, 1, len(kinetic_energy)), (potential_energy[1:-1]+kinetic_energy).to(u.erg), color='k', label='PE+KE')

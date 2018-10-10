@@ -16,6 +16,8 @@ from ..utils import *
 
 __all__ = ['Telescope']
 
+# TODO Handle cases with externally computed orbital positions for planets and stars
+
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 
@@ -100,6 +102,9 @@ class Telescope:
             self.cadence = cadence
         if self.cadence is None:
             raise ValueError("A cadence is required to run an observation.")
+        if self.observation_target.system_mass is None:
+            warnings.warn("observation_target does not have mass, some parameters may not be initialized",
+                          AstropyUserWarning)
         self._update_flux()
 
     def prepare_continuous_observational_run(self,
@@ -163,7 +168,7 @@ class Telescope:
         self._prep_observations(cadence=cadence)
         #  Generate flares
         if duration is None:
-            exo_list = self._observation_target.get_exoplanets()
+            exo_list = self._observation_target.get_all_orbiting_objects()
             if len(exo_list) > 0:
                 duration = exo_list[0].orbital_period
             else:
@@ -204,7 +209,7 @@ class Telescope:
 
         # Shorten a few commonly used attributes:
         target = self.observation_target
-        exo_list = self.observation_target.get_exoplanets()
+        exo_list = self.observation_target.get_all_orbiting_objects()
         earth_vect = self.observation_target.earth_direction_vector
         dt = self.cadence
 

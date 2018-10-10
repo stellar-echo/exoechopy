@@ -40,7 +40,7 @@ def run():
                                                       albedo=planet_albedo,
                                                       point_color='k', path_color='dimgray',
                                                       name='Mercurial')
-    MyStar.add_exoplanet(MercurialPlanet)
+    MyStar.add_orbiting_object(MercurialPlanet)
 
     #   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^   #
     a_V = 0.72333199*u.au
@@ -58,7 +58,7 @@ def run():
                                                      albedo=planet_albedo,
                                                      point_color='orange', path_color='darkgoldenrod',
                                                      name='Venusian')
-    MyStar.add_exoplanet(VenusianPlanet)
+    MyStar.add_orbiting_object(VenusianPlanet)
 
     #   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^   #
     a_E = 1.00000011*u.au
@@ -76,7 +76,7 @@ def run():
                                                    albedo=planet_albedo,
                                                    point_color='b', path_color='lightskyblue',
                                                    name='Earthy')
-    MyStar.add_exoplanet(EarthyPlanet)
+    MyStar.add_orbiting_object(EarthyPlanet)
 
     #   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^   #
     a_M2 = 1.52366231*u.au
@@ -94,7 +94,7 @@ def run():
                                                   albedo=planet_albedo,
                                                   point_color='darkred', path_color='salmon',
                                                   name='Martian')
-    MyStar.add_exoplanet(MarsyPlanet)
+    MyStar.add_orbiting_object(MarsyPlanet)
 
 
     # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #

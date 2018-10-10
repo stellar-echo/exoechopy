@@ -14,7 +14,7 @@ from astropy.utils.exceptions import AstropyUserWarning
 from .flares.active_regions import *
 from .spectral import *
 from ..utils import *
-from .planets import *
+from .orbital_physics import *
 from .limbs import *
 
 __all__ = ['DeltaStar', 'Star']
@@ -25,26 +25,42 @@ __all__ = ['DeltaStar', 'Star']
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 
-class DeltaStar(Plottable):
+class DeltaStar(Plottable, MassiveObject):
     """Delta-function star, has no size or shape.  Simplest star class."""
     def __init__(self,
-                 mass=None,
-                 spectral_type=None,
-                 earth_longitude=None,
-                 earth_latitude=None,
-                 dist_to_earth=None,
+                 mass: u.Quantity=None,
+                 spectral_type: SpectralEmitter=None,
+                 earth_longitude: u.Quantity=None,
+                 earth_latitude: u.Quantity=None,
+                 dist_to_earth: u.Quantity=None,
+                 position: u.Quantity=None,
+                 velocity: u.Quantity=None,
                  **kwargs):
+        """
+
+        Parameters
+        ----------
+        mass
+            Mass of star
+        spectral_type
+            SpectralEmitter object to determine spectra
+        earth_longitude
+            Longitude angle to Earth relative to star coordinate system
+        earth_latitude
+            Latitude angle to Earth relative to star coordinate system
+        dist_to_earth
+            Optional distance to Earth, does not yet affect anything
+        position
+            Optional position of star at t=0
+        velocity
+            Optional velocity of star at t=0
+        kwargs
+            kwargs are currently only passed to Plottable
+        """
 
         self._active_region_list = []
 
-        super().__init__(**kwargs)
-
-        self._position = np.zeros(3)  # placeholder for potential multi-star system considerations
-        self._orbiting_bodies_list = []
-
-        #  Initialize mass, then pass to the set function:
-        self._mass = None
-        self.mass = mass
+        super().__init__(mass=mass, position=position, velocity=velocity, **kwargs)
 
         if spectral_type is None:
             print("Using default spectral_type: JohnsonPhotometricBand('U'), magnitude=16")
@@ -70,34 +86,6 @@ class DeltaStar(Plottable):
                 self._dist_to_earth = Distance(dist_to_earth, unit=u.lyr)
                 warnings.warn("Casting dist_to_earth, input as " + str(dist_to_earth) + ", to LY",
                               AstropyUserWarning)
-
-    # ------------------------------------------------------------------------------------------------------------ #
-    def add_exoplanet(self, exoplanet: Exoplanet):
-        """Add an Exoplanet object to the star
-
-        Parameters
-        ----------
-        exoplanet
-            Exoplanet object to be added to the star
-
-        """
-
-        if isinstance(exoplanet, Exoplanet):
-            exoplanet.star_mass = self._mass
-            self._orbiting_bodies_list.append(exoplanet)
-        else:
-            raise TypeError("exoplanet must be an Exoplanet class instance")
-
-    # ------------------------------------------------------------------------------------------------------------ #
-    def get_exoplanets(self) -> [Exoplanet]:
-        """Return a *copy* of the list of exoplanets held by the Star
-
-        Returns
-        -------
-        [*Exoplanet]
-            List of exoplanet instances
-        """
-        return self._orbiting_bodies_list.copy()
 
     # ------------------------------------------------------------------------------------------------------------ #
     def add_active_regions(self, *active_regions: ActiveRegion):
@@ -180,34 +168,6 @@ class DeltaStar(Plottable):
         for r_i, time in zip(region_selections, times):
             all_flares.append(self._active_region_list[r_i]._generate_flares_at_times_lw([time]))
         return all_flares
-
-    # ------------------------------------------------------------------------------------------------------------ #
-    @property
-    def mass(self):
-        """
-        Mass of star used for simulations
-        :return: star mass
-        """
-        return self._mass
-
-    @mass.setter
-    def mass(self, mass):
-        """
-        Update the star mass and the associated orbiting body's orbits
-        :param u.Quantity mass: New star mass
-        """
-        if mass is None:
-            print("Using default star mass: 1 M_Sol")
-            self._mass = u.Quantity(1, u.M_sun)
-        else:
-            if isinstance(mass, u.Quantity):
-                self._mass = mass.to(u.solMass)
-            else:
-                self._mass = u.Quantity(mass, unit=u.solMass)
-                warnings.warn("Casting mass, input as " + str(mass) + ", to solar masses", AstropyUserWarning)
-
-        for orbiting_body in self._orbiting_bodies_list:
-            orbiting_body.set_star_mass(self._mass)
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property

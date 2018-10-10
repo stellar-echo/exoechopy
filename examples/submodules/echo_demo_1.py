@@ -33,7 +33,7 @@ def run():
     spectral_band = eep.simulate.spectral.JohnsonPhotometricBand('U')
     emission_type = eep.simulate.spectral.SpectralEmitter(spectral_band, magnitude=16)
 
-    MyStar = eep.simulate.DeltaStar(spectral_type=emission_type, point_color='saddlebrown')
+    MyStar = eep.simulate.DeltaStar(spectral_type=emission_type, point_color='saddlebrown', mass=1*u.M_sun)
 
     # Face-on circular
     MyStar.set_view_from_earth(0*u.deg, 0*u.deg)
@@ -63,7 +63,7 @@ def run():
                                               radius=planet_radius,
                                               point_color='k', path_color='dimgray',
                                               name=planet_name)
-    MyStar.add_exoplanet(Planet1)
+    MyStar.add_orbiting_object(Planet1)
 
     eep.visualize.render_3d_planetary_system(MyStar)
 

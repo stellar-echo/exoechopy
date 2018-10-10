@@ -39,7 +39,7 @@ def run():
                                               albedo=planet_albedo,
                                               point_color='k', path_color='dimgray',
                                               name=name_1)
-    MyStar.add_exoplanet(Planet1)
+    MyStar.add_orbiting_object(Planet1)
 
     # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 

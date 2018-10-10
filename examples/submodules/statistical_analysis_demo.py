@@ -66,7 +66,7 @@ def run():
                                               radius=planet_radius,
                                               point_color='k', path_color='dimgray',
                                               name=planet_name)
-    MyStar.add_exoplanet(Planet1)
+    MyStar.add_orbiting_object(Planet1)
     print("Planet1.orbital_period: ", Planet1.orbital_period.to(u.d))
 
     eep.visualize.render_3d_planetary_system(MyStar)

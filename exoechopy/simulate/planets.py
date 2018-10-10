@@ -10,9 +10,11 @@ from astropy.coordinates import Angle
 from astropy.coordinates import Distance
 from astropy.utils.exceptions import AstropyUserWarning
 
+import numpy as np
+
 from .orbital_physics import *
 from .spectral import *
-from ..utils.plottables import *
+from ..utils import *
 
 
 __all__ = ['Exoplanet', 'KeplerianExoplanet']
@@ -20,7 +22,7 @@ __all__ = ['Exoplanet', 'KeplerianExoplanet']
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 
-class Exoplanet(Plottable):
+class Exoplanet(Plottable, MassiveObject):
     """Exoplanet base class."""
 
     # ------------------------------------------------------------------------------------------------------------ #
@@ -30,6 +32,8 @@ class Exoplanet(Plottable):
                  semimajor_axis: u.Quantity=None,
                  radius: u.Quantity=None,
                  mass: u.Quantity=None,
+                 position: u.Quantity = None,
+                 velocity: u.Quantity = None,
                  **kwargs
                  ):
         """Simplest class of exoplanets.
@@ -46,11 +50,15 @@ class Exoplanet(Plottable):
             Radius of exoplanet
         mass
             Mass of exoplanet
+        position
+            Optional position of exoplanet at t=0
+        velocity
+            Optional velocity of exoplanet at t=0
         kwargs
             kwargs are currently only passed to Plottable
         """
 
-        super().__init__(**kwargs)
+        super().__init__(mass=mass, position=position, velocity=velocity, **kwargs)
 
         if contrast is None:
             self._contrast = None
@@ -85,15 +93,6 @@ class Exoplanet(Plottable):
             else:
                 self._radius = u.Quantity(radius, unit=u.R_jup)
                 warnings.warn("Casting radius, input as " + str(radius) + ", to Jupiter radii", AstropyUserWarning)
-
-        if mass is None:
-            self._mass = None
-        else:
-            if isinstance(mass, u.Quantity):
-                self._mass = mass.to(u.M_jup)
-            else:
-                self._mass = u.Quantity(mass, unit=u.M_jup)
-                warnings.warn("Casting mass, input as " + str(mass) + ", to Jupiter masses", AstropyUserWarning)
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
@@ -154,36 +153,48 @@ class KeplerianExoplanet(KeplerianOrbit, Exoplanet):
 
     # ------------------------------------------------------------------------------------------------------------ #
     def __init__(self,
-                 semimajor_axis=None,
-                 eccentricity=None,
-                 star_mass=None,
-                 initial_anomaly=None,
-                 inclination=None,
-                 longitude=None,
-                 periapsis_arg=None,
-                 albedo=None,
-                 radius=None,
+                 semimajor_axis: u.Quantity=None,
+                 eccentricity: float=None,
+                 star_mass: u.Quantity=None,
+                 initial_anomaly: u.Quantity=None,
+                 inclination: u.Quantity=None,
+                 longitude: u.Quantity=None,
+                 periapsis_arg: u.Quantity=None,
+                 albedo: Albedo=None,
+                 radius: u.Quantity=None,
                  **kwargs
                  ):
-        """
-        Provides a Keplerian exoplanet for simulations and models.
+        """Provides a Keplerian exoplanet for simulations and models.
 
-        :param Distance semimajor_axis: semimajor axis as an astropy quantity
-        Default 1 AU
-        :param float eccentricity: orbit eccentricity
-        :param u.Quantity star_mass: mass of star as an astropy quantity
-        Default 1 M_sun
-        :param Angle initial_anomaly: initial anomaly relative to star
-        :param Angle inclination: orbital inclination relative to star
-        :param Angle longitude: longitude of ascending node
-        :param Angle periapsis_arg: argument of the periapsis
-        :param Albedo albedo: an Albedo class, which can include special phase laws
-        :param u.quantity radius:  Radius of exoplanet
+
+        Parameters
+        ----------
+        semimajor_axis
+            Semimajor axis as an astropy quantity, default 1 AU
+        eccentricity
+            Orbit eccentricity
+        star_mass
+            Mass of star as an astropy quantity, default 1 M_Sun
+        initial_anomaly
+            Initial anomaly relative to star
+        inclination
+            Orbital inclination relative to star
+        longitude
+            Longitude of ascending node
+        periapsis_arg
+            Argument of the periapsis
+        albedo
+            An Albedo class instance, which can include special phase laws
+        radius
+            Radius of exoplanet
+        kwargs
         """
+
         super().__init__(semimajor_axis=semimajor_axis, eccentricity=eccentricity, star_mass=star_mass,
                          initial_anomaly=initial_anomaly, inclination=inclination, longitude=longitude,
                          periapsis_arg=periapsis_arg, albedo=albedo, radius=radius, **kwargs)
 
-
-
+        if self.parent_mass is not None:
+            self._position = self.calc_xyz_at_time(0*u.s)
+            self._velocity = (self.calc_xyz_at_time(1*u.s) - self.calc_xyz_at_time(-1*u.s))/u.Quantity(2, u.s)
 

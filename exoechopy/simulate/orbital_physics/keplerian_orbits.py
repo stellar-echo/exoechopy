@@ -78,12 +78,13 @@ class KeplerianOrbit(Plottable):
                 raise ValueError("Eccentricity, input as" + str(eccentricity) + ", must be 0 <= e < 1")
         self._eccentric_factor = np.sqrt((1 + self._eccentricity) / (1 - self._eccentricity))
 
-        #  Initialize star_mass, then call set/reset function:
-        self._star_mass = None
+        #  Initialize parent_mass, then call set/reset function:
+        self._parent_mass = None
         self._grav_param = None
         self._orbital_period = None
         self._orbital_frequency = None
-        self.star_mass = star_mass  # Must be called after defining semimajor_axis, enforce later
+        if star_mass is not None:
+            self.parent_mass = star_mass  # Must be called after defining semimajor_axis, enforce later
 
         #  Initialize initial anomaly
         self._initial_anomaly = None
@@ -137,25 +138,6 @@ class KeplerianOrbit(Plottable):
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
-    def star_mass(self):
-        return self._star_mass
-
-    @star_mass.setter
-    def star_mass(self, star_mass):
-        if star_mass is None:
-            self._star_mass = u.Quantity(1, u.M_sun)
-        else:
-            if isinstance(star_mass, u.Quantity):
-                self._star_mass = star_mass
-            else:
-                self._star_mass = u.Quantity(star_mass, u.M_sun)
-                warnings.warn("Casting star mass, input as "+str(star_mass)+", to M_sun", AstropyUserWarning)
-        self._grav_param = self._star_mass * const.G
-        self._orbital_period = (2 * np.pi * self._semimajor_axis**1.5 * np.sqrt(1/self._grav_param)).decompose().to(u.s)
-        self._orbital_frequency = np.sqrt(self._grav_param/self._semimajor_axis**3).decompose().to(u.Hz)*u.rad
-
-    # ------------------------------------------------------------------------------------------------------------ #
-    @property
     def periapsis_arg(self):
         return self._periapsis_arg
 
@@ -203,7 +185,7 @@ class KeplerianOrbit(Plottable):
         """
         if self._name != "":
             print("Planet name: ", self._name)
-        print("Star mass: ", u_str(self._star_mass))
+        print("Star mass: ", u_str(self._parent_mass))
         print("Semimajor axis: ", u_str(self._semimajor_axis))
         print("Orbital period: ", u_str(self._orbital_period))
         print("Orbit eccentricity, e: ", self._eccentricity)
