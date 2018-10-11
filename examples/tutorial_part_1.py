@@ -5,6 +5,7 @@ import examples.submodules.sim_models.flares_demo as flare_demo
 import examples.submodules.sim_models.active_regions_demo as active_regions_demo
 import examples.submodules.sim_models.limbs_demo as limbs_demo
 import examples.submodules.sim_models.star_system_demo as star_system_demo
+import examples.submodules.sim_models.nonkeplerian_orbit_demo as nonkeplerian_demo
 import examples.submodules.sim_models.telescope_demo as telescope_demo
 import examples.submodules.math_methods.autocorr_demos as autocorr_demos
 import examples.submodules.echo_demo_1 as echo_demo_1
@@ -44,13 +45,22 @@ limbs_demo.run()
 
 print("""
 Stars are also able to support multiple orbiting exoplanets.  
-These exoplanets can currently be driven only be Keplerian orbits.
+The simplest systems use Keplerian physics and do not cause the stars to move
 
 #  =============================================================  #
-The simulate.orbital_physics.keplerian_orbits.py module demo:
+The simulate.orbital_physics.keplerian.py module demo:
 """)
 
 star_system_demo.run()
+
+print("""
+Using the SymplecticSolver, it's possible to handle more complex systems including multi-planet and multi-star options.
+
+#  =============================================================  #
+The simulate.orbital_physics.symplectic.py module demo:
+""")
+
+nonkeplerian_demo.run()
 
 print("""
 The telescope module provides classes for generating data from stars, active regions, and planets.

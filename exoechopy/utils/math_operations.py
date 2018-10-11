@@ -1,7 +1,7 @@
 
 """
-This module provides functions that are useful in computing values with vectors.
-Will be broken into separate modules once I know all of the math that is needed.
+This module provides functions that are useful in computing things.
+Will likely be broken into separate modules once I know all of the math that is needed.
 """
 
 import decimal
@@ -19,6 +19,7 @@ __all__ = ['angle_between_vectors', 'vect_from_spherical_coords', 'compute_lag',
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 # Vector math
+
 
 def angle_between_vectors(v1: np.ndarray, v2: np.ndarray) -> float:
     """Smallest angle between two unnormalized vectors

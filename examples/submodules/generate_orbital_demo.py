@@ -45,7 +45,7 @@ def run():
 
     Planet1.about_orbit()
 
-    eep.visualize.orbit_plot(Planet1, num_points=250)
+    eep.visualize.keplerian_orbit_plot(Planet1, num_points=250)
 
     # eep.visualize.render_3d_planetary_system(MyStar)
 

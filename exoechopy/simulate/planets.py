@@ -22,7 +22,7 @@ __all__ = ['Exoplanet', 'KeplerianExoplanet']
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 
-class Exoplanet(Plottable, MassiveObject):
+class Exoplanet(MassiveObject, Plottable):
     """Exoplanet base class."""
 
     # ------------------------------------------------------------------------------------------------------------ #
@@ -105,11 +105,6 @@ class Exoplanet(Plottable, MassiveObject):
         return self._radius
 
     # ------------------------------------------------------------------------------------------------------------ #
-    @property
-    def mass(self):
-        return self._mass
-
-    # ------------------------------------------------------------------------------------------------------------ #
     def get_echo_magnitude(self,
                            dist_to_source: (Distance, u.Quantity)=None,
                            earth_angle: (u.Quantity, Angle)=None,
@@ -162,10 +157,10 @@ class KeplerianExoplanet(KeplerianOrbit, Exoplanet):
                  periapsis_arg: u.Quantity=None,
                  albedo: Albedo=None,
                  radius: u.Quantity=None,
+                 mass: u.Quantity=None,
                  **kwargs
                  ):
         """Provides a Keplerian exoplanet for simulations and models.
-
 
         Parameters
         ----------
@@ -187,12 +182,14 @@ class KeplerianExoplanet(KeplerianOrbit, Exoplanet):
             An Albedo class instance, which can include special phase laws
         radius
             Radius of exoplanet
+        mass
+            Mass of exoplanet
         kwargs
         """
 
         super().__init__(semimajor_axis=semimajor_axis, eccentricity=eccentricity, star_mass=star_mass,
                          initial_anomaly=initial_anomaly, inclination=inclination, longitude=longitude,
-                         periapsis_arg=periapsis_arg, albedo=albedo, radius=radius, **kwargs)
+                         periapsis_arg=periapsis_arg, albedo=albedo, radius=radius, mass=mass, **kwargs)
 
         if self.parent_mass is not None:
             self._position = self.calc_xyz_at_time(0*u.s)

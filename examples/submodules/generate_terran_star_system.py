@@ -101,7 +101,7 @@ def run():
 
     EarthyPlanet.about_orbit()
 
-    # eep.visualize.orbit_plot(MercurialPlanet)
+    # eep.visualize.keplerian_orbit_plot(MercurialPlanet)
 
     eep.visualize.render_3d_planetary_system(MyStar)
 

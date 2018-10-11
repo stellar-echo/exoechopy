@@ -63,8 +63,9 @@ class DeltaStar(Plottable, MassiveObject):
         super().__init__(mass=mass, position=position, velocity=velocity, **kwargs)
 
         if spectral_type is None:
-            print("Using default spectral_type: JohnsonPhotometricBand('U'), magnitude=16")
-            self._spectral_type = SpectralEmitter(JohnsonPhotometricBand('U'), magnitude=16)
+            # print("Using default spectral_type: JohnsonPhotometricBand('U'), magnitude=16")
+            # self._spectral_type = SpectralEmitter(JohnsonPhotometricBand('U'), magnitude=16)
+            self._spectral_type = None
         else:
             if isinstance(spectral_type, SpectralEmitter):
                 self._spectral_type = spectral_type

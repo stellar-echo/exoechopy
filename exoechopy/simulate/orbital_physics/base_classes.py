@@ -13,7 +13,7 @@ from astropy.utils.exceptions import AstropyUserWarning
 
 from ...utils import *
 
-__all__ = ['MassiveObject']
+__all__ = ['MassiveObject', 'MultiStarSystem']
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
@@ -42,27 +42,16 @@ class MassiveObject:
         """
         super().__init__(**kwargs)
 
-        if position is None:
-            self._position = u.Quantity(np.zeros(3), lw_distance_unit)
-        elif isinstance(position, u.Quantity):
-            self._position = position
-        else:
-            self._position = u.Quantity(position, lw_distance_unit)
-            warnings.warn("Casting position, input as " + str(position) + ", to "+u_str(lw_distance_unit),
-                          AstropyUserWarning)
+        self._position = None
+        self.position = position
 
         # These values are reserved for when the positions are calculated by an external solver
         self._time_domain = None
-        self._all_positions = None
+        self._all_positions = None  # Stored as u.Quantity, should be in u.au typically
+        self._all_velocities = None  # Stored as u.Quantity, should be in m/s typically
 
-        if velocity is None:
-            self._velocity = u.Quantity(np.zeros(3), lw_distance_unit/lw_time_unit)
-        elif isinstance(velocity, u.Quantity):
-            self._velocity = velocity
-        else:
-            self._velocity = u.Quantity(velocity, lw_distance_unit/lw_time_unit)
-            warnings.warn("Casting Planet velocity, input as " + str(velocity) + ", to "
-                          + u_str(lw_distance_unit/lw_time_unit), AstropyUserWarning)
+        self._velocity = None
+        self.velocity = velocity
 
         self._orbiting_bodies_list = []
 
@@ -98,7 +87,6 @@ class MassiveObject:
             New mass of object
         """
         if mass is None:
-            print("Using default mass: 1 M_Sol")
             self._mass = None
         else:
             if isinstance(mass, u.Quantity):
@@ -127,6 +115,38 @@ class MassiveObject:
             if _mass is not None:
                 mass += mass
         return mass
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    @property
+    def position(self):
+        return self._position
+
+    @position.setter
+    def position(self, position):
+        if position is None:
+            self._position = u.Quantity(np.zeros(3), u.au)
+        elif isinstance(position, u.Quantity):
+            self._position = position.copy()
+        else:
+            self._position = u.Quantity(position, u.au)
+            warnings.warn("Casting position, input as " + str(position) + ", to "+u_str(u.au),
+                          AstropyUserWarning)
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    @property
+    def velocity(self):
+        return self._velocity
+
+    @velocity.setter
+    def velocity(self, velocity):
+        if velocity is None:
+            self._velocity = u.Quantity(np.zeros(3), lw_distance_unit/lw_time_unit)
+        elif isinstance(velocity, u.Quantity):
+            self._velocity = velocity.copy()
+        else:
+            self._velocity = u.Quantity(velocity, lw_distance_unit/lw_time_unit)
+            warnings.warn("Casting Planet velocity, input as " + str(velocity) + ", to "
+                          + u_str(lw_distance_unit/lw_time_unit), AstropyUserWarning)
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
@@ -159,9 +179,10 @@ class MassiveObject:
             else:
                 self._parent_mass = u.Quantity(parent_mass, u.M_sun)
                 warnings.warn("Casting star mass, input as " + str(parent_mass) + ", to M_sun", AstropyUserWarning)
-            self._grav_param = self._parent_mass * const.G
-            self._orbital_period = (2 * np.pi * self._semimajor_axis**1.5 * np.sqrt(1/self._grav_param)).decompose().to(u.s)
-            self._orbital_frequency = np.sqrt(self._grav_param/self._semimajor_axis**3).decompose().to(u.Hz)*u.rad
+            if self._parent_mass.value > 0:
+                self._grav_param = self._parent_mass * const.G
+                self._orbital_period = (2 * np.pi * self._semimajor_axis**1.5 * np.sqrt(1/self._grav_param)).decompose().to(u.s)
+                self._orbital_frequency = np.sqrt(self._grav_param/self._semimajor_axis**3).decompose().to(u.Hz)*u.rad
 
     # ------------------------------------------------------------------------------------------------------------ #
     def add_orbiting_object(self, new_object: 'MassiveObject'):
@@ -199,5 +220,6 @@ class MultiStarSystem(MassiveObject):
     # ------------------------------------------------------------------------------------------------------------ #
     def __init__(self, **kwargs):
         super().__init__(mass=0*u.M_sun, **kwargs)
+        self.radius = -1*u.au
 
 

@@ -10,7 +10,7 @@ from matplotlib import colors as mcolors
 from scipy import stats
 
 __all__ = ['pi_u',
-           'lw_distance_unit', 'lw_time_unit', 'lw_freq_unit',
+           'lw_distance_unit', 'lw_time_unit', 'lw_freq_unit', 'lw_mass_unit',
            'CountType', 'PDFType', 'IntFloat', 'RVFrozen', 'FunctionType',
            'mpl_colors']
 
@@ -25,6 +25,7 @@ pi_u = np.pi * u.rad
 lw_distance_unit = u.m
 lw_time_unit = u.s
 lw_freq_unit = u.uHz  # Frequency of occurrences, such as flares
+lw_mass_unit = u.kg
 
 
 # Specialty types (currently using tuples, had compatibility issues with typing module)

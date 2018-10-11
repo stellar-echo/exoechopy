@@ -2,11 +2,13 @@
 """
 This module generates plots of planetary systems for diagnostic and visualization purposes.
 """
+import warnings
 
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy import units as u
 from astropy.visualization import quantity_support
+from astropy.utils.exceptions import AstropyUserWarning
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import animation
 
@@ -80,6 +82,64 @@ def plot_3d_keplerian_orbit(keplerian_orbit: KeplerianExoplanet,
 
 #  ------------------------------------------------  #
 
+def plot_3d_precomputed_orbit(object_with_computed_orbit: MassiveObject,
+                              time: u.Quantity=None,
+                              axes_object: plt.Axes=None) -> dict:
+    """Tool to plot positions along a Keplerian orbit
+
+    Parameters
+    ----------
+    object_with_computed_orbit
+        Class instance to be plotted
+    time
+        Optional argument to provide a specific time for the plot, otherwise plots at 0 sec
+    axes_object
+        Optional axes object to plot object_with_computed_orbit onto
+
+    Returns
+    -------
+    dict
+        Returns a dictionary of axes objects that provide access to the various orbital plots.
+
+    """
+    all_plots_dict = {}
+    if not isinstance(object_with_computed_orbit, MassiveObject):
+        raise TypeError("Must provide a MassiveObject class for plotting.")
+    if isinstance(axes_object, plt.Axes):  # Is being called from something else, typically
+        ax = axes_object
+    else:  # Is being used as a stand-alone function, typically
+        fig = plt.figure(figsize=plt.figaspect(1))
+        # ax = fig.gca(projection='3d')
+        ax = fig.add_subplot(111, projection='3d')
+        ax.set_aspect('equal')
+
+    positions = object_with_computed_orbit._all_positions
+    time_domain = object_with_computed_orbit._time_domain
+
+    if time is None:
+        x0, y0, z0 = positions[0]
+    elif time <= time_domain[-1]:
+        x0 = np.interp(time, time_domain, positions[:, 0])
+        y0 = np.interp(time, time_domain, positions[:, 1])
+        z0 = np.interp(time, time_domain, positions[:, 2])
+    else:
+        time %= time_domain[-1]
+
+    all_plots_dict['planet_pos'] = ax.scatter(x0, y0, z0,
+                                              c=object_with_computed_orbit.point_color,
+                                              s=object_with_computed_orbit.point_size,
+                                              label=object_with_computed_orbit.name,
+                                              marker=object_with_computed_orbit.display_marker)  #
+
+    all_plots_dict['planet_orbit'] = ax.plot(positions[:, 0], positions[:, 1], positions[:, 2],
+                                             color=object_with_computed_orbit.path_color,
+                                             lw=object_with_computed_orbit.linewidth, zorder=1)
+
+    return all_plots_dict
+
+
+#  ------------------------------------------------  #
+
 def render_3d_planetary_system(star_system: DeltaStar,
                                savefile: str=None,
                                show_earth_vector: bool=True) -> dict:
@@ -105,8 +165,8 @@ def render_3d_planetary_system(star_system: DeltaStar,
 
     """
 
-    if not isinstance(star_system, DeltaStar):
-        raise TypeError("star_system must be an instance of Star")
+    if not isinstance(star_system, MassiveObject):
+        raise TypeError("star_system must be an instance of MassiveObject")
 
     fig = plt.figure(figsize=plt.figaspect(1))
     # ax = fig.gca(projection='3d')
@@ -119,9 +179,15 @@ def render_3d_planetary_system(star_system: DeltaStar,
     with quantity_support():
         orbiting_bodies = star_system.get_all_orbiting_objects()
         if len(orbiting_bodies) > 0:
+            representative_distance = 0
             for i, body in enumerate(orbiting_bodies):
-                system_plot_dict[i] = plot_3d_keplerian_orbit(body, axes_object=ax)
-            representative_distance = (orbiting_bodies[-1].semimajor_axis.to(u.au)).value
+                if body._all_positions is not None:
+                    system_plot_dict[i] = plot_3d_precomputed_orbit(body, axes_object=ax)
+                    representative_distance = max(representative_distance,
+                                                  np.max(np.abs(body._all_positions.to(u.au).value)))
+                elif isinstance(body, KeplerianOrbit):
+                    system_plot_dict[i] = plot_3d_keplerian_orbit(body, axes_object=ax)
+                    representative_distance = max(representative_distance, body.semimajor_axis.to(u.au).value)
         else:
             try:
                 representative_distance = star_system.radius.to(u.au).value*3
@@ -130,18 +196,25 @@ def render_3d_planetary_system(star_system: DeltaStar,
 
         if show_earth_vector:
             # Show which direction Earth is located at:
-            earth_direction_vector = star_system.earth_direction_vector
-            system_plot_dict['earth_pointer'] = ax.quiver(0, 0, 0,
-                      representative_distance * earth_direction_vector[0],
-                      representative_distance * earth_direction_vector[1],
-                      representative_distance * earth_direction_vector[2],
-                      color='r', arrow_length_ratio=.1)
+            try:
+                earth_direction_vector = star_system.earth_direction_vector
+                system_plot_dict['earth_pointer'] = ax.quiver(0, 0, 0,
+                          representative_distance * earth_direction_vector[0],
+                          representative_distance * earth_direction_vector[1],
+                          representative_distance * earth_direction_vector[2],
+                          color='r', arrow_length_ratio=.1)
+            except AttributeError:
+                warnings.warn("No Earth direction vector specified for an object, probably not a problem...",
+                              AstropyUserWarning)
         try:
             star_radius = star_system.radius.to(u.au)
         except AttributeError:
             star_radius = (.5*u.R_sun).to(u.au)
-        system_plot_dict['star_surface'] = plot_sphere(ax_object=ax, rad=star_radius,
-                                                       mesh_res=20, sphere_color=star_system.point_color, alpha=.5)
+
+        # Negative radii are used to block plotting of the star surface
+        if star_radius >= 0:
+            system_plot_dict['star_surface'] = plot_sphere(ax_object=ax, rad=star_radius,
+                                                           mesh_res=20, sphere_color=star_system.point_color, alpha=.5)
 
         ax.set_xbound(-representative_distance, representative_distance)
         ax.set_ybound(-representative_distance, representative_distance)
@@ -184,15 +257,22 @@ def animate_3d_planetary_system(star_system: Star,
     -------
 
     """
-    if not isinstance(star_system, Star):
-        raise TypeError("star_system must be an instance of Star")
+    if not isinstance(star_system, MassiveObject):
+        raise TypeError("star_system must be an instance of MassiveObject")
 
     all_plots_dict = render_3d_planetary_system(star_system,
                                                 savefile='return_axes', show_earth_vector=show_earth_vector)
     fig = all_plots_dict['system_plot']
-    all_exos = star_system.get_all_orbiting_objects()
+    all_satellites = star_system.get_all_orbiting_objects()
 
-    all_orbital_periods = [body.orbital_period for body in all_exos]
+    all_orbital_periods = []
+    for body in all_satellites:
+        # First see if it has a pre-computed path -- this would override Keplerian parameters
+        try:
+            all_orbital_periods.append(body._time_domain[-1])
+        # If not, then see if it has a Keplerian orbital period:
+        except TypeError:
+            all_orbital_periods.append(body.orbital_period)
     # print('all_orbital_periods: ', all_orbital_periods)
     max_time = max(all_orbital_periods)
 
@@ -200,7 +280,7 @@ def animate_3d_planetary_system(star_system: Star,
     # print('display_times: ', display_times)
 
     system_animation = animation.FuncAnimation(fig, update_orbits,
-                                               fargs=(all_plots_dict, all_exos),
+                                               fargs=(all_plots_dict, all_satellites),
                                                frames=display_times,
                                                interval=10,
                                                repeat=True, blit=False)
@@ -214,7 +294,7 @@ def animate_3d_planetary_system(star_system: Star,
 
 #  ------------------------------------------------  #
 
-def update_orbits(frame: float, plot_dict: dict, exoplanet_list: list):
+def update_orbits(frame: float, plot_dict: dict, orbiting_bodies_list: list):
     """Used in animations to move planets within an exoplanet system.
 
     Parameters
@@ -223,15 +303,21 @@ def update_orbits(frame: float, plot_dict: dict, exoplanet_list: list):
         A value passed to update the planet positions
     plot_dict
         A dictionary of axes with a key of 'planet_pos' that contains their 3d scatter plots
-    exoplanet_list
-        The list of exoplanets that are to be plotted
+    orbiting_bodies_list
+        The list of bodies that are to be plotted
 
     Returns
     -------
 
     """
-    for key, exoplanet in enumerate(exoplanet_list):
-        new_position = exoplanet.calc_xyz_at_time_au_lw(frame)
+    for key, body in enumerate(orbiting_bodies_list):
+        try:
+            _x = np.interp(frame, body._time_domain, body._all_positions[:, 0])
+            _y = np.interp(frame, body._time_domain, body._all_positions[:, 1])
+            _z = np.interp(frame, body._time_domain, body._all_positions[:, 2])
+            new_position = [_x, _y, _z]
+        except TypeError:
+            new_position = body.calc_xyz_at_time_au_lw(frame)
         plot_dict[key]['planet_pos']._offsets3d = ([new_position[0]], [new_position[1]], [new_position[2]])
 
 
