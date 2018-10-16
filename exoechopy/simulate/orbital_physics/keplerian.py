@@ -14,7 +14,7 @@ from astropy.utils.exceptions import AstropyUserWarning
 
 from ...utils import *
 
-__all__ = ['KeplerianOrbit', 'true_anomaly_from_mean']
+__all__ = ['KeplerianOrbit', 'true_anomaly_from_mean', 'reduced_keplerian_to_2body']
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
@@ -392,3 +392,36 @@ def true_anomaly_from_mean(mean_anomaly, e):
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
+
+def reduced_keplerian_to_2body(body1: KeplerianOrbit,
+                               mass1: u.Quantity,
+                               mass2: u.Quantity) -> (np.ndarray, np.ndarray, np.ndarray, np.ndarray):
+    """Generates 2-body position and velocities from a KeplerianOrbit in reduced mass coordinates
+
+    Parameters
+    ----------
+    body1
+        Initialized orbital object
+    mass1
+        Mass of the first object
+    mass2
+        Mass of the second object
+
+    Returns
+    -------
+    (np.ndarray, np.ndarray, np.ndarray, np.ndarray)
+        Body1 new position, Body2 new position, Body1 new velocity, Body2 new velocity
+    """
+    relative_position = body1.position
+    relative_velocity = body1.velocity
+
+    total_mass = mass1 + mass2
+
+    # Correct for center of mass positions of planet, star:
+    vect_1 = mass2 * relative_position / total_mass
+    vect_2 = -mass1 * relative_position / total_mass
+
+    velocity_1 = relative_velocity / (1 + mass1 / mass2)
+    velocity_2 = velocity_1 - relative_velocity
+
+    return vect_1, vect_2, velocity_1, velocity_2

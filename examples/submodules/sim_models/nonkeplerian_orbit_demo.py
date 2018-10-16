@@ -15,8 +15,8 @@ from exoechopy.utils import u_str
 
 def run():
 
-    print("""In addition to simple Keplerian motion, exoechopy has a 6th order symplectic physics engine.
-    This allows more complete simulation, including the ability to estimate Doppler parameters.
+    print("""In addition to simple Keplerian motion, exoechopy has a 6th order symplectic physics solver.
+    This allows more complete simulation, including the ability to estimate Doppler parameters more accurately.
     
     In the Keplerian motion, the star is not treated as moving, but the SymplecticSolver accurately models
     the star wobble.  
@@ -70,7 +70,7 @@ def run():
     w_1 = 0*u.deg      # arg of periapsis
     m0_1 = 0*u.deg      # initial anomaly
     planet_mass = 30.*u.M_jup
-    name_1 = "e: "+str(e_1)+", a: "+u_str(a_1)+", i: "+u_str(i_1)+", Ω: "+u_str(L_1)+", ω: "+u_str(w_1)+", M0: "+u_str(m0_1)
+    name_1 = "Exo_1"
     Planet1 = eep.simulate.KeplerianExoplanet(semimajor_axis=a_1,
                                               eccentricity=e_1,
                                               inclination=i_1,
@@ -80,10 +80,17 @@ def run():
                                               point_color='k', path_color='dimgray',
                                               name=name_1,
                                               mass=planet_mass,
-                                              star_mass=star_mass)
+                                              star_mass=star_mass+planet_mass)
 
-    MyStar1.position *= 0
-    MyStar1.velocity *= 0
+    planet_pos, star_pos, planet_vel, star_vel = eep.simulate.reduced_keplerian_to_2body(Planet1,
+                                                                                         planet_mass,
+                                                                                         star_mass)
+
+    Planet1.position = planet_pos
+    Planet1.velocity = planet_vel
+
+    MyStar1.position = star_pos
+    MyStar1.velocity = star_vel
 
     star_system = eep.simulate.MultiStarSystem()
     star_system.add_orbiting_object(MyStar1)
@@ -144,7 +151,6 @@ def run():
 
 # ******************************************************************************************************************** #
 # ************************************************  TEST & DEMO CODE  ************************************************ #
-
 
 if __name__ == "__main__":
     run()

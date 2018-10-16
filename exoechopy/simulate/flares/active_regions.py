@@ -6,6 +6,8 @@ This module provides active region classes and methods for stars.
 import warnings
 import numpy as np
 import pandas as pd
+import multiprocessing as multi
+
 from scipy import stats
 from astropy import units as u
 from astropy.utils.exceptions import AstropyUserWarning
@@ -308,7 +310,7 @@ class FlareActivity:
 
             # Repack the original units with the computed values using the fancy dict keywords:
             flare_list = [self._flare_type(**dict(zip(self._flare_new_kwargs,
-                                                      [ai*ui if ui!='str' else ai
+                                                      [ai*ui if ui != 'str' else ai
                                                        for ai, ui in zip(arg_i, self._kw_units)])))
                           for arg_i in arg_dataframe.values]
         else:
@@ -758,7 +760,13 @@ class ActiveRegion:
 
     # ------------------------------------------------------------------------------------------------------------ #
     def _generate_n_flares(self, n_flares: int):
-        # all_flares = FlareCollection()
+        """Produces a FlareCollection with n_flares
+
+        Parameters
+        ----------
+        n_flares
+            Number of flares to include in the FlareCatalog
+        """
         activity_selections = np.random.choice(len(self._flare_activity_list),
                                                size=n_flares,
                                                p=self._flare_activity_ratios)
@@ -768,6 +776,28 @@ class ActiveRegion:
                 all_flares = FlareCollection(activity.generate_n_flares(n_counts))
             else:
                 all_flares.append(activity.generate_n_flares(n_counts))
+        all_flares.assign_collection_properties('activity_selections', activity_selections)
+        self._all_flares = all_flares
+
+    def _generate_n_flares_multicore(self,
+                                     n_flares: int,
+                                     num_cores: int=multi.cpu_count()-1):
+        """Not yet used.  May be useful in the future."""
+        activity_selections = np.random.choice(len(self._flare_activity_list),
+                                               size=n_flares,
+                                               p=self._flare_activity_ratios)
+        flare_counts = np.bincount(activity_selections, minlength=len(self._flare_activity_list))
+        all_flares = FlareCollection(activity_selections[0].generate_n_flares(flare_counts[0]))
+
+        if len(activity_selections) > 1:
+            flare_pool = multi.Pool(processes=num_cores)
+            flare_pool_list = [flare_pool.apply_async(activity.generate_n_flares,
+                                                      args=(ni,),
+                                                      callback=all_flares.append)
+                               for activity, ni in zip(self._flare_activity_list[1:], flare_counts[1:])]
+        flare_pool.close()
+        flare_pool.join()
+
         all_flares.assign_collection_properties('activity_selections', activity_selections)
         self._all_flares = all_flares
 
