@@ -17,13 +17,13 @@ def run():
     star_radius = .6 * u.R_sun
 
     #  Initialize an exoplanet as KeplerianExoplanet to get an approximately Keplerian orbit:
-    e_1 = 0.            # eccentricity
+    e_1 = 0.3            # eccentricity
     a_1 = 0.03 * u.au   # semimajor axis
-    i_1 = 0 * u.deg     # inclination
-    L_1 = 0 * u.deg     # longitude
-    w_1 = 0 * u.deg     # arg of periapsis
+    i_1 = 47 * u.deg     # inclination
+    L_1 = 22 * u.deg     # longitude
+    w_1 = 97 * u.deg     # arg of periapsis
     m0_1 = 0 * u.deg    # initial anomaly
-    planet_mass = 30. * u.M_jup
+    planet_mass = 3. * u.M_jup
 
     name_1 = "Exo1"
 
@@ -42,7 +42,6 @@ def run():
                                               mass=planet_mass,
                                               star_mass=star_mass+planet_mass)
 
-
     planet_pos, star_pos, planet_vel, star_vel = eep.simulate.reduced_keplerian_to_2body(Planet1,
                                                                                          planet_mass,
                                                                                          star_mass)
@@ -54,10 +53,12 @@ def run():
                                 position=star_pos, velocity=star_vel,
                                 name="My Star 1", point_color='saddlebrown', path_color='burlywood')
     # Initialize the solver:
-    y6solver = eep.simulate.SymplecticSolver(MyStar1, Planet1, dt=100 * u.s)
+    timestep = 10 * u.s
+    num_periods = 8
+    y6solver = eep.simulate.SymplecticSolver(MyStar1, Planet1, dt=timestep)
     # Run the solver:
     period = (2 * np.pi * np.sqrt(a_1 ** 3 / (const.G * (star_mass+planet_mass)))).decompose()
-    y6solver.calculate_orbits(2*period, steps_per_save=10)
+    y6solver.calculate_orbits(num_periods*period, steps_per_save=100)
 
     # Visualize results:
     # Since we have two stars, we need to hold them in an appropriate container for processing purposes:
@@ -71,7 +72,7 @@ def run():
     plt.plot(time_domain/period, (star_positions[2] / star_radius).decompose(), color='g', lw=1, ls='-.', label="z-pos")
     plt.xlabel("Time (t/T)")
     plt.ylabel("Displacement (stellar radii)")
-    plt.title("Star displacement in stellar radii vs time")
+    plt.title("Star displacement in stellar radii vs time, "+eep.utils.u_str(timestep))
     plt.legend()
     plt.show()
 
@@ -79,7 +80,7 @@ def run():
 
     plt.plot(time_domain/period, 100*(a_1.value-np.linalg.norm(planet_star_separation, axis=0))/a_1.value,
              color='k', lw=1)
-    plt.title("Planet-star separation vs time")
+    plt.title("Planet-star separation vs time, "+eep.utils.u_str(timestep))
     plt.xlabel("Time (t/T)")
     plt.ylabel("Relative error (%)")
     plt.show()
@@ -96,13 +97,15 @@ def run():
                                               star_mass=star_mass+planet_mass)
     keplerian_positions = np.transpose(np.array([Planet2.calc_xyz_at_time(ti) for ti in time_domain]))
 
-    plt.plot(time_domain / period, keplerian_positions[0] - planet_star_separation[0].to(u.au).value,
+    plt.plot(time_domain / period, u.Quantity(keplerian_positions[0] - planet_star_separation[0].to(u.au).value, u.au).to(u.m),
              color='b', lw=1, ls='-', label="x-err")
-    plt.plot(time_domain / period, keplerian_positions[1] - planet_star_separation[1].to(u.au).value,
+    plt.plot(time_domain / period, u.Quantity(keplerian_positions[1] - planet_star_separation[1].to(u.au).value, u.au).to(u.m),
              color='r', lw=1, ls='--', label="y-err")
-    plt.plot(time_domain / period, keplerian_positions[2] - planet_star_separation[2].to(u.au).value,
+    plt.plot(time_domain / period, u.Quantity(keplerian_positions[2] - planet_star_separation[2].to(u.au).value, u.au).to(u.m),
              color='g', lw=1, ls='-.', label="z-err")
-    plt.title("Difference between keplerian approximation and integration")
+    plt.title("Difference between Keplerian approximation and integration, "+eep.utils.u_str(timestep))
+    plt.xlabel("Time (t/T)")
+    plt.ylabel("Difference (m)")
     plt.show()
 
     #  =============================================================  #

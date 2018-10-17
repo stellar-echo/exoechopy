@@ -295,7 +295,7 @@ class KeplerianOrbit(Plottable):
 
         mean_anomaly = (self._orbital_frequency * t0 + self._initial_anomaly).to(u.rad).value
         root = optimize.newton(kepler, mean_anomaly, args=(self._eccentricity, mean_anomaly),
-                               tol=1.48e-09, maxiter=500,
+                               tol=1.48e-11, maxiter=1000,
                                fprime=D_kepler, fprime2=D2_kepler)
         root %= 2 * np.pi
         theta = 2 * np.arctan(self._eccentric_factor * np.tan(root / 2))
