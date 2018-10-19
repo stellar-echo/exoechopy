@@ -354,7 +354,10 @@ class Star(DeltaStar):
             keys = updated_active_region.sub_dict_keys
             for k in keys:
                 times = updated_active_region[k]['flare_times']
-                d_long_array = self.get_rotation(times, lat=lat_i)
+                if lat_i is not None:
+                    d_long_array = self.get_rotation(times, lat=lat_i)
+                else:
+                    d_long_array = self.get_rotation(times)
                 updated_active_region[k]['flare_longitude_array'] += d_long_array
                 updated_active_region[k]['flare_vector_array'] = \
                     self.radius*vect_from_spherical_coords(updated_active_region[k]['flare_longitude_array'],

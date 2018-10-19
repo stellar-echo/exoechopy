@@ -875,7 +875,10 @@ class ActiveRegion:
     # ------------------------------------------------------------------------------------------------------------ #
     @property
     def center_of_region(self):
-        return self._region.center_of_region
+        if self._region is not None:
+            return self._region.center_of_region
+        else:
+            return None, None
 
 
 

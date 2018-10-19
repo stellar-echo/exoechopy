@@ -88,7 +88,6 @@ class MassiveObject:
         if self._position_interpolator is None:
             self._position_interpolator = interpolate.interp1d(self._time_domain, self._all_positions,
                                                                axis=0, kind='quadratic', copy=False, assume_sorted=True)
-        print(time, self._time_domain[-1])
         return u.Quantity(self._position_interpolator(time), self._all_positions.unit)
 
     def get_position_at_time_lw(self, time: float) -> np.ndarray:

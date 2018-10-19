@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 def run():
 
     print("""
-    This module repeats echo_demo_2, but with the symplectic solver.
+    This module repeats echo_demo_2, but with the symplectic solver and a star with a radius.
     """)
 
     telescope_area = np.pi * (4*u.m)**2
@@ -33,6 +33,7 @@ def run():
     spectral_band = eep.simulate.spectral.JohnsonPhotometricBand('U')
     emission_type = eep.simulate.spectral.SpectralEmitter(spectral_band, magnitude=16)
     star_mass = 1 * u.M_sun
+    star_radius = 1*u.R_sun
 
     # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
     #  Create a planet
@@ -65,7 +66,7 @@ def run():
 
     #  =============================================================  #
     #  Create a star
-    MyStar = eep.simulate.DeltaStar(spectral_type=emission_type, point_color='saddlebrown', mass=star_mass)
+    MyStar = eep.simulate.Star(radius=star_radius, spectral_type=emission_type, point_color='saddlebrown', mass=star_mass)
 
     # Pole-on view
     MyStar.set_view_from_earth(0*u.deg, 0*u.deg)
@@ -93,7 +94,8 @@ def run():
     occurrence_freq_pdf = stats.uniform(loc=50/observation_cadence.value,
                                         scale=scale_factor-50/observation_cadence.value)
     Starspot = eep.simulate.active_regions.ActiveRegion(flare_activity=MyExpFlareActivity,
-                                                        occurrence_freq_pdf=occurrence_freq_pdf)
+                                                        occurrence_freq_pdf=occurrence_freq_pdf,
+                                                        region=eep.simulate.Region())
 
     MyStar.add_active_regions(Starspot)
 
