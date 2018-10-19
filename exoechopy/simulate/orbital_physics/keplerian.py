@@ -316,6 +316,22 @@ class KeplerianOrbit(Plottable):
         """
         return u.Quantity(self.calc_xyz_at_time_au_lw(t0), u.au)
 
+    def calc_vel_at_time(self, t0: u.Quantity) -> u.Quantity:
+        """Estimates the velocity with a central difference calculation
+
+        Parameters
+        ----------
+        t0
+            Time to compute the velocity
+
+        Returns
+        -------
+        u.Quantity
+            Velocity at the given time
+        """
+        dt = .05 * u.s
+        return (self.calc_xyz_at_time(t0+dt) - self.calc_xyz_at_time(t0-dt)) / (2 * dt)
+
     # ------------------------------------------------------------------------------------------------------------ #
     def calc_xyz_ascending_node_au(self):
         """
@@ -414,6 +430,9 @@ def reduced_keplerian_to_2body(body1: KeplerianOrbit,
     """
     relative_position = body1.position
     relative_velocity = body1.velocity
+
+    mass1 = mass1.to(lw_mass_unit)
+    mass2 = mass2.to(lw_mass_unit)
 
     total_mass = mass1 + mass2
 

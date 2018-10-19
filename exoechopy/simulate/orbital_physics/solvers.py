@@ -19,21 +19,89 @@ from astropy.utils.exceptions import AstropyUserWarning
 from ...utils import *
 from .yoshida_coeffs import *
 
-__all__ = ['SymplecticSolver', 'accel_no_mass', 'accel_no_mass_array']
+__all__ = ['BaseSolver', 'SymplecticSolver', 'accel_no_mass', 'accel_no_mass_array']
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 G_const = const.G.to(lw_distance_unit**3/lw_mass_unit/lw_time_unit**2).value
 
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
-class SymplecticSolver:
+
+class BaseSolver:
     """
-    Base class for numerically computing many-body orbits, solved with 6th order Yoshida integration.
+    Base class for numerically computing many-body orbits, to be inherited.
+    """
+    def __init__(self,
+                 dt: u.Quantity = None,
+                 steps_per_save: int = 1):
+        """Base solver class with a designated timestep and overridable methods
+
+        Parameters
+        ----------
+        dt
+            Time step
+        """
+        self._dt = None
+        self._dt_lw = None
+        self.update_timestep(dt)
+        self.steps_per_save = steps_per_save
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    @property
+    def steps_per_save(self):
+        return self._steps_per_save
+
+    @steps_per_save.setter
+    def steps_per_save(self, steps_per_save):
+        self._steps_per_save = steps_per_save
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    def update_timestep(self, dt: u.Quantity):
+        """Sets the timestep for the solver
+
+        Parameters
+        ----------
+        dt
+            New timestep
+        """
+        if isinstance(dt, u.Quantity):
+            self._dt = dt.to(lw_time_unit)
+        elif isinstance(dt, float):
+            self._dt = u.Quantity(dt, u.s).to(lw_time_unit)
+            warnings.warn(
+                "Casting SymplecticSolver timestep dt, input as " + str(dt) + ", to " + u_str(lw_time_unit),
+                AstropyUserWarning)
+        self._dt_lw = self._dt.value
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    def calculate_orbits(self,
+                         total_time: u.Quantity):
+        """Calls the solver to perform the computation
+
+        This should be overwritten by inherited class
+
+        Parameters
+        ----------
+        total_time
+            Time to integrate over
+
+        """
+        pass
+
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
+
+class SymplecticSolver(BaseSolver):
+    """
+    Solved with 6th order Yoshida integration
     """
     # ------------------------------------------------------------------------------------------------------------ #
     def __init__(self,
                  *args,
-                 dt: u.Quantity = None):
+                 dt: u.Quantity = None,
+                 steps_per_save: int = 1
+                 ):
         """
         Accepts a list of planets, stars, and other massive objects and a timestep
 
@@ -49,12 +117,12 @@ class SymplecticSolver:
         ----------
         dt
             Time step
+        steps_per_save
+            How often to save the data
         args
             List of orbital objects, such as planet or star classes
         """
-        self._dt = None
-        self._dt_lw = None
-        self.update_timestep(dt)
+        super().__init__(dt=dt, steps_per_save=steps_per_save)
 
         self._all_objects = args
 
@@ -77,23 +145,6 @@ class SymplecticSolver:
         self._accel_state = None
 
     # ------------------------------------------------------------------------------------------------------------ #
-    def update_timestep(self, dt: u.Quantity):
-        """Sets the timestep for the solver
-
-        Parameters
-        ----------
-        dt
-            New timestep
-        """
-        if isinstance(dt, u.Quantity):
-            self._dt = dt.to(lw_time_unit)
-        elif isinstance(dt, float):
-            self._dt = u.Quantity(dt, u.s).to(lw_time_unit)
-            warnings.warn("Casting SymplecticSolver timestep dt, input as " + str(dt) + ", to "+u_str(lw_time_unit),
-                          AstropyUserWarning)
-        self._dt_lw = self._dt.value
-
-    # ------------------------------------------------------------------------------------------------------------ #
     def _reset_system_momentum(self):
         """Forces the system's total momentum to zero to prevent walk-off due to initial conditions
 
@@ -109,8 +160,7 @@ class SymplecticSolver:
 
     # ------------------------------------------------------------------------------------------------------------ #
     def calculate_orbits(self,
-                         total_time: u.Quantity,
-                         steps_per_save: int = 1):
+                         total_time: u.Quantity):
         """Runs the solver over total_time (to within dt) and saves the position every steps_per_save timesteps
 
         Parameters
@@ -123,10 +173,9 @@ class SymplecticSolver:
 
         """
         # Initialize parameters
-        num_steps = int((total_time/self._dt).value)
-        num_steps -= num_steps % steps_per_save
-
-        num_saves = num_steps // steps_per_save
+        num_steps = int(np.ceil((total_time/self._dt).decompose().value))
+        num_saves = int(np.ceil(num_steps/self.steps_per_save)) + 1
+        num_steps = num_saves * self.steps_per_save
 
         pos_array = np.zeros((num_saves, self._n_bodies, 3))
         self._pos_state = np.zeros((self._n_bodies, 3))
@@ -135,7 +184,7 @@ class SymplecticSolver:
         self._accel_state = np.zeros((self._n_bodies, 3))
 
         # Generate the time domain, save into each object, and initialize the vectors
-        time_domain = self._dt*steps_per_save*np.arange(num_saves)
+        time_domain = self._dt*self.steps_per_save*np.arange(num_saves)
         for o_i, obj in enumerate(self._all_objects):
             obj._time_domain = time_domain
             pos_array[0, o_i] = obj.position.to(lw_distance_unit)
@@ -148,7 +197,7 @@ class SymplecticSolver:
             # Do the actual integration:
             self._yoshida_6_integrate()
             # Do we save this step?
-            if step % steps_per_save == 0:
+            if step % self.steps_per_save == 0:
                 pos_array[ct] = self._pos_state
                 vel_array[ct] = self._vel_state
                 ct += 1

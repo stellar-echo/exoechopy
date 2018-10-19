@@ -193,6 +193,5 @@ class KeplerianExoplanet(KeplerianOrbit, Exoplanet):
 
         if self.parent_mass is not None:
             self._position = self.calc_xyz_at_time(0*u.s)
-            dt = .05*u.s
-            self._velocity = (self.calc_xyz_at_time(dt) - self.calc_xyz_at_time(-dt))/(2*dt)
+            self._velocity = self.calc_vel_at_time(0*u.s)
 

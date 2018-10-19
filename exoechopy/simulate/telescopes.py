@@ -8,11 +8,13 @@ import warnings
 import numpy as np
 from pathlib import Path
 from astropy import units as u
+import astropy.constants as const
 from astropy.utils.exceptions import AstropyUserWarning
 
 from .stars import *
 from .flares.active_regions import *
 from ..utils import *
+from .orbital_physics import BaseSolver
 
 __all__ = ['Telescope']
 
@@ -96,8 +98,21 @@ class Telescope:
         if self._area and self._efficiency and self._cadence and self._observation_target:
             self._update_flux()
 
+        # Used to notify a few functions to look for pre-computed data, instead of using Keplerian approximation
+        self.SOLVER_FLAG = False
+
     # ------------------------------------------------------------------------------------------------------------ #
-    def _prep_observations(self, cadence=None):
+    def _prep_observations(self,
+                           cadence=None,
+                           observation_time=None,
+                           solver=None):
+
+        self.observation_time = observation_time
+
+        if solver is not None and observation_time is not None:
+            solver.calculate_orbits(observation_time)
+            self.SOLVER_FLAG = True
+
         if cadence is not None:
             self.cadence = cadence
         if self.cadence is None:
@@ -110,7 +125,8 @@ class Telescope:
     def prepare_continuous_observational_run(self,
                                              observation_time: u.Quantity,
                                              cadence: u.Quantity=None,
-                                             print_report: bool=False):
+                                             print_report: bool=False,
+                                             solver: BaseSolver=None):
         """Prepares to generate a synthetic light curve over a pre-determined period of time.
 
         Parameters
@@ -121,12 +137,10 @@ class Telescope:
             Observation cadence (will overwrite initialized cadence!)
         print_report
             Whether or not to print() some info about the observation
-
+        solver
+            Optional numerical solver for computing orbits
         """
-
-        self.observation_time = observation_time
-
-        self._prep_observations(cadence=cadence)
+        self._prep_observations(cadence=cadence, observation_time=observation_time, solver=solver)
 
         #  Determine observational parameters:
         self._time_domain = np.arange(0., self.observation_time.to(lw_time_unit).value,
@@ -149,7 +163,8 @@ class Telescope:
     def prepare_observe_n_flares(self,
                                  num_flares: int,
                                  duration: u.Quantity=None,
-                                 cadence: u.Quantity=None):
+                                 cadence: u.Quantity=None,
+                                 solver: BaseSolver=None):
         """Prepares to generate N observable flares.
 
         If a duration is provided, will include background variability associated with the star's activity.
@@ -163,9 +178,9 @@ class Telescope:
             Optional duration, tunes background variability to realistically match
         cadence
             Observation cadence (will overwrite initialized cadence!)
-
+        solver
+            Optional numerical solver for computing orbits
         """
-        self._prep_observations(cadence=cadence)
         #  Generate flares
         if duration is None:
             exo_list = self._observation_target.get_all_orbiting_objects()
@@ -176,6 +191,8 @@ class Telescope:
                     duration = 1/self._observation_target.rotation_rate
                 except AttributeError:
                     duration = num_flares*u.Quantity(60, u.s)
+
+        self._prep_observations(cadence=cadence, observation_time=duration, solver=solver)
 
         self._all_flares = self._observation_target.generate_n_flares_at_times(np.linspace(0,
                                                                                duration.to(lw_time_unit).value,
@@ -198,6 +215,8 @@ class Telescope:
         save_diagnostic_data
             Whether or not to store additional data about the lightcurve
         """
+
+        # TODO Handle multi-star systems
 
         flares = self._all_flares.all_flares
         flare_times = self._all_flares.all_flare_times
@@ -261,17 +280,28 @@ class Telescope:
             #  Calculate echoes from exoplanets and what is then observed at Earth:
             for e_i, exoplanet in enumerate(exo_list):
                 # Find out where the exoplanet was at the time of the flare
-                # Note, this ignores motion that occurs as the light from the flare travels to the exoplanet
-                exo_vect = exoplanet.calc_xyz_at_time(flare_time)
+                if not self.SOLVER_FLAG:
+                    exo_vect = exoplanet.calc_xyz_at_time(flare_time)
+                    exo_vel = exoplanet.calc_vel_at_time(flare_time)
+                else:
+                    obs_vect = self.observation_target.get_position_at_time(flare_time)
+                    obs_vel = self.observation_target.get_velocity_at_time(flare_time)
+                    exo_vect = exoplanet.get_position_at_time(flare_time) - obs_vect
+                    exo_vel = exoplanet.get_velocity_at_time(flare_time) - obs_vel
 
                 if flare_vect is not None:
+                    # Just for completeness, move the planet slightly based on the light travel time from the star:
+                    exo_vect += exo_vel * u.Quantity(np.linalg.norm(exo_vect - flare_vect),
+                                                     exo_vect.unit) / const.c
                     # Determine the visibility of the flare from the exoplanet:
                     flare_exo_angle = u.Quantity(angle_between_vectors(exo_vect.value, flare_vect.value), u.rad)
                     exo_flare_limb = target.star_limb(flare_exo_angle)
                     if save_diagnostic_data:
                         all_exoplanet_flare_angles[f_i, e_i] = flare_exo_angle
                 else:
-                    flare_vect = np.zeros(3)
+                    flare_vect = u.Quantity(np.zeros(3), exo_vect.unit)
+                    # Just for completeness, move the planet slightly based on the light travel time from the star:
+                    exo_vect += exo_vel * u.Quantity(np.linalg.norm(exo_vect - flare_vect), exo_vect.unit) / const.c
                     exo_flare_limb = 1
 
                 # If flare is on the other side of star from planet, no need to do more math.  Otherwise:

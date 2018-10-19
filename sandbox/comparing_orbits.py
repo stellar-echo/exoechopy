@@ -55,10 +55,10 @@ def run():
     # Initialize the solver:
     timestep = 10 * u.s
     num_periods = 8
-    y6solver = eep.simulate.SymplecticSolver(MyStar1, Planet1, dt=timestep)
+    y6solver = eep.simulate.SymplecticSolver(MyStar1, Planet1, dt=timestep, steps_per_save=100)
     # Run the solver:
     period = (2 * np.pi * np.sqrt(a_1 ** 3 / (const.G * (star_mass+planet_mass)))).decompose()
-    y6solver.calculate_orbits(num_periods*period, steps_per_save=100)
+    y6solver.calculate_orbits(num_periods*period)
 
     # Visualize results:
     # Since we have two stars, we need to hold them in an appropriate container for processing purposes:

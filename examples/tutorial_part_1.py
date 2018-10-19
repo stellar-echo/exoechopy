@@ -57,7 +57,7 @@ print("""
 Using the SymplecticSolver, it's possible to handle more complex systems including multi-planet and multi-star options.
 
 #  =============================================================  #
-The simulate.orbital_physics.symplectic.py module demo:
+The simulate.orbital_physics.solvers.py module demo:
 """)
 
 nonkeplerian_demo.run()
