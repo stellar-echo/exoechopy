@@ -216,6 +216,34 @@ class MassiveObject:
                           + u_str(lw_distance_unit/lw_time_unit), AstropyUserWarning)
 
     # ------------------------------------------------------------------------------------------------------------ #
+    def add_orbiting_object(self, new_object: 'MassiveObject'):
+        """Add an orbiting object to the body, e.g., add an exoplanet to a star
+
+        Parameters
+        ----------
+        new_object
+            MassiveObject object to be added to the parent MassiveObject
+        """
+        if self._mass is None:
+            warnings.warn("Adding an orbital body to a Star that has no mass.", AstropyUserWarning)
+        if isinstance(new_object, MassiveObject):
+            new_object.parent_mass = self._mass
+            self._orbiting_bodies_list.append(new_object)
+        else:
+            raise TypeError("Currently, orbiting objects must be MassiveObject class instance")
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    def get_all_orbiting_objects(self) -> ['MassiveObject']:
+        """Return a *copy* of the list of exoplanets held by the Star
+
+        Returns
+        -------
+        [*MassiveObject]
+            List of MassiveObject instances
+        """
+        return self._orbiting_bodies_list.copy()
+
+    # ------------------------------------------------------------------------------------------------------------ #
     @property
     def parent_mass(self):
         """Mass of the object that this object orbits.
@@ -246,37 +274,6 @@ class MassiveObject:
             else:
                 self._parent_mass = u.Quantity(parent_mass, u.M_sun)
                 warnings.warn("Casting star mass, input as " + str(parent_mass) + ", to M_sun", AstropyUserWarning)
-            if self._parent_mass.value > 0:
-                self._grav_param = self._parent_mass * const.G
-                self._orbital_period = (2 * np.pi * self._semimajor_axis**1.5 * np.sqrt(1/self._grav_param)).decompose().to(u.s)
-                self._orbital_frequency = np.sqrt(self._grav_param/self._semimajor_axis**3).decompose().to(u.Hz)*u.rad
-
-    # ------------------------------------------------------------------------------------------------------------ #
-    def add_orbiting_object(self, new_object: 'MassiveObject'):
-        """Add an orbiting object to the body, e.g., add an exoplanet to a star
-
-        Parameters
-        ----------
-        new_object
-            MassiveObject object to be added to the parent MassiveObject
-        """
-
-        if isinstance(new_object, MassiveObject):
-            new_object.parent_mass = self._mass
-            self._orbiting_bodies_list.append(new_object)
-        else:
-            raise TypeError("orbiting objects must be MassiveObject class instance")
-
-    # ------------------------------------------------------------------------------------------------------------ #
-    def get_all_orbiting_objects(self) -> ['MassiveObject']:
-        """Return a *copy* of the list of exoplanets held by the Star
-
-        Returns
-        -------
-        [*MassiveObject]
-            List of MassiveObject instances
-        """
-        return self._orbiting_bodies_list.copy()
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #

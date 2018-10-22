@@ -163,6 +163,57 @@ def produce_tophat_kde(x_min: float,
     return x_points, output_data[band_int_half:-band_int_half]
 
 
+def bigaussian_model(data: np.ndarray,
+                     amp: float,
+                     mean1: float,
+                     mean2: float,
+                     sigma: float) -> np.ndarray:
+    """Produces a pair of gaussians with identical amplitude and sigma but different means
+
+    Parameters
+    ----------
+    data
+        Data to apply model to
+    amp
+        Amplitude of the gaussians
+    mean1
+        Mean of Gaussian 1
+    mean2
+        Mean of Gaussian 2
+    sigma
+        Single-Gaussian standard deviation
+
+    Returns
+    -------
+    float or np.ndarray
+        Value of the bigaussian at the values specified in data
+
+    """
+    denom = 2*sigma**2
+    return .5*amp*(np.exp(-(data-mean1)**2/denom)+np.exp(-(data-(mean2))**2/denom))
+
+
+def bi_erf_model(data, mean1, mean2, sigma):
+    """Produces a pair of error functions with identical standard deviations (to match bigaussian_model)
+
+    Parameters
+    ----------
+    data
+        Data to apply model to
+    mean1
+        Mean of Gaussian 1
+    mean2
+        Mean of Gaussian 2
+    sigma
+        Standard deviation
+
+    Returns
+    -------
+
+    """
+    return .5*(stats.norm.cdf(data, loc=mean1, scale=sigma)+stats.norm.cdf(data, loc=mean2, scale=sigma))
+
+
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 # Plot math
 
@@ -279,7 +330,7 @@ def linear_detrend(data_array: np.ndarray) -> np.ndarray:
 # Indexing and integer math
 
 def round_dec(val: float) -> int:
-    """Round a number to an integer in the way that rounding is expected to behave
+    """Round a number to an integer in the way that decimal rounding is expected to behave
 
     In python 3, round(2.5) = 2, round(3.5) = 4.
     This can really screw up indexing that relies on decimal rounding.

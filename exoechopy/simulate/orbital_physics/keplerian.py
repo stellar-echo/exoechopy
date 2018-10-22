@@ -186,6 +186,7 @@ class KeplerianOrbit(Plottable):
         if self._name != "":
             print("Planet name: ", self._name)
         print("Star mass: ", u_str(self._parent_mass))
+        print("Planet parent mass: ", self.parent_mass)
         print("Semimajor axis: ", u_str(self._semimajor_axis))
         print("Orbital period: ", u_str(self._orbital_period))
         print("Orbit eccentricity, e: ", self._eccentricity)
@@ -369,6 +370,43 @@ class KeplerianOrbit(Plottable):
         all_times = np.linspace(0 * u.s, self.orbital_period, num_points)
         orbit_positions = [self.calc_xyz_at_time_au_lw(ti) for ti in all_times]
         return orbit_positions
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    @property
+    def parent_mass(self):
+        """Mass of the object that this object orbits.
+
+        Useful for updating Keplerian orbits
+
+        Returns
+        -------
+        u.Quantity
+            Mass of the object this object orbits
+        """
+        return self._parent_mass
+
+    @parent_mass.setter
+    def parent_mass(self, parent_mass: u.Quantity):
+        """Updates this object's copy of the parent's mass
+
+        Parameters
+        ----------
+        parent_mass
+            Mass to use as this object's parent's mass
+        """
+        if parent_mass is None:
+            self._parent_mass = None
+        else:
+            if isinstance(parent_mass, u.Quantity):
+                self._parent_mass = parent_mass
+            else:
+                self._parent_mass = u.Quantity(parent_mass, u.M_sun)
+                warnings.warn("Casting star mass, input as " + str(parent_mass) + ", to M_sun", AstropyUserWarning)
+            if self._parent_mass.value > 0:
+                self._grav_param = self._parent_mass * const.G
+                self._orbital_period = (2 * np.pi * self._semimajor_axis**1.5 * np.sqrt(1/self._grav_param)).decompose().to(u.s)
+                self._orbital_frequency = np.sqrt(self._grav_param/self._semimajor_axis**3).decompose().to(u.Hz)*u.rad
+
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 

@@ -5,7 +5,7 @@
 import numpy as np
 from astropy import units as u
 from astropy import constants
-from scipy import stats, signal
+from scipy import stats
 
 import exoechopy as eep
 from exoechopy.utils.math_operations import *
@@ -34,7 +34,7 @@ def run():
 
     # Create a star that is effectively a delta-function, but has radius effects like variable flare-planet visibility.
     MyStar = eep.simulate.Star(radius=1*u.m, spectral_type=emission_type, rotation_rate=8*pi_u/u.d,
-                               point_color='saddlebrown')
+                               point_color='saddlebrown', mass=1*u.M_sun)
 
     # Face-on circular
     MyStar.set_view_from_earth(0*u.deg, 0*u.deg)
@@ -50,8 +50,9 @@ def run():
     w_1 = 0 * u.deg  # arg of periapsis
     m0_1 = 0 * u.deg  # initial anomaly
 
-    approx_index_lag = int((a_1/constants.c)/observation_cadence)
-    print("approx_index_lag: ", approx_index_lag)
+    approx_index_lag = round_dec(((a_1/constants.c)/observation_cadence).decompose().value)
+    approx_time_lag = approx_index_lag*observation_cadence
+    print("approx_index_lag: ", approx_index_lag, ", approx_time_lag: ", approx_time_lag)
 
     planet_name = "HelloExoWorld"
     print("Approximate time delay: ", (a_1/constants.c).to(u.s))
@@ -107,18 +108,40 @@ def run():
     MyTelescope.prepare_continuous_observational_run(observation_duration, print_report=True)
     MyTelescope.collect_data(save_diagnostic_data=True)
 
-    print("In this case, half the flares hit, half the flares miss."
-          "Running the autocorrelation on a flare that misses will systematically de-correlate the signal."
-          )
+    print("""
+    In this case, half the flares hit, half the flares miss.  
+    Running the autocorrelation on a flare that misses will systematically de-correlate the signal.
+    """)
 
     flare_times = MyTelescope._all_flares.all_flare_times
-    plt.scatter(flare_times, MyTelescope._all_exoplanet_contrasts, marker='.', color='k')
+
+    fig, ax_array = plt.subplots(nrows=3, ncols=1, sharex=True, figsize=(12, 8))
+    #  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  #
+    scatter_colors = ['k' if x < np.pi/2 else 'r' for x in MyTelescope._all_exoplanet_flare_angles.value]
+
+    ax_array[0].scatter(flare_times, MyTelescope._all_exoplanet_flare_angles.to(u.deg), marker='.', color=scatter_colors)
+    ax_array[0].set_ylabel("Exoplanet-flare angle (deg)")
+    ax_array[0].set_title("Angles during each flare as a function of time")
+    #  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  #
+    ax_array[1].scatter(flare_times, MyTelescope._all_exoplanet_contrasts, marker='.', color='k')
+    ax_array[1].text(0.1, .7, "Half the flares hit the planet, half miss,\n"
+                     "hence the two possible values",
+                     transform=ax_array[1].transAxes)
+    ax_array[1].set_ylabel("Echo magnitude")
+    ax_array[1].set_title("Echo contrast during each flare as a function of time")
+    ax_array[1].set_ylim(-.001, .002)
+    #  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  #
+    ax_array[2].scatter(flare_times, MyTelescope._all_exoplanet_lags, marker='.', color='k')
+    ax_array[2].set_ylabel("Exoplanet time lag")
+    ax_array[2].set_title("Exoplanet time lag")
+    ax_array[2].text(0.1, .5, "To save a little computation time,\n"
+                              "lags are not computed if the exoplanet is not visible to the flare\n"
+                              "(hence the zero values)",
+                     transform=ax_array[2].transAxes)
+
+    ax_array[2].set_xlabel("Time "+eep.utils.u_labelstr(flare_times, True))
+    #  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  #
     plt.show()
-
-    print("Exoplanet-star contrast: ", MyTelescope._all_exoplanet_contrasts[0][0])
-    print("Exoplanet lag: ", MyTelescope._all_exoplanet_lags[0][0]*u.s)
-
-
 
     lightcurve = MyTelescope._pure_lightcurve.copy()
     time_domain = MyTelescope._time_domain.copy()
@@ -126,9 +149,10 @@ def run():
     print("""
     Next, we process the data blindly with the autocorrelation algorithm, as usual.
     If you zoom in, you can find the echo peak!        
-    The signal without noise still produces an echo, even with the decorrelation.""")
+    The signal without noise still produces an echo, even with the decorrelation.
+    """)
 
-    max_lag = approx_index_lag*3
+    max_lag = round_dec(approx_index_lag*2.5)
     autocorr = eep.analyze.autocorrelate_array(lightcurve,
                                                max_lag=max_lag)
 
@@ -139,16 +163,22 @@ def run():
     ax.plot(autocorr_domain, autocorr,
             color='k', lw=1, drawstyle='steps-post')
     inset_ax = ax.inset_axes([0.5, 0.5, 0.45, 0.45])
-    ind_min = approx_index_lag-subplot_width//2
-    ind_max = approx_index_lag+subplot_width//2
+    ind_min = max(1, approx_index_lag-subplot_width//2)
+    ind_max = min(len(autocorr_domain)-1, approx_index_lag+subplot_width//2)
     inset_ax.plot(autocorr_domain[ind_min:ind_max], autocorr[ind_min:ind_max],
                   color='k', lw=1, drawstyle='steps-post')
+    ax.annotate("Echo is here!", xy=(approx_time_lag.value+observation_cadence.value/2, autocorr[approx_index_lag+1]),
+                xytext=(approx_time_lag.value*1.1, .2), arrowprops=dict(arrowstyle="->",
+                                                                        connectionstyle="arc3, rad=.3"))
+    ax.set_title("Autocorrelation of lightcurve (no noise added)")
+    ax.set_xlabel("Time lag "+eep.utils.u_labelstr(observation_cadence))
+    ax.set_ylabel("Correlation signal")
+    plt.tight_layout()
     plt.show()
 
     # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
     print("""
-    Now that it works without noise, we'll try again with counting noise in the background.
-    """)
+    Now that it works without noise, we'll try again with counting noise in the background.""")
 
     noisy_signal = eep.simulate.methods.add_poisson_noise(lightcurve)
 
@@ -165,10 +195,16 @@ def run():
     ax.plot(autocorr_domain, autocorr,
             color='k', lw=1, drawstyle='steps-post')
     inset_ax = ax.inset_axes([0.5, 0.5, 0.45, 0.45])
-    ind_min = approx_index_lag-subplot_width//2
-    ind_max = approx_index_lag+subplot_width//2
+    ind_min = max(1, approx_index_lag-subplot_width//2)
+    ind_max = min(len(autocorr_domain)-1, approx_index_lag+subplot_width//2)
     inset_ax.plot(autocorr_domain[ind_min:ind_max], autocorr[ind_min:ind_max],
                   color='k', lw=1, drawstyle='steps-post')
+    ax.annotate("Echo is here!", xy=(approx_time_lag.value+observation_cadence.value/2, autocorr[approx_index_lag+1]),
+                xytext=(approx_time_lag.value*1.1, .2), arrowprops=dict(arrowstyle="->",
+                                                                        connectionstyle="arc3, rad=.3"))
+    ax.set_title("Autocorrelation of lightcurve (Poisson noise added)")
+    ax.set_xlabel("Time lag "+eep.utils.u_labelstr(observation_cadence))
+    ax.set_ylabel("Correlation signal")
     plt.show()
 
     # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -178,15 +214,11 @@ def run():
                                                          min_index_gap=approx_index_lag*2,
                                                          extra_search_pad=4)
 
-    print("Next, we pick out each flare and processing it individually to reduce the "
-          "signal from the quiescent background.")
+    print("""
+    Next, we pick out each flare and process it individually to reduce the 
+    signal from the quiescent background.""")
 
     num_flares = len(flare_indices)
-
-    # if num_flares > 0:
-    #     eep.visualize.plot_flare_array(noisy_signal, flare_indices,
-    #                                    back_pad=subplot_width//2, forward_pad=subplot_width*3,
-    #                                    display_index=True)
 
     back_index = 40
     forward_index = back_index*3
@@ -217,8 +249,15 @@ def run():
             color='gray', lw=1, drawstyle='steps-post', label="Summed autocorrelation")
     ax.plot(autocorr_domain[1:max_lag - 1], detrended_weighted_correlation,
             color='k', lw=1, drawstyle='steps-post', label="Summed weighted autocorrelation")
-
-    plt.legend()
+    ax.annotate("Echo is around here", xy=(autocorr_domain[approx_index_lag]+observation_cadence.value/2,
+                                           detrended_weighted_correlation[approx_index_lag-1] + .00005),
+                xytext=(autocorr_domain[approx_index_lag]*1.1, max(detrended_correlation[1:max_lag-1])),
+                arrowprops=dict(arrowstyle="->", connectionstyle="arc3, rad=.3"))
+    ax.set_title("Autocorrelation of noisy lightcurve (effects of data weight)", y=1.09)
+    ax.set_xlabel("Time lag "+eep.utils.u_labelstr(observation_cadence))
+    ax.set_ylabel("Correlation signal")
+    plt.legend(bbox_to_anchor=(0., 1.01), loc=3, ncol=2, borderaxespad=0.)
+    plt.subplots_adjust(left=.17, top=.85)
     plt.show()
 
     print("""
@@ -237,11 +276,12 @@ def run():
 
     all_autocorr = np.zeros((num_flares, max_lag))
     weights = np.zeros(num_flares)
+    min_lag_offset = 1
 
     for f_i, flare_index in enumerate(flare_indices):
         if flare_index-back_index > 0 and flare_index+forward_index < len(noisy_signal):
             flare_curve = noisy_signal[flare_index - back_index:flare_index + forward_index]
-            this_autocorr = eep.analyze.autocorrelate_array(flare_curve, max_lag=max_lag, min_lag=1)
+            this_autocorr = eep.analyze.autocorrelate_array(flare_curve, max_lag=max_lag, min_lag=min_lag_offset)
             this_autocorr = linear_detrend(this_autocorr)
             all_autocorr[f_i] = this_autocorr
             # Add a magnitude-based weight to the autocorrelation (more weight to brighter flares)
@@ -249,19 +289,38 @@ def run():
 
     weights /= np.sum(weights)
 
-    print("""Excepting exceptional signal-to-noise cases, the histogram of points will not reveal bimodality willingly.
+    print("""
+    Excepting exceptional signal-to-noise cases, the histogram of points will not reveal bimodality willingly.
     """)
 
-    plt.hist(all_autocorr[:, approx_index_lag],
-             weights=weights, color='gray', bins=50, zorder=0, density=True, label="matplotlib histogram")
+    test_indices = [approx_index_lag-2, approx_index_lag-1, approx_index_lag, approx_index_lag+1, approx_index_lag+2]
+    fig, ax_array = plt.subplots(1, len(test_indices), figsize=(12, 5), sharex=True, sharey=True)
 
-    sigma = np.std(all_autocorr[:, approx_index_lag])
-    x_vals, y_vals = produce_tophat_kde(x_min=np.min(all_autocorr), x_max=np.max(all_autocorr),
-                                        data_for_analysis=all_autocorr[:, approx_index_lag], bandwidth=sigma,
-                                        data_weights=weights)
-    plt.plot(x_vals, y_vals, color='k', lw=1, label="KDE at echo")
+    for c_i, current_index in enumerate(test_indices):
+        if current_index == approx_index_lag:
+            ax_array[c_i].text(.05, .95, "Echo signal", transform=ax_array[c_i].transAxes)
+        ax_array[c_i].hist(all_autocorr[:, current_index-min_lag_offset],
+                           weights=weights, color='gray', bins=50,
+                           zorder=0, density=True, label="matplotlib histogram")
+        #  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  #
+        sigma = np.std(all_autocorr[:, current_index-min_lag_offset])
+        x_vals, y_vals = produce_tophat_kde(x_min=np.min(all_autocorr), x_max=np.max(all_autocorr),
+                                            data_for_analysis=all_autocorr[:, current_index-min_lag_offset],
+                                            bandwidth=sigma,
+                                            data_weights=weights)
+        ax_array[c_i].plot(x_vals, y_vals, color='k', lw=1, label="Tophat kernel density estimate")
+        #  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  #
+        gauss_kde = eep.analyze.GaussianKDE(dataset=all_autocorr[:, current_index-min_lag_offset],
+                                            bandwidth='silverman')
+        ax_array[c_i].plot(x_vals, gauss_kde(x_vals), color='r', lw=1, label="Gaussian kernel density estimate")
+        #  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  #
+        ax_array[c_i].set_title("Lag: " +
+                                str(current_index*observation_cadence.value)+eep.utils.u_labelstr(observation_cadence))
+        ax_array[c_i].set_xlabel("Correlation value")
 
-    plt.legend()
+    ax_array[0].set_ylabel("Counts")
+    ax_array[0].legend(bbox_to_anchor=(0., 1.1), loc=3, ncol=3, borderaxespad=0.)
+    plt.subplots_adjust(left=.1, right=.98, top=.85, wspace=0)
     plt.show()
 
     print("""
@@ -281,6 +340,7 @@ def run():
 
     To be continued...    
     """)
+
 
 
 
