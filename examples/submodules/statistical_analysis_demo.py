@@ -296,19 +296,20 @@ def run():
     test_indices = [approx_index_lag-2, approx_index_lag-1, approx_index_lag, approx_index_lag+1, approx_index_lag+2]
     fig, ax_array = plt.subplots(1, len(test_indices), figsize=(12, 5), sharex=True, sharey=True)
 
+    num_bins = 50
+    x_vals = np.linspace(np.min(all_autocorr), np.max(all_autocorr), num_bins)
     for c_i, current_index in enumerate(test_indices):
         if current_index == approx_index_lag:
             ax_array[c_i].text(.05, .95, "Echo signal", transform=ax_array[c_i].transAxes)
         ax_array[c_i].hist(all_autocorr[:, current_index-min_lag_offset],
-                           weights=weights, color='gray', bins=50,
+                           weights=weights, color='gray', bins=num_bins//2,
                            zorder=0, density=True, label="matplotlib histogram")
         #  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  #
         sigma = np.std(all_autocorr[:, current_index-min_lag_offset])
-        x_vals, y_vals = produce_tophat_kde(x_min=np.min(all_autocorr), x_max=np.max(all_autocorr),
-                                            data_for_analysis=all_autocorr[:, current_index-min_lag_offset],
-                                            bandwidth=sigma,
-                                            data_weights=weights)
-        ax_array[c_i].plot(x_vals, y_vals, color='k', lw=1, label="Tophat kernel density estimate")
+        tophat_kde = eep.analyze.TophatKDE(dataset=all_autocorr[:, current_index-min_lag_offset],
+                                           bandwidth=sigma, weights=weights)
+        ax_array[c_i].plot(x_vals, tophat_kde(x_vals),
+                           drawstyle='steps-post', color='k', lw=1, label="Tophat kernel density estimate")
         #  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  #
         gauss_kde = eep.analyze.GaussianKDE(dataset=all_autocorr[:, current_index-min_lag_offset],
                                             bandwidth='silverman')

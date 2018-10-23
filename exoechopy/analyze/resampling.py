@@ -102,7 +102,7 @@ class TophatKDE(KDE_base):
         Parameters
         ----------
         xvals
-            Data points for evaluation
+            Data points for evaluation, uniformly spaced
 
         Returns
         -------
@@ -112,15 +112,22 @@ class TophatKDE(KDE_base):
         if not isinstance(xvals, np.ndarray):
             xvals = np.array(xvals)
         dx = xvals[1] - xvals[0]
-        bw2 = self._bandwidth/2
-        output_data = np.zeros(xvals.shape)
+        bw2 = self._bandwidth/2.
         lower_range = self.dataset-bw2
         upper_range = self.dataset+bw2
         x_0 = min(xvals)
-        lower_bins = np.floor((lower_range-x_0)/dx)
-        upper_bins = np.floor((upper_range-x_0)/dx)
-        # TODO Handle edge cases!  Then handle easy cases
-
+        lower_bins = np.floor((lower_range-x_0)/dx).astype(int)
+        upper_bins = np.ceil((upper_range-x_0)/dx).astype(int)
+        bin_width = np.array(upper_bins-lower_bins, dtype=float)
+        # If all data fits inside a single bin, make sure it doesn't get reduced to 0-width:
+        bin_width[bin_width == 0] = 1.
+        data_mask = (upper_bins >= 0) & (lower_bins < len(xvals))
+        summation_values = self._weights/(bin_width*dx)
+        output_data = np.zeros(len(xvals))
+        for l_i, u_i, s_val in zip(lower_bins[data_mask], upper_bins[data_mask], summation_values[data_mask]):
+            output_data[l_i:u_i] += s_val
+        output_data /= self._total_weight
+        return output_data
 
     def integrate_between(self, low_val: float, high_val: float) -> float:
         """Computes the integral between the two specified bounds
@@ -136,9 +143,18 @@ class TophatKDE(KDE_base):
         -------
         float
             The computed integral
-
         """
-        return asdf
+        bw2 = self._bandwidth/2.
+        lower_range = self.dataset-bw2
+        upper_range = self.dataset+bw2
+        multiplier = self._weights.copy()
+        # Handle edge cases, crop them proportionately
+        edge_cases_lower = (lower_range < low_val) & (upper_range >= low_val)
+        edge_cases_upper = (lower_range < high_val) & (upper_range >= high_val)
+        multiplier[edge_cases_lower] *= (upper_range[edge_cases_lower]-low_val)/self._bandwidth
+        multiplier[edge_cases_upper] *= (high_val-lower_range[edge_cases_upper])/self._bandwidth
+        data_mask = (upper_range >= low_val) * (lower_range < high_val)
+        return np.sum(multiplier[data_mask])/self._total_weight
 
     def set_bandwidth(self, bw_method):
         if bw_method is None:

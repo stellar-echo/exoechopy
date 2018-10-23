@@ -12,7 +12,7 @@ from astropy import constants
 from scipy.signal import savgol_filter
 
 __all__ = ['angle_between_vectors', 'vect_from_spherical_coords', 'compute_lag',
-           'SphericalLatitudeGen', 'stochastic_flare_process', 'produce_tophat_kde',
+           'SphericalLatitudeGen', 'stochastic_flare_process',
            'window_range',
            'take_noisy_derivative', 'take_noisy_2nd_derivative', 'linear_detrend',
            'round_dec', 'row_col_grid']
@@ -111,56 +111,6 @@ def stochastic_flare_process(stop_value,
         else:
             break
     return all_values
-
-
-def produce_tophat_kde(x_min: float,
-                       x_max: float,
-                       data_for_analysis: np.ndarray,
-                       bandwidth: float=None,
-                       data_weights: np.ndarray=None,
-                       num_plot_points: int=2000) -> (np.ndarray, np.ndarray):
-    """Generates a kernel density estimate of a dataset
-
-    Parameters
-    ----------
-    x_min
-        Minimum value to include in estimate
-    x_max
-        Maximum value to include in estimate
-    data_for_analysis
-        Data to generate KDE from
-    bandwidth
-        Width of the 'tophat' function
-        Defaults to Silverman's criteria
-    data_weights
-        Optional weights for the data_for_analysis
-    num_plot_points
-        Number of points to discretize the data across
-
-    Returns
-    -------
-    (np.ndarray, np.ndarray)
-        x_domain, Kernel density estimate of the data_for_analysis
-    """
-    if bandwidth is None:
-        sigma = np.std(data_for_analysis)
-        # Silverman criteria:
-        bandwidth = np.power(4 / (3 * len(data_for_analysis)), 1 / 5) * sigma
-    x_points = np.linspace(x_min, x_max, num_plot_points)
-    dx = x_points[1]-x_points[0]
-    if data_weights is None:
-        data_weights = np.ones(data_for_analysis.shape)
-    band_int = int((num_plot_points/(x_max-x_min)) * bandwidth)
-    band_int += band_int%2
-    band_int_half = band_int//2
-    output_data = np.zeros(num_plot_points+band_int)
-    hist_indices = np.round((data_for_analysis-x_min)/dx).astype(int)
-    hist_indices[(hist_indices < 0) & (hist_indices >= len(hist_indices))] = -9999
-    for hist_index, weight in zip(hist_indices, data_weights):
-        if hist_index >= 0:
-            output_data[hist_index:hist_index+band_int] += weight/dx
-    output_data /= np.sum(output_data)*dx
-    return x_points, output_data[band_int_half:-band_int_half]
 
 
 def bigaussian_model(data: np.ndarray,
