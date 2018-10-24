@@ -14,6 +14,7 @@ from matplotlib import animation
 
 from ..simulate import *
 from .standard_3d_plots import *
+from ..utils import *
 
 
 __all__ = ['render_3d_planetary_system', 'plot_3d_keplerian_orbit', 'animate_3d_planetary_system']
@@ -219,6 +220,10 @@ def render_3d_planetary_system(star_system: DeltaStar,
         ax.set_xbound(-representative_distance, representative_distance)
         ax.set_ybound(-representative_distance, representative_distance)
         ax.set_zbound(-representative_distance, representative_distance)
+
+        ax.set_xlabel("(au)")
+        ax.set_ylabel("(au)")
+        ax.set_zlabel("(au)")
 
         ax.legend()
         ax.view_init(elev=45, azim=45)

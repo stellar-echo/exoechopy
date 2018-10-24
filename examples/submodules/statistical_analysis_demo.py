@@ -5,7 +5,7 @@
 import numpy as np
 from astropy import units as u
 from astropy import constants
-from scipy import stats
+from scipy import stats, optimize
 
 import exoechopy as eep
 from exoechopy.utils.math_operations import *
@@ -25,12 +25,13 @@ def run():
     observation_cadence = 2. * u.s
     observation_duration = 12 * u.hr
     telescope_random_seed = 99
-    approximate_num_flares = 200
+    approximate_num_flares = 100
 
     # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
     #  Create an observation target:
+    star_mag = 16
     spectral_band = eep.simulate.spectral.JohnsonPhotometricBand('U')
-    emission_type = eep.simulate.spectral.SpectralEmitter(spectral_band, magnitude=16)
+    emission_type = eep.simulate.spectral.SpectralEmitter(spectral_band, magnitude=star_mag)
 
     # Create a star that is effectively a delta-function, but has radius effects like variable flare-planet visibility.
     MyStar = eep.simulate.Star(radius=1*u.m, spectral_type=emission_type, rotation_rate=8*pi_u/u.d,
@@ -74,9 +75,11 @@ def run():
 
     #  =============================================================  #
 
+    flare_emission = eep.simulate.spectral.SpectralEmitter(spectral_band, magnitude=star_mag-4)
     #  Approx. max flare intensity:
-    max_intensity = 10*MyStar.get_flux()
+    max_intensity = flare_emission.relative_flux()
     min_intensity = max_intensity/10
+    print("Maximum flare-to-star magnitude ratio: ", max_intensity/MyStar.get_flux())
 
     #  To explicitly specify units, use a tuple of (pdf, unit):
     flare_intensities = ([min_intensity, max_intensity], max_intensity.unit)
@@ -183,8 +186,8 @@ def run():
     noisy_signal = eep.simulate.methods.add_poisson_noise(lightcurve)
 
     print("""
-    The signal is now decorrelated AND buried in the noise.  
-    Much more effort is required to convincingly extract the echo.  
+    The signal is now decorrelated AND buried in the noise.  While the echo may sometimes be the largest peak,
+    more effort is required to *convincingly* identify the echo.  
     """)
 
     autocorr = eep.analyze.autocorrelate_array(noisy_signal,
@@ -243,15 +246,15 @@ def run():
     detrended_correlation = linear_detrend(sum_autocorr_noisy[1:max_lag-1])
     detrended_weighted_correlation = linear_detrend(sum_autocorr_weighted[1:max_lag-1])
 
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(7, 6))
     autocorr_domain = np.arange(0, len(sum_autocorr_noisy)*observation_cadence.value, observation_cadence.value)
     ax.plot(autocorr_domain[1:max_lag - 1], detrended_correlation,
             color='gray', lw=1, drawstyle='steps-post', label="Summed autocorrelation")
     ax.plot(autocorr_domain[1:max_lag - 1], detrended_weighted_correlation,
             color='k', lw=1, drawstyle='steps-post', label="Summed weighted autocorrelation")
     ax.annotate("Echo is around here", xy=(autocorr_domain[approx_index_lag]+observation_cadence.value/2,
-                                           detrended_weighted_correlation[approx_index_lag-1] + .00005),
-                xytext=(autocorr_domain[approx_index_lag]*1.1, max(detrended_correlation[1:max_lag-1])),
+                                           detrended_weighted_correlation[approx_index_lag-1]),
+                xytext=(autocorr_domain[approx_index_lag]*1.2, max(detrended_correlation[1:max_lag-1])),
                 arrowprops=dict(arrowstyle="->", connectionstyle="arc3, rad=.3"))
     ax.set_title("Autocorrelation of noisy lightcurve (effects of data weight)", y=1.09)
     ax.set_xlabel("Time lag "+eep.utils.u_labelstr(observation_cadence))
@@ -294,15 +297,15 @@ def run():
     """)
 
     test_indices = [approx_index_lag-2, approx_index_lag-1, approx_index_lag, approx_index_lag+1, approx_index_lag+2]
-    fig, ax_array = plt.subplots(1, len(test_indices), figsize=(12, 5), sharex=True, sharey=True)
+    fig, ax_array = plt.subplots(1, len(test_indices), figsize=(12, 4), sharex=True, sharey=True)
 
-    num_bins = 50
+    num_bins = 200
     x_vals = np.linspace(np.min(all_autocorr), np.max(all_autocorr), num_bins)
     for c_i, current_index in enumerate(test_indices):
         if current_index == approx_index_lag:
-            ax_array[c_i].text(.05, .95, "Echo signal", transform=ax_array[c_i].transAxes)
+            ax_array[c_i].text(.05, .95, "Predicted echo signal", transform=ax_array[c_i].transAxes)
         ax_array[c_i].hist(all_autocorr[:, current_index-min_lag_offset],
-                           weights=weights, color='gray', bins=num_bins//2,
+                           weights=weights, color='gray',
                            zorder=0, density=True, label="matplotlib histogram")
         #  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  #
         sigma = np.std(all_autocorr[:, current_index-min_lag_offset])
@@ -321,7 +324,8 @@ def run():
 
     ax_array[0].set_ylabel("Counts")
     ax_array[0].legend(bbox_to_anchor=(0., 1.1), loc=3, ncol=3, borderaxespad=0.)
-    plt.subplots_adjust(left=.1, right=.98, top=.85, wspace=0)
+    plt.subplots_adjust(left=.07, right=.97, top=.8)
+    plt.suptitle("Distribution of the correlation function values at several lags")
     plt.show()
 
     print("""
@@ -339,8 +343,91 @@ def run():
     There will be one perfect subsample that contains all the hits, and one that contains all the misses.
     Everything else will be somewhere in between.  
 
-    To be continued...    
+    The following is an example of one data processing technique that has had some success:
+    (Warning: This is very slow, needs to be re-implemented as a multicore process)
+
     """)
+
+    num_bins = 1000
+    spread = np.max(all_autocorr)-np.min(all_autocorr)
+    overfill_fraction = .2
+    x_vals = np.linspace(np.min(all_autocorr)-spread*overfill_fraction,
+                         np.max(all_autocorr)+spread*overfill_fraction,
+                         num_bins)
+    confidence = .95
+    lower_interval = 100 * ((1 - confidence) / 2)
+    upper_interval = 100 * (1 - (1 - confidence) / 2)
+
+    test_indices = [approx_index_lag + l_i for l_i in range(-5, 7)]
+    num_tests = len(test_indices)
+
+    # Define a custom processing algorithm:
+    def approximate_cdf(y_data):
+        density_cdf = np.cumsum(y_data)
+        density_cdf -= np.min(density_cdf)
+        density_cdf /= np.max(density_cdf)
+        return density_cdf
+
+    means = np.zeros(num_tests)
+    lower_means = np.zeros(num_tests)
+    upper_means = np.zeros(num_tests)
+    lower_min_conf = np.zeros(num_tests)
+    lower_max_conf = np.zeros(num_tests)
+    upper_min_conf = np.zeros(num_tests)
+    upper_max_conf = np.zeros(num_tests)
+    for c_i, current_index in enumerate(test_indices):
+        means[c_i] = np.mean(all_autocorr[:, current_index-min_lag_offset])
+        std_dev = np.std(all_autocorr[:, current_index-min_lag_offset])
+        current_analysis = eep.analyze.ResampleKDEAnalysis(dataset=all_autocorr[:, current_index-min_lag_offset],
+                                                           x_domain=x_vals,
+                                                           kde=eep.analyze.GaussianKDE,
+                                                           kde_bandwidth='silverman')
+
+        rejects = current_analysis.remove_outliers_by_jackknife_sigma_testing(np.mean, 2)
+        print("Number of rejected points: ", len(rejects))
+
+        all_resamples = current_analysis.bootstrap_with_kde(500)
+        fit_vals = np.zeros((len(all_resamples), 2))
+        for r_i, resample in enumerate(all_resamples):
+            cdf = approximate_cdf(resample)
+            # Create a lambda function just to pin one of the two Gaussians to zero, let the other float
+            # Could define a specific version of this function, but often you'll want to set a value other than zero
+            init_pos = 0.
+            popt_bierf, pcov_bierf = optimize.curve_fit(lambda x, m2, s: bi_erf_model(x, init_pos, m2, s),
+                                                        x_vals, cdf,
+                                                        p0=[means[c_i]+std_dev, std_dev/2],
+                                                        absolute_sigma=True)
+            popt_bierf = [x for x in popt_bierf]
+            popt_bierf.insert(1, init_pos)
+            fit_vals[r_i, :] = min(popt_bierf[:2]), max(popt_bierf[:2])
+        lower_means[c_i] = np.mean(fit_vals[:, 0])
+        upper_means[c_i] = np.mean(fit_vals[:, 1])
+        lower_min_conf[c_i], lower_max_conf[c_i] = np.percentile(fit_vals[:, 0], [lower_interval, upper_interval])
+        upper_min_conf[c_i], upper_max_conf[c_i] = np.percentile(fit_vals[:, 1], [lower_interval, upper_interval])
+
+    lag_domain = [c_i*observation_cadence.value for c_i in test_indices]
+    plt.figure(figsize=(12.5, 6))
+    plt.plot(lag_domain, means, color='k', drawstyle='steps-post', label="Raw autocorrelation result", zorder=20)
+    plt.plot(lag_domain, lower_means, color='darkblue', drawstyle='steps-post', ls='--', label="Low estimate", zorder=19)
+    plt.plot(lag_domain, upper_means, color='darkred', drawstyle='steps-post', ls='--', label="High estimate", zorder=18)
+    plt.fill_between(lag_domain, lower_min_conf, lower_max_conf, facecolor='skyblue', step='post',
+                     label="Low estimate "+str(confidence*100)+"% conf interval", zorder=5)
+    plt.fill_between(lag_domain, upper_min_conf, upper_max_conf, facecolor='salmon', step='post',
+                     label="High estimate "+str(confidence*100)+"% conf interval", zorder=4)
+    plt.xlabel("Time lag "+eep.utils.u_labelstr(observation_cadence, add_parentheses=True))
+    plt.ylabel("Correlation signal")
+    plt.title("Resampled data to identify bimodal distributions")
+    plt.annotate("This gap between the lower and upper\n"
+                 "confidence intervals hints that the\n"
+                 "data at this point is bimodal...Echo??", xy=(21, .00005), xytext=(10, .0003),
+                 arrowprops=dict(arrowstyle="->", connectionstyle="arc3, rad=.3"), zorder=25)
+    plt.annotate("Note, this second-largest peak is not bimodal,\n"
+                 "so we are likely to rule it out as an echo.", xy=(25, .00004), xytext=(22.5, .0003),
+                 arrowprops=dict(arrowstyle="->", connectionstyle="arc3, rad=.3"), zorder=25)
+    plt.legend(bbox_to_anchor=(1.05, .5), loc=2, borderaxespad=0.)
+    plt.subplots_adjust(left=.1, right=.7, top=.9)
+
+    plt.show()
 
 
 # ******************************************************************************************************************** #

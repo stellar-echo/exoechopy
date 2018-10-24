@@ -5,6 +5,7 @@ A handful of useful plot types.
 
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.colors as mpl_colors
 from matplotlib.collections import PolyCollection
 
 __all__ = ['plot_lines_and_points', 'plot_time_series_w_fft', 'plot_two_signals_different_y_axis',
@@ -104,30 +105,112 @@ def plot_two_signals_different_y_axis(x_data, y_data1, y_data2, save=None,
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 
-def plot_signal_w_uncertainty(x_data, y_data, error_y_plus, y_data_2=None, error_y_minus=None,
-                              save=None, x_label="", y_label_1="", y_label_2="", plt_title="",
-                              color_1='k', color_2='r', uncertainty_label=""):
-    if error_y_minus is None:
-        error_y_minus=error_y_plus
-    plt.plot(x_data, y_data, color=color_1, linestyle='--',  label=y_label_1)
+def plot_signal_w_uncertainty(x_data: np.ndarray, y_data: np.ndarray, y_plus_interval: np.ndarray,
+                              y_minus_interval: np.ndarray=None, y_data_2: np.ndarray=None,
+                              save: str=None, x_axis_label: str= "", y_axis_label: str= "",
+                              y_label_1: str= "", y_label_2: str= "", plt_title: str= "",
+                              color_1: str='k', color_2: str='r',
+                              uncertainty_color: (str, list)='.85', uncertainty_label: (str, list)="",
+                              axes_object: plt.Axes=None):
+    """Generates a standardized plot for a signal and its associated errors
+
+    Parameters
+    ----------
+    x_data
+        Values along x-axis
+    y_data
+        Primary signal values along y-axis
+    y_plus_interval
+        Uncertainty in signal on the high side
+        Note: this plots as y_plus_interval, not as y_data + y_plus_interval
+    y_minus_interval
+        Uncertainty in signal on the low side
+        Note: this plots as y_minus_interval, not as y_data + y_minus_interval
+    y_data_2
+        Optional second line to plot, such as the exact solution
+    save
+        If None, runs plt.show()
+        If filepath, saves filve
+        If 'ax', returns the axes for further plotting (also works with 'hold')
+    x_axis_label
+        Plot label for x axis
+    y_axis_label
+        Plot label for y axis
+    y_label_1
+        Data 1 label, used in generating legend
+    y_label_2
+        Data 2 label, used in generating legend
+    plt_title
+        Plot title
+    color_1
+        Color for data 1
+    color_2
+        Color for data 2
+    uncertainty_color
+        Base color(s) for uncertainty
+    uncertainty_label
+        Label for uncertainty interval(s), used in generating legend
+        May be input as a list, such as ['r', 'b'] if multiple uncertainty intervals are provided
+    axes_object
+        Optional existing axes object to plot onto
+
+
+    Returns
+    -------
+    plt.Axes
+        Only returns if save is 'ax' or 'hold'
+    """
+
+    if isinstance(axes_object, plt.Axes):  # Is being called from something else, typically
+        ax = axes_object
+    else:  # Is being used as a stand-alone function, typically
+        fig, ax = plt.subplots()
+
+    if y_minus_interval is None:
+        y_minus_interval = y_plus_interval
+
+    max_z = 20
+
+    ax.plot(x_data, y_data, color=color_1, label=y_label_1, zorder=max_z)
     if y_data_2 is not None:
-        plt.plot(x_data, y_data_2, color=color_2, zorder=10, label=y_label_2)
-    y0 = y_data+error_y_plus
-    y1 = y_data-error_y_minus
-    plt.plot(x_data, y0, color='.65')
-    plt.plot(x_data, y1, color='.65')
-    plt.fill_between(x_data, y0, y1, facecolor='.85', label=uncertainty_label)
-    plt.title(plt_title, y=1.1)
-    plt.xlabel(x_label)
-    plt.ylabel(y_label_1)
-    plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
-               ncol=3, mode="expand", borderaxespad=0.)
-    plt.tight_layout()
+        max_z -= 1
+        ax.plot(x_data, y_data_2, color=color_2, linestyle='--', lw=1, label=y_label_2, zorder=max_z)
+
+    # See if we have a single interval or multiple, handle separately
+    if len(np.shape(y_plus_interval)) == 2:
+        if isinstance(uncertainty_color, (str, int, float)):
+            uncertainty_color = [uncertainty_color for c_i in range(len(y_plus_interval))]
+        if isinstance(uncertainty_label, str):
+            uncertainty_label = [uncertainty_label for c_i in range(len(y_plus_interval))]
+        for y_plus, y_minus, unc_col, unc_label in zip(y_plus_interval, y_minus_interval,
+                                                       uncertainty_color, uncertainty_label):
+            fill_col = [(1-(1-c_i)*.5) for c_i in mpl_colors.to_rgb(unc_col)]
+            max_z -= 1
+            ax.plot(x_data, y_plus, color=unc_col, lw=1, zorder=max_z)
+            ax.plot(x_data, y_minus, color=unc_col, lw=1, zorder=max_z)
+            max_z -= 1
+            ax.fill_between(x_data, y_plus, y_minus, facecolor=fill_col, label=unc_label, zorder=max_z)
+    else:
+        fill_col = [(1-(1-c_i)*.5) for c_i in mpl_colors.to_rgba(uncertainty_color)]
+        max_z -= 1
+        ax.plot(x_data, y_plus_interval, color=uncertainty_color, lw=1, zorder=max_z)
+        ax.plot(x_data, y_minus_interval, color=uncertainty_color, lw=1, zorder=max_z)
+        max_z -= 1
+        ax.fill_between(x_data, y_plus_interval, y_minus_interval, facecolor=fill_col,
+                        label=uncertainty_label, zorder=max_z)
+
+    ax.set_title(plt_title, y=1.1)
+    ax.set_xlabel(x_axis_label)
+    ax.set_ylabel(y_axis_label)
+    ax.legend(loc='best')
     if save is None:
         plt.show()
+    elif save == 'ax' or save == 'hold':
+        return ax
     else:
         plt.savefig(save)
         plt.close()
+
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 

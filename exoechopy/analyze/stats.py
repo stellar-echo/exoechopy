@@ -6,8 +6,10 @@ This module provides different algorithms for resampling datasets to produce con
 import numpy as np
 from scipy.stats import gaussian_kde
 from ..utils import FunctionType
+from typing import Type
+from scipy import optimize
 
-__all__ = ['GaussianKDE', 'TophatKDE', 'ResampleAnalysis', 'ResampleKDEAnalysis']
+__all__ = ['GaussianKDE', 'TophatKDE', 'ResampleAnalysis', 'ResampleKDEAnalysis', 'curvefit_passable_wrapper']
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
@@ -29,6 +31,9 @@ class BaseKDE:
         self.dataset = dataset
         self._sigma = np.std(dataset)
         self.set_bandwidth(bandwidth)
+
+    def __call__(self, x_vals: np.ndarray):
+        return None
 
     def set_bandwidth(self, bw_method):
         pass
@@ -372,12 +377,12 @@ class ResampleAnalysis:
 
 
 class ResampleKDEAnalysis(ResampleAnalysis):
-    """Class for performing various resampling methods on a dataset"""
+    """Class for performing various resampling methods on kernel density estimates of a dataset"""
 
     def __init__(self,
                  dataset: np.ndarray,
                  x_domain: np.ndarray = None,
-                 kde: BaseKDE = None,
+                 kde: Type[BaseKDE] = None,
                  kde_bandwidth: (float, str) = None,
                  weights: np.ndarray = None
                  ):
@@ -420,9 +425,11 @@ class ResampleKDEAnalysis(ResampleAnalysis):
         if use_weights:
             if self._weights is None:
                 raise TypeError("Weight is None, but compute_kde has been told to use them.")
-            return self._xdomain, self._kde(self._dataset, weights=self._weights)(self._xdomain)
+            return self._xdomain, self._kde(self._dataset,
+                                            bandwidth=self._kde_bandwidth,
+                                            weights=self._weights)(self._xdomain)
         else:
-            return self._xdomain, self._kde(self._dataset)(self._xdomain)
+            return self._xdomain, self._kde(self._dataset, bandwidth=self._kde_bandwidth)(self._xdomain)
 
     # ------------------------------------------------------------------------------------------------------------ #
     def bootstrap_with_kde(self,
@@ -479,16 +486,21 @@ class ResampleKDEAnalysis(ResampleAnalysis):
         else:
             try:
                 output_data = np.zeros((num_resamples,
-                                        len(analysis_func(self._kde(self._dataset[:subsample_size])(self._xdomain),
+                                        len(analysis_func(self._kde(self._dataset[:subsample_size],
+                                                                    bandwidth=self._kde_bandwidth)(self._xdomain),
                                                           **analysis_func_kwargs))))
             except TypeError:
                 output_data = np.zeros(num_resamples)
 
+        # Note to self: consider multicore version of this part of code
         for r_i, resample in enumerate(bootstrap_indices):
             if use_weights:
-                new_kde = self._kde(self._dataset[resample], weights=self._weights[resample])
+                new_kde = self._kde(self._dataset[resample],
+                                    bandwidth=self._kde_bandwidth,
+                                    weights=self._weights[resample])
             else:
-                new_kde = self._kde(self._dataset[resample])
+                new_kde = self._kde(self._dataset[resample],
+                                    bandwidth=self._kde_bandwidth)
 
             if analysis_func is None:
                 output_data[r_i] = new_kde(self._xdomain)
@@ -520,4 +532,31 @@ class ResampleKDEAnalysis(ResampleAnalysis):
 
         """
         self._xdomain = x_domain
+
+
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
+def curvefit_passable_wrapper(datapoints: np.ndarray,
+                              fit_func: FunctionType=None,
+                              xdata: np.ndarray=None,
+                              **curvefit_kwargs):
+    """Provides a wrapper around the scipy.optimize.curve_fit function to make it easier to use in bootstrapping
+
+    Parameters
+    ----------
+    datapoints
+        y-values, typically required as first field for passed functions
+    fit_func
+        Function to use in the curve_fit routine
+    xdata
+        x-values, provides the domain for analysis
+    curvefit_kwargs
+        Additional kwargs to pass, such as p0=[...] or absolute_sigma=True
+
+    Returns
+    -------
+
+    """
+    opt_fit, pcov_fit = optimize.curve_fit(fit_func, xdata=xdata, ydata=datapoints, **curvefit_kwargs)
+    return opt_fit
 

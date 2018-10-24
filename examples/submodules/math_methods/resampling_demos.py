@@ -3,6 +3,7 @@
 
 import numpy as np
 from exoechopy.analyze.stats import *
+from exoechopy import visualize
 import matplotlib.pyplot as plt
 from scipy.stats import rayleigh
 
@@ -63,23 +64,25 @@ def run():
 
     #  =============================================================  #
 
-    test_data = my_distribution.rvs(size=num_points)
+    test_data = my_distribution.rvs(size=50)
     xvals = np.linspace(0, max(test_data)*1.25, 500)
-    MyKDEAnalysis = ResampleKDEAnalysis(test_data, xvals, kde=GaussianKDE)
+    MyKDEAnalysis = ResampleKDEAnalysis(test_data, xvals, kde=GaussianKDE, kde_bandwidth='silverman')
     xvals, computed_kde = MyKDEAnalysis.compute_kde()
 
+    conf_lvls = [.6, .9]
+
     resampled_kde, confidence_intervals = MyKDEAnalysis.bootstrap_with_kde(num_resamples,
-                                                                           conf_lvl=.9)
+                                                                           conf_lvl=conf_lvls)
     print("resampled_kde.shape: ", resampled_kde.shape)
     print("confidence_intervals.shape: ", confidence_intervals.shape)
 
-    plt.plot(xvals, computed_kde, color='k', zorder=10, label="Kernel density estimate")
-    plt.plot(xvals, confidence_intervals[0, 0, :], lw=1, zorder=2, color='r', label="90% confidence interval")
-    plt.plot(xvals, confidence_intervals[0, 1, :], lw=1, zorder=2, color='r')
-    plt.fill_between(xvals, confidence_intervals[0, 0, :], confidence_intervals[0, 1, :], zorder=0, color='coral')
-    plt.title("Computed KDE")
-    plt.legend()
-    plt.show()
+    visualize.plot_signal_w_uncertainty(xvals, computed_kde,
+                                        confidence_intervals[:, 1, :], confidence_intervals[:, 0, :],
+                                        y_data_2=rayleigh.pdf(xvals), y_axis_label="PDF", color_2='darkblue',
+                                        y_label_1="KDE", y_label_2="Exact solution",
+                                        plt_title="Computed KDE and uncertainty",
+                                        uncertainty_color=['cadetblue', 'slategray'],
+                                        uncertainty_label=[str(ci*100)+"%" for ci in conf_lvls])
 
 
 # ******************************************************************************************************************** #

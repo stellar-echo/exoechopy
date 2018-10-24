@@ -12,7 +12,7 @@ from astropy import constants
 from scipy.signal import savgol_filter
 
 __all__ = ['angle_between_vectors', 'vect_from_spherical_coords', 'compute_lag',
-           'SphericalLatitudeGen', 'stochastic_flare_process',
+           'SphericalLatitudeGen', 'stochastic_flare_process', 'bi_erf_model', 'bigaussian_model',
            'window_range',
            'take_noisy_derivative', 'take_noisy_2nd_derivative', 'linear_detrend',
            'round_dec', 'row_col_grid']
@@ -140,7 +140,7 @@ def bigaussian_model(data: np.ndarray,
 
     """
     denom = 2*sigma**2
-    return .5*amp*(np.exp(-(data-mean1)**2/denom)+np.exp(-(data-(mean2))**2/denom))
+    return .5*amp*(np.exp(-(data-mean1)**2/denom)+np.exp(-(data-mean2)**2/denom))
 
 
 def bi_erf_model(data, mean1, mean2, sigma):
