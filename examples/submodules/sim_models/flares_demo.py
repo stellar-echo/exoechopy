@@ -37,10 +37,20 @@ def run():
         plt.plot(time_domain, flare_intensity_list,
                  color=color_map(max_num_decay/max(max_decay_list)),
                  lw=1, label="max_decay="+str(max_num_decay))
-        plt.arrow((onset_time + max_num_decay * decay_const).value, .25, 0, -.15,
-                  head_width=.5, head_length=.05,
-                  color=color_map(max_num_decay/max(max_decay_list)))
 
+    plt.annotate("C1 cusps occur at the end of the exponential,\n"
+                 "determined by the max_decay parameter.",
+                 xy=((onset_time + max_decay_list[0] * decay_const).value, 0),
+                 xytext=(15, .5),
+                 arrowprops=dict(arrowstyle="->",
+                                 color=color_map(max_decay_list[0]/max(max_decay_list)),
+                                 connectionstyle="arc3, rad=.2"))
+    plt.annotate("",
+                 xy=((onset_time + max_decay_list[1] * decay_const).value, 0),
+                 xytext=(35, .49),
+                 arrowprops=dict(arrowstyle="->",
+                                 color=color_map(max_decay_list[1]/max(max_decay_list)),
+                                 connectionstyle="arc3, rad=-.2"))
     plt.xlabel('Time (sec)')
     plt.ylabel('Flare intensity ('+u_labelstr(flare_intensity_list)+")")
     plt.legend()
@@ -52,7 +62,7 @@ def run():
     #  =============================================================  #
     print("""
     The delta-function flare narrows as the discretization increases, preserving the total peak count.
-    To normalize to flux rather than integrated counts, divide by delta_t
+    To convert flux to counts, multiply by delta_t
     Depending on discretization, the point may occur before or on the zero-point of the time domain:
     delta_function(t_0, t_1) =  {  1 if 0 in [t_0, t_1)  }
                                 {  0 else                }
@@ -102,7 +112,7 @@ def run():
 
     ax_ct.set_xlabel("Time (s)")
     ax_ct.set_ylabel(u_labelstr(integrated_flare))
-    ax_ct.set_title("Integrated counts")
+    ax_ct.set_title("Bin-integrated counts")
     ax_ct.legend()
 
     ax_ctsec.set_xlabel("Time (s)")

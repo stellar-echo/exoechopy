@@ -8,7 +8,7 @@ import warnings
 from astropy import units as u
 from astropy.utils.exceptions import AstropyUserWarning
 
-from .values import *
+from .spectral_dicts import *
 from ...utils.constants import *
 
 

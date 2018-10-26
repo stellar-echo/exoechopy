@@ -10,230 +10,167 @@ from astropy.coordinates import Angle
 from astropy.utils.exceptions import AstropyUserWarning
 
 from ..utils.constants import *
+from .spectral.spectral_dicts import limb_dict
 
 
-__all__ = ['no_limb_darkening',
-           'calculate_basic_limb_darkening', '_calculate_basic_limb_darkening_lw', 'limb_darkened_radial_position']
+__all__ = ['Limb']
+
 
 # TODO Implement spectral dependencies
-# TODO Create a Limb class?  Could handle spectral stuff and other models more easily?
 # TODO Handle transit cases a little
 # TODO Handle flare depth somehow
-# TODO Handle flares slightly behind star, but still visible through limb
+# TODO Handle flares slightly behind star, but still visible through limb?
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 
-def no_limb_darkening(angular_position: Angle,
-                      star_radius_over_distance: float=0,
-                      **kwargs) -> float:
-    """Returns 1 if visible from the position, 0 if on the far side of the star.
+class Limb:
+    def __init__(self,
+                 limb_model: str='quadratic',
+                 coeffs: list=[],
+                 func: FunctionType=None):
+        """A class for handling limb darkening functions
 
-    Parameters
-    ----------
-    angular_position
-        Angle between star_origin-->observer and star_origin-->point_on_star
-    star_radius_over_distance
-        Radius of star / Distance to star
-    kwargs
-        To cooperate with other limb darkening arguments
+        Based on BATMAN:
+        https://www.cfa.harvard.edu/~lkreidberg/batman/tutorial.html#limb-darkening-options
 
-    Returns
-    -------
-    float
-        0 or 1 depending on if the point is on the far side of the star
-    """
-    if isinstance(angular_position, Angle) or isinstance(angular_position, u.Quantity):
-        _angular_position = angular_position.to(u.rad)
-    else:
-        _angular_position = Angle(angular_position, unit=u.rad)
-        warnings.warn("Casting angular_position, input as " + str(angular_position) + ", to radians",
-                      AstropyUserWarning)
+        Parameters
+        ----------
+        limb_model
+            Name of the limb model.  Options:
+                - uniform
+                - linear
+                - quadratic (default)
+                - square-root
+                - logarithmic
+                - exponential
+                - power2
+                - nonlinear
+                - custom (this requires inputing a custom func, coeffs will be passed as *args to func)
+        coeffs
+            Coefficients to pass to the limb model
+        func
+            A custom limb model provided by the user--ignored if limb_model is not custom!
+        """
+        try:
+            self._limb_function = limb_dict[limb_model]
+            self._limb_model = limb_model
+            self._limb_args = coeffs
+        except KeyError:
+            if func is not None:
+                self._limb_function = func
+                self._limb_model = limb_model
+                self._limb_args = coeffs
+            else:
+                raise AttributeError("Unknown limb model")
 
-    mod_angle = np.mod(_angular_position.value, 2 * np.pi)*u.rad
-    if pi_u / 2 <= mod_angle <= 3 * pi_u / 2:  # If it's beyond the limb from any distance...
-        return 0.
+    #  =============================================================  #
+    def calculate_limb_intensity(self,
+                                 angle: u.Quantity,
+                                 star_radius_over_distance: float = 0):
+        """Calculates the relative intensity at a point on the surface of a star relative to an observation angle.
 
-    max_limb_angle = np.arcsin(star_radius_over_distance)*u.rad
-    # If viewed from Earth, max_limb_angle is effectively 0
-    if max_limb_angle.value == 0:
-        # Already ruled out that it's not behind the star in previous if test
-        return 1.
+        Parameters
+        ----------
+        angle
+            Angle between star_origin-->observer and star_origin-->point_on_star
+        star_radius_over_distance
+            Radius of star / Distance to star, defaults to 0 (meaning Earth is effectively at infinity)
 
-    # If user requests an angle on the other side of the star, currently assume star is opaque and blocks light:
-    max_angle = pi_u/2 - max_limb_angle
-    if np.abs(_angular_position) > max_angle:
-        return 0.
+        Returns
+        -------
+        float
+            Value from [0, 1] for visibility of the point on the surface
+        """
 
-    # If viewed within the star system at a realistic angle:
-    else:
-        return 1.
-
-
-#  =============================================================  #
-
-
-def calculate_basic_limb_darkening(angular_position: Angle,
-                                   star_radius_over_distance: float=0,
-                                   **kwargs) -> float:
-    """Calculates the effective intensity of a point on a surface relative to an observer position.
-
-    Parameters
-    ----------
-    angular_position
-        Angle between star_origin-->observer and star_origin-->point_on_star
-    star_radius_over_distance
-        Radius of star / Distance to star
-    kwargs
-        Arguments for limb darkening equation
-
-    Returns
-    -------
-    float
-        Value from [0, 1] for visibility of the point on the surface
-
-    """
-    if isinstance(angular_position, Angle) or isinstance(angular_position, u.Quantity):
-        _angular_position = angular_position.to(u.rad)
-    else:
-        _angular_position = Angle(angular_position, unit=u.rad)
-        warnings.warn("Casting angular_position, input as " + str(angular_position) + ", to radians",
-                      AstropyUserWarning)
-
-    mod_angle = np.mod(_angular_position.value, 2 * np.pi)*u.rad
-    if pi_u / 2 <= mod_angle <= 3 * pi_u / 2:  # If it's beyond the limb from any distance...
-        return 0
-
-    max_limb_angle = np.arcsin(star_radius_over_distance)*u.rad
-    # If viewed from Earth, max_limb_angle is effectively 0
-    if max_limb_angle.value == 0:
-        return limb_darkened_radial_position(np.sin(_angular_position), **kwargs)
-
-    # If user requests an angle on the other side of the star, currently assume star is opaque and blocks light:
-    max_angle = pi_u/2 - max_limb_angle
-    if np.abs(_angular_position) > max_angle:
-        return 0.
-
-    # If viewed within the star system at a realistic angle:
-    else:
-        theta_angle = np.arctan2(np.sin(_angular_position), 1 / star_radius_over_distance - np.cos(_angular_position))
-        theta_angle = np.mod(theta_angle, 2 * pi_u)
-    # if max_limb_angle <= theta_angle <= 2*np.pi-max_limb_angle:
-    #     return 0.
-    # else:
-        return limb_darkened_phase(theta_angle, max_limb_angle, **kwargs)
-
-
-def _calculate_basic_limb_darkening_lw(angular_position, star_radius_over_distance=0, **kwargs):
-    """
-    Lightweight version, does not track or verify units
-    Calculates the effective intensity of a point on a surface relative to an observer position.
-
-    :param angular_position: Angle between star_origin-->observer and star_origin-->point_on_star
-    :param star_radius_over_distance: radius of star / Distance to star
-    :return:
-    """
-    mod_angle = np.mod(angular_position, 2 * np.pi)
-    if np.pi / 2 <= mod_angle <= 3 * np.pi / 2:  # If it's beyond the limb from any distance...
-        return 0
-
-    max_limb_angle = np.arcsin(star_radius_over_distance)
-    # If viewed from Earth, max_limb_angle is effectively 0
-    if max_limb_angle == 0:
-        return limb_darkened_radial_position(np.sin(angular_position), **kwargs)
-
-    # If user requests an angle on the other side of the star, currently assume star is opaque and blocks light:
-    max_angle = np.pi/2 - max_limb_angle
-    if np.abs(angular_position) > max_angle:
-        return 0.
-
-    # If viewed within the star system at a realistic angle:
-    else:
-        theta_angle = np.arctan2(np.sin(angular_position), 1 / star_radius_over_distance - np.cos(angular_position))
-        theta_angle = np.mod(theta_angle, 2 * np.pi)
-    # if max_limb_angle <= theta_angle <= 2*np.pi-max_limb_angle:
-    #     return 0.
-    # else:
-        return _limb_darkened_phase_lw(theta_angle, max_limb_angle, **kwargs)
-
-
-# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
-
-
-def limb_darkened_radial_position(radial_position, a0=.3, a1=.93, a2=-.23, **kwargs):
-    """
-    Cosine expansion version of relative intensity as a function of fractional radial position on the star.
-    https://en.wikipedia.org/wiki/Limb_darkening
-    :param float radial_position: fraction of radius on star where flare occurred, in polar coordinates.  [0-1]
-    :param float a0: 0th order term
-    :param float a1: 1st order term
-    :param float a2: 2nd order term
-    :return float: relative limb intensity
-    """
-    cos_phi_squared = 1 - radial_position ** 2
-    return a0 + a1*cos_phi_squared**.5 + a2*cos_phi_squared
-
-
-# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
-
-
-def limb_darkened_phase(observation_angle, max_limb_angle, a0=.3, a1=.93, a2=-.23, **kwargs):
-    """
-    Computes the intensity of the star based on
-    :param Angle observation_angle: Angle between observer-->star and observer-->point_on_star
-    :param Angle max_limb_angle:
-    :param float a0: 0th order term
-    :param float a1: 1st order term
-    :param float a2: 2nd order term
-    :return float:
-    """
-    if observation_angle == 0.:
-        _observation_angle = Angle(0., unit=u.rad)
-    else:
-        if isinstance(observation_angle, Angle) or isinstance(observation_angle, u.Quantity):
-            _observation_angle = observation_angle.to(u.rad)
+        if isinstance(angle, Angle) or isinstance(angle, u.Quantity):
+            _angular_position = angle.to(u.rad)
         else:
-            _observation_angle = Angle(observation_angle, unit=u.rad)
-            warnings.warn("Casting observation_angle, input as " + str(observation_angle) + ", to radians",
+            _angular_position = Angle(angle, unit=u.rad)
+            warnings.warn("Casting angular_position, input as " + str(angle) + ", to radians",
                           AstropyUserWarning)
 
-    if isinstance(max_limb_angle, Angle) or isinstance(max_limb_angle, u.Quantity):
-        _max_limb_angle = max_limb_angle.to(u.rad)
-    else:
-        _max_limb_angle = Angle(max_limb_angle, unit=u.rad)
-        warnings.warn("Casting max_limb_angle, input as " + str(max_limb_angle) + ", to radians",
-                      AstropyUserWarning)
+        mod_angle = np.mod(_angular_position.value, 2 * np.pi) * u.rad
+        if pi_u / 2 <= mod_angle <= 3 * pi_u / 2:  # If it's beyond the limb from any distance...
+            return 0
 
-    cos_phi_squared = 1 - (np.sin(_observation_angle) / np.sin(_max_limb_angle)) ** 2
-    try:
-        return_val = a0 + a1*cos_phi_squared**.5 + a2*cos_phi_squared
-    except FloatingPointError:
-        print("returnVal: ", return_val)
-        print("cosPhiSquared: ", cos_phi_squared)
-        print("relativeAngle: ", _observation_angle)
-        print("maxAngle: ", _max_limb_angle)
-        return_val = 0
-    return return_val
+        max_limb_angle = np.arcsin(star_radius_over_distance) * u.rad
+        # If viewed from Earth, max_limb_angle is effectively 0
+        if max_limb_angle.value == 0:
+            return self.limb_darkened_radial_position(np.sin(_angular_position))
+
+        # If user requests an angle on the other side of the star, currently assume star is opaque and blocks light:
+        max_angle = pi_u / 2 - max_limb_angle
+        if np.abs(_angular_position) > max_angle:
+            return 0.
+
+        # If viewed within the star system at a realistic angle:
+        else:
+            theta_angle = np.arctan2(np.sin(_angular_position),
+                                     1 / star_radius_over_distance - np.cos(_angular_position))
+            theta_angle = np.mod(theta_angle, 2 * pi_u)
+            # if max_limb_angle <= theta_angle <= 2*np.pi-max_limb_angle:
+            #     return 0.
+            # else:
+            return self._limb_darkened_within_system_lw(theta_angle, max_limb_angle)
+
+    #  =============================================================  #
+    def _limb_darkened_within_system_lw(self, theta, max_limb_angle):
+        """
+
+        Parameters
+        ----------
+        theta
+        max_limb_angle
+
+        Returns
+        -------
+
+        """
+        cos_phi = (1 - (np.sin(theta) / np.sin(max_limb_angle)) ** 2)**.5
+        try:
+            return_val = self._limb_function(cos_phi, *self._limb_args)
+        except FloatingPointError:
+            print("return_val: ", return_val)
+            print("cos_phi: ", cos_phi)
+            print("max_limb_angle: ", max_limb_angle)
+            return_val = 0
+        return return_val
+
+    #  =============================================================  #
+    def limb_darkened_radial_position(self, radial_position: float) -> float:
+        """Relative intensity as a function of fractional radial position on the star.
+
+        Parameters
+        ----------
+        radial_position
+            Fraction of radius on star, in polar coordinates.  [0-1]
+
+        Returns
+        -------
+        float
+            Relative limb intensity
+        """
+        cos_phi = (1 - radial_position ** 2)**.5
+        return self._limb_function(cos_phi, *self._limb_args)
 
 
-def _limb_darkened_phase_lw(observation_angle, max_limb_angle, a0=.3, a1=.93, a2=-.23, **kwargs):
-    """
-    Lightweight version, does not track units
-    :param float observation_angle: Angle between observer-->star_origin and observer-->point_on_star
-    :param float max_limb_angle:
-    :param float a0: 0th order term
-    :param float a1: 1st order term
-    :param float a2: 2nd order term
-    :return:
-    """
-    cos_phi_squared = 1 - (np.sin(observation_angle) / np.sin(max_limb_angle)) ** 2
-    try:
-        return_val = a0 + a1*cos_phi_squared**.5 + a2*cos_phi_squared
-    except FloatingPointError:
-        print("returnVal: ", return_val)
-        print("cosPhiSquared: ", cos_phi_squared)
-        print("relativeAngle: ", observation_angle)
-        print("maxAngle: ", max_limb_angle)
-        return_val = 0
-    return return_val
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
+class SpectralLimb(Limb):
+    def __init__(self,
+                 limb_model: str,
+                 coeff_funcs: list,
+                 model_func: FunctionType=None):
+        """Extension of Limb to allow each coefficient to be a function of wavelength
+
+        Not currently implemented, this is a placeholder!
+
+        Parameters
+        ----------
+        limb_model
+        coeff_funcs
+        model_func
+        """
+        raise NotImplementedError
 

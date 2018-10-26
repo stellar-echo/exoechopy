@@ -85,13 +85,14 @@ def run():
     #  =============================================================  #
 
     print("""To pass a special set of flare_kwargs, add them when declaring the FlareActivity:  
-    For ExponentialFlare1, has keyworks onset= and decay=, so replace with onset_pdf and decay_pdf.
+    For ExponentialFlare1, with keywords onset= and decay=, replace these with onset_pdf and decay_pdf.
     FlareActivity will recognize '_pdf' as the indicator of a probability density function and will remove '_pdf' 
-    from the keyword string before passing to the Flare class.  
+    from the keyword string before passing to the Flare class!
     If '_pdf' is not included, it will pass the entire string (so 'onset' and 'onset_pdf' will behave the same), 
     but the best practice is to explicitly remind readers of your code that it's 
     a probability density function generator, not a single value, that is being passed.
-    To explicitly include a unit to a frozen pdf, pass a tuple of the pdf with the irreducible unit as the second arg. 
+    To explicitly include astropy units with a frozen pdf, pass a tuple of the pdf with 
+    the irreducible unit as the second arg (Ex: (stats.rayleigh(scale=5), u.s)).
 
     """)
 

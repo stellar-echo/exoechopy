@@ -28,8 +28,8 @@ def run():
     star_rotation_rate = 2*pi_u/observation_duration  # Spin quickly for demo purposes
 
     MyStar = eep.simulate.Star(radius=star_radius, spectral_type=emission_type, rotation_rate=star_rotation_rate,
-                  limb_function=eep.simulate.calculate_basic_limb_darkening,
-                  name="My Star", point_color='saddlebrown')
+                               limb=eep.simulate.Limb('nonlinear', coeffs=[0.5, 0.1, 0.1, -0.1]),
+                               name="My Star", point_color='saddlebrown')
 
     MyStar.set_view_from_earth(0*u.deg, 90*u.deg)
 
@@ -74,7 +74,11 @@ def run():
     eep.visualize.render_telescope_lightcurve(MyTelescope, flare_color='orange')
 
     # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
-    #  Create a second active regions on opposite side of the star, give different phenomenology to make distinct
+    print("""
+    Now we'll create a second active regions on opposite side of the star, 
+    and give it different phenomenology to make it distinct.  This active region will have a wider range
+    of flare locations, so it won't disappear behind the star quite as cleanly.
+    """)
 
     #  Hemispherical region:
     min_long_2 = -pi_u / 2
@@ -90,14 +94,14 @@ def run():
 
     MyExpFlareActivity = eep.simulate.active_regions.FlareActivity(
         eep.simulate.flares.ExponentialFlare1,
-                                                      intensity_pdf=exponential_flare_intensities,
-                                                      onset_pdf=[1, 4] * u.s,
-                                                      decay_pdf=(stats.rayleigh(scale=5), u.s),
-                                                      label=region_2_name)
+        intensity_pdf=exponential_flare_intensities,
+        onset_pdf=[1, 4] * u.s,
+        decay_pdf=(stats.rayleigh(scale=10), u.s),
+        label=region_2_name)
 
     ActiveRegion2 = eep.simulate.active_regions.ActiveRegion(flare_activity=MyExpFlareActivity,
-                                                occurrence_freq_pdf=approximate_num_flares/2/observation_duration,
-                                                region=region_2)
+                                                             occurrence_freq_pdf=approximate_num_flares/2/observation_duration,
+                                                             region=region_2)
 
     MyStar.add_active_regions(ActiveRegion2)
 
@@ -114,6 +118,10 @@ def run():
     #  =============================================================  #
     MyTelescope.prepare_continuous_observational_run(observation_duration*5)
     MyTelescope.collect_data(save_diagnostic_data=True)
+
+    print("""
+    Upon close inspection of the lightcurve, you can see the general trend of alternating between 
+    delta-like flares and exponential flares, which matches the star's rotation.""")
 
     eep.visualize.interactive_lightcurve(MyTelescope._time_domain, MyTelescope._pure_lightcurve)
 

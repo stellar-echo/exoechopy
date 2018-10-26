@@ -10,6 +10,7 @@ import examples.submodules.sim_models.telescope_demo as telescope_demo
 import examples.submodules.math_methods.autocorr_demos as autocorr_demos
 import examples.submodules.echo_demo_1 as echo_demo_1
 import examples.submodules.echo_demo_2 as echo_demo_2
+import examples.submodules.statistical_analysis_demo as stats
 
 print("""
 ExoEchoPy provides modeling and analysis tools to support the development of a new exoplanet hunting technique.
@@ -98,6 +99,17 @@ The examples.submodules.echo_demo_2.py demo:
 """)
 
 echo_demo_2.run()
+
+
+print("""
+The statistical_analysis_demo shows a phenomenological model for identifying echoes by searching for bimodality.
+The resampling becomes extensive and may take some time...
+
+#  =============================================================  #
+The examples.submodules.statistical_analysis_demo.py demo:
+""")
+
+stats.run()
 
 print("""
 More to come!

@@ -66,7 +66,11 @@ def run():
 
     #  =============================================================  #
     #  Create a star
-    MyStar = eep.simulate.Star(radius=star_radius, spectral_type=emission_type, point_color='saddlebrown', mass=star_mass)
+    MyStar = eep.simulate.Star(radius=star_radius,
+                               spectral_type=emission_type,
+                               limb=eep.simulate.Limb('quadratic', coeffs=[.1, .3]),
+                               point_color='saddlebrown',
+                               mass=star_mass)
 
     # Pole-on view
     MyStar.set_view_from_earth(0*u.deg, 0*u.deg)

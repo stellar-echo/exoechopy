@@ -133,6 +133,9 @@ def run():
     ind_max = approx_index_lag+subplot_width//2
     inset_ax.plot(autocorr_domain[ind_min:ind_max], autocorr[ind_min:ind_max],
                   color='k', lw=1, drawstyle='steps-post')
+    plt.annotate("Echo is here", xy=(15, 0), xytext=(10, .3),
+                 arrowprops=dict(arrowstyle="->",
+                                 connectionstyle="arc3, rad=-.2"))
     plt.show()
 
     # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -161,6 +164,9 @@ def run():
     ind_max = approx_index_lag+subplot_width//2
     inset_ax.plot(autocorr_domain[ind_min:ind_max], autocorr[ind_min:ind_max],
                   color='k', lw=1, drawstyle='steps-post')
+    inset_ax.annotate("Echo is here?", xy=(15, -.0017), xytext=(10, -.0015),
+                      arrowprops=dict(arrowstyle="->",
+                                      connectionstyle="arc3, rad=-.2"))
     plt.show()
 
     # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -205,9 +211,13 @@ def run():
     fig, ax = plt.subplots()
     autocorr_domain = np.arange(0, len(sum_autocorr_noisy)*observation_cadence.value, observation_cadence.value)
     ax.plot(autocorr_domain[1:max_lag-1], detrended_correlation,
-            color='gray', lw=1, drawstyle='steps-post', label="Summed autocorrelation")
+            color='coral', lw=1, drawstyle='steps-post', label="Summed autocorrelation")
     ax.plot(autocorr_domain[1:max_lag-1], detrended_weighted_correlation,
             color='k', lw=1, drawstyle='steps-post', label="Summed weighted autocorrelation")
+
+    ax.annotate("Echo is here?", xy=(15.5, .00034), xytext=(20, .0004),
+                arrowprops=dict(arrowstyle="->",
+                                connectionstyle="arc3, rad=.3"))
 
     plt.legend()
     plt.show()

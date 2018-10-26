@@ -201,7 +201,7 @@ def render_telescope_lightcurve(telescope: Telescope,
         angle_array = np.abs(long_-telescope.observation_target.get_rotation(time_domain))
         ax_array[1].plot(time_domain, angle_array,
                          color='wheat', zorder=0, ls='--', lw=1)
-        limb_exact = [telescope.observation_target._limb_func(ai)
+        limb_exact = [telescope.observation_target.star_limb(ai)
                       for ai in angle_array]
         ax_array[2].plot(time_domain, limb_exact,
                          color='wheat', zorder=0, ls='--', lw=1)

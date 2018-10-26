@@ -88,6 +88,9 @@ class DeltaStar(Plottable, MassiveObject):
                 warnings.warn("Casting dist_to_earth, input as " + str(dist_to_earth) + ", to LY",
                               AstropyUserWarning)
 
+        # Delta-star has no limb, but I wanted a placeholder
+        self._limb = Limb('uniform')
+
     # ------------------------------------------------------------------------------------------------------------ #
     def add_active_regions(self, *active_regions: ActiveRegion):
         """Add active region(s) to star
@@ -218,19 +221,25 @@ class DeltaStar(Plottable, MassiveObject):
         return self._earth_direction_vector
 
     # ------------------------------------------------------------------------------------------------------------ #
-    @property
-    def star_limb(self, *args):
-        """Delta star has no limb, but need a placeholder
+    def star_limb(self,
+                  angular_position: Angle,
+                  star_radius_over_distance: float=0) -> float:
+        """Calculates the effective intensity of a point on a surface relative to an observer position.
 
         Parameters
         ----------
-        args
+        angular_position
+            Angle between star_origin-->observer and star_origin-->point_on_star
+        star_radius_over_distance
+            Radius of star / Distance to star
 
         Returns
         -------
+        float
+            Value from [0, 1] for visibility of the point on the surface
 
         """
-        return lambda x: 1.
+        return self._limb.calculate_limb_intensity(angular_position, star_radius_over_distance)
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -249,8 +258,7 @@ class Star(DeltaStar):
                  earth_longitude: Angle=None,
                  earth_latitude: Angle=None,
                  dist_to_earth: Distance=None,
-                 limb_function: FunctionType=None,
-                 limb_args: dict=None,
+                 limb: Limb=None,
                  **kwargs
                  ):
         """Defines a simple star with a variety of physical properties.
@@ -273,8 +281,8 @@ class Star(DeltaStar):
             [0,  pi)
         dist_to_earth
             Currently not used, may be useful if absolute magnitudes get implemented
-        limb_function
-            Function to use for calculating limb darkening
+        limb
+            Model to use for calculating limb darkening
         kwargs
         """
         super().__init__(mass=mass,
@@ -298,36 +306,10 @@ class Star(DeltaStar):
         self.set_rotation_parameters(rotation_rate, differential_rotation)
 
         #  Holder for a limb darkening model:
-        if limb_function is None:
-            self._limb_func = no_limb_darkening
-            self._limb_args = {}
+        if limb is None:
+            self._limb = Limb(limb_model='uniform')
         else:
-            self._limb_func = limb_function
-            if limb_args is None:
-                self._limb_args = {}
-            else:
-                self._limb_args = limb_args
-
-    # ------------------------------------------------------------------------------------------------------------ #
-    def star_limb(self,
-                  angular_position: Angle,
-                  star_radius_over_distance: float=0) -> float:
-        """Calculates the effective intensity of a point on a surface relative to an observer position.
-
-        Parameters
-        ----------
-        angular_position
-            Angle between star_origin-->observer and star_origin-->point_on_star
-        star_radius_over_distance
-            Radius of star / Distance to star
-
-        Returns
-        -------
-        float
-            Value from [0, 1] for visibility of the point on the surface
-
-        """
-        return self._limb_func(angular_position, star_radius_over_distance, **self._limb_args)
+            self._limb = limb
 
     # ------------------------------------------------------------------------------------------------------------ #
     def generate_flares_over_time(self, duration: u.Quantity) -> FlareCollection:

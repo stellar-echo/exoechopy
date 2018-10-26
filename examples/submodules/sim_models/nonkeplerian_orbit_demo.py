@@ -43,9 +43,9 @@ def run():
                                 name="My Star 2", point_color='mediumslateblue', path_color='powderblue')
 
     # Initialize the solver:
-    y6solver = eep.simulate.SymplecticSolver(MyStar1, MyStar2, dt=100*u.s)
+    y6solver = eep.simulate.SymplecticSolver(MyStar1, MyStar2, dt=100*u.s, steps_per_save=10)
     # Run the solver:
-    y6solver.calculate_orbits(period*2, steps_per_save=10)
+    y6solver.calculate_orbits(period*2)
 
     # Visualize results:
     # Since we have two stars, we need to hold them in an appropriate container for processing purposes:
@@ -100,12 +100,12 @@ def run():
     #  =============================================================  #
 
     # Initialize the solver:
-    y6solver = eep.simulate.SymplecticSolver(MyStar1, Planet1, dt=100*u.s)
+    y6solver = eep.simulate.SymplecticSolver(MyStar1, Planet1, dt=100*u.s, steps_per_save=20)
 
     period = (2 * np.pi * np.sqrt(a_1 ** 3 / (const.G * (star_mass+planet_mass)))).decompose()
 
     # Run the solver:
-    y6solver.calculate_orbits(2*period, steps_per_save=20)
+    y6solver.calculate_orbits(2*period)
 
     eep.visualize.animate_3d_planetary_system(star_system)
 
@@ -138,12 +138,12 @@ def run():
     #  =============================================================  #
 
     # Initialize the solver:
-    y6solver = eep.simulate.SymplecticSolver(MyStar1, MyStar2, Planet1, dt=100*u.s)
+    y6solver = eep.simulate.SymplecticSolver(MyStar1, MyStar2, Planet1, dt=100*u.s, steps_per_save=20)
 
     period = (2 * np.pi * np.sqrt((2*a0)**3 / (const.G * (2*star_mass+planet_mass)))).decompose()
 
     # Run the solver:
-    y6solver.calculate_orbits(2*period, steps_per_save=20)
+    y6solver.calculate_orbits(2*period)
 
     eep.visualize.animate_3d_planetary_system(star_system)
 
