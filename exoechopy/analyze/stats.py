@@ -4,10 +4,12 @@ This module provides different algorithms for resampling datasets to produce con
 """
 
 import numpy as np
+
 from scipy.stats import gaussian_kde
 from ..utils import FunctionType
 from typing import Type
 from scipy import optimize
+from ..utils.math_operations import PipePool
 
 __all__ = ['GaussianKDE', 'TophatKDE', 'ResampleAnalysis', 'ResampleKDEAnalysis', 'curvefit_passable_wrapper']
 
@@ -187,70 +189,6 @@ class ResampleAnalysis:
         self._num_pts = len(dataset)
 
     # ------------------------------------------------------------------------------------------------------------ #
-    def bootstrap(self,
-                  num_resamples: int,
-                  subsample_size: int=None,
-                  analysis_func: FunctionType = None,
-                  conf_lvl: float=None,
-                  **analysis_func_kwargs):
-        """Perform bootstrap analysis on the dataset provided, including some various analysis methods
-
-        Note: This is not a wrapper for the astropy boostrap method.  Though it's close.
-
-        Parameters
-        ----------
-        num_resamples
-            Number of bootstrap samples to test
-        subsample_size
-            If None (default), uses the same size as the original dataset.
-            If an integer is given, will sample this many subsamples from the original dataset.
-        analysis_func
-            If None (default), returns the resampled data without analyzing it
-            An optional analysis function to perform on the bootstrap resampled data (e.g., np.mean)
-        conf_lvl
-            If None (default), returns just the resampled dataset
-            If an analysis_func is provided, returns the computed values and the lower and upper values of that interval
-            The confidence interval is computed using the np.percentile function.
-        analysis_func_kwargs
-            Arguments to pass on to the analysis_func (dataset is the first argument, kwargs follow)
-
-        Returns
-        -------
-        np.ndarray or (np.ndarray, float, float)
-            If not using confidence intervals, returns the bootstrap resamples
-            If using a confidence interval, also returns the lower and upper intervals
-        """
-        if subsample_size is None:
-            subsample_size = self.num_pts
-
-        if analysis_func is None:
-            bootstrapped_data = np.zeros((num_resamples, subsample_size))
-        else:
-            try:
-                bootstrapped_data = np.zeros((num_resamples,
-                                              len(analysis_func(self._dataset[:subsample_size], **analysis_func_kwargs))))
-            except TypeError:
-                bootstrapped_data = np.zeros(num_resamples)
-        for b_i in range(num_resamples):
-            resampled_indices = np.random.choice(self.num_pts, subsample_size, replace=True)
-            if analysis_func is None:
-                bootstrapped_data[b_i] = self._dataset[resampled_indices]
-            else:
-                bootstrapped_data[b_i] = analysis_func(self._dataset[resampled_indices], **analysis_func_kwargs)
-
-        if conf_lvl is None:
-            return bootstrapped_data
-        else:
-            if 0 < conf_lvl < 1:
-                upper_interval = 100*(1 - (1 - conf_lvl)/2)
-                lower_interval = 100*((1 - conf_lvl)/2)
-                return bootstrapped_data, \
-                       np.percentile(bootstrapped_data, lower_interval, axis=-1), \
-                       np.percentile(bootstrapped_data, upper_interval, axis=-1)
-            else:
-                raise ValueError("conf_lvl must be in (0, 1)")
-
-    # ------------------------------------------------------------------------------------------------------------ #
     def jackknife(self,
                   analysis_func: FunctionType = None,
                   conf_lvl: float = None,
@@ -316,6 +254,70 @@ class ResampleAnalysis:
                 raise ValueError("conf_lvl must be in (0, 1)")
 
     # ------------------------------------------------------------------------------------------------------------ #
+    def bootstrap(self,
+                  num_resamples: int,
+                  subsample_size: int=None,
+                  analysis_func: FunctionType = None,
+                  conf_lvl: float=None,
+                  **analysis_func_kwargs):
+        """Perform bootstrap analysis on the dataset provided, including some various analysis methods
+
+        Note: This is not a wrapper for the astropy boostrap method.  Though it's close.
+
+        Parameters
+        ----------
+        num_resamples
+            Number of bootstrap samples to test
+        subsample_size
+            If None (default), uses the same size as the original dataset.
+            If an integer is given, will sample this many subsamples from the original dataset.
+        analysis_func
+            If None (default), returns the resampled data without analyzing it
+            An optional analysis function to perform on the bootstrap resampled data (e.g., np.mean)
+        conf_lvl
+            If None (default), returns just the resampled dataset
+            If an analysis_func is provided, returns the computed values and the lower and upper values of that interval
+            The confidence interval is computed using the np.percentile function.
+        analysis_func_kwargs
+            Arguments to pass on to the analysis_func (dataset is the first argument, kwargs follow)
+
+        Returns
+        -------
+        np.ndarray or (np.ndarray, float, float)
+            If not using confidence intervals, returns the bootstrap resamples
+            If using a confidence interval, also returns the lower and upper intervals
+        """
+        if subsample_size is None:
+            subsample_size = self.num_pts
+
+        if analysis_func is None:
+            bootstrapped_data = np.zeros((num_resamples, subsample_size))
+        else:
+            try:
+                bootstrapped_data = np.zeros((num_resamples,
+                                              len(analysis_func(self._dataset[:subsample_size], **analysis_func_kwargs))))
+            except TypeError:
+                bootstrapped_data = np.zeros(num_resamples)
+        for b_i in range(num_resamples):
+            resampled_indices = np.random.choice(self.num_pts, subsample_size, replace=True)
+            if analysis_func is None:
+                bootstrapped_data[b_i] = self._dataset[resampled_indices]
+            else:
+                bootstrapped_data[b_i] = analysis_func(self._dataset[resampled_indices], **analysis_func_kwargs)
+
+        if conf_lvl is None:
+            return bootstrapped_data
+        else:
+            if 0 < conf_lvl < 1:
+                upper_interval = 100*(1 - (1 - conf_lvl)/2)
+                lower_interval = 100*((1 - conf_lvl)/2)
+                return bootstrapped_data, \
+                       np.percentile(bootstrapped_data, lower_interval, axis=-1), \
+                       np.percentile(bootstrapped_data, upper_interval, axis=-1)
+            else:
+                raise ValueError("conf_lvl must be in (0, 1)")
+
+    # ------------------------------------------------------------------------------------------------------------ #
     @property
     def num_pts(self):
         return self._num_pts
@@ -358,7 +360,7 @@ class ResampleAnalysis:
                        **analysis_func_kwargs):
         """Apply a function to a copy of the dataset
 
-        Basically just there to help protect the dataset during analysis
+        Basically just there to help access the dataset during analysis without exposing it to changes
 
         Parameters
         ----------
@@ -435,9 +437,10 @@ class ResampleKDEAnalysis(ResampleAnalysis):
     def bootstrap_with_kde(self,
                            num_resamples: int,
                            subsample_size: int=None,
-                           analysis_func: FunctionType = None,
+                           analysis_func: FunctionType=None,
                            conf_lvl: float=None,
-                           use_weights: bool = False,
+                           use_weights: bool=False,
+                           num_cores: int=1,
                            **analysis_func_kwargs):
         """Resamples a sample with replacement, applies the KDE, then performs analysis and repeats
 
@@ -455,6 +458,10 @@ class ResampleKDEAnalysis(ResampleAnalysis):
             Optional float or list of floats (e.g., [.6, .95, .98] to evaluate three different intervals)
             Each value must be 0 < x < 1
         use_weights
+            Boolean, whether or not to use weights, if implemented for the KDE method
+        num_cores
+            Number of cores to use in running the resampling analysis.
+            Recommend using multiprocessing.cpu_count()-1
         analysis_func_kwargs
 
         Returns
@@ -479,6 +486,7 @@ class ResampleKDEAnalysis(ResampleAnalysis):
             if self._weights is None:
                 raise TypeError("Weight is None, but bootstrap_with_kde has been told to use them.")
 
+        # Note, we pre-select these values so that later multiprocessing doesn't accidentally reuse random seeds
         bootstrap_indices = np.random.choice(self.num_pts, (num_resamples, subsample_size), replace=True)
 
         if analysis_func is None:
@@ -492,20 +500,50 @@ class ResampleKDEAnalysis(ResampleAnalysis):
             except TypeError:
                 output_data = np.zeros(num_resamples)
 
-        # Note to self: consider multicore version of this part of code
-        for r_i, resample in enumerate(bootstrap_indices):
-            if use_weights:
-                new_kde = self._kde(self._dataset[resample],
-                                    bandwidth=self._kde_bandwidth,
-                                    weights=self._weights[resample])
-            else:
-                new_kde = self._kde(self._dataset[resample],
-                                    bandwidth=self._kde_bandwidth)
+        if num_cores == 1:
+            for r_i, resample in enumerate(bootstrap_indices):
+                if use_weights:
+                    new_kde = self._kde(self._dataset[resample],
+                                        bandwidth=self._kde_bandwidth,
+                                        weights=self._weights[resample])
+                else:
+                    new_kde = self._kde(self._dataset[resample],
+                                        bandwidth=self._kde_bandwidth)
 
-            if analysis_func is None:
-                output_data[r_i] = new_kde(self._xdomain)
+                if analysis_func is None:
+                    output_data[r_i] = new_kde(self._xdomain)
+                else:
+                    output_data[r_i] = analysis_func(new_kde(self._xdomain), **analysis_func_kwargs)
+        else:
+            assert num_cores > 1
+            # Generate the iterables and initialization parameters:
+            if use_weights:
+                kwargs_list = [{'index': r_i,
+                                'dataset': self._dataset[subsample],
+                                'weights': self._weights[subsample]}
+                               for r_i, subsample in enumerate(bootstrap_indices)]
+                non_iter_kwargs = {'xdomain': self._xdomain,
+                                   'kde': self._kde,
+                                   'kde_band': self._kde_bandwidth,
+                                   'use_weights': use_weights,
+                                   'analysis_func': analysis_func,
+                                   'analysis_func_kwargs': analysis_func_kwargs}
             else:
-                output_data[r_i] = analysis_func(new_kde(self._xdomain), **analysis_func_kwargs)
+                kwargs_list = [{'index': r_i,
+                                'dataset': self._dataset[subsample]}
+                               for r_i, subsample in enumerate(bootstrap_indices)]
+                non_iter_kwargs = {'xdomain': self._xdomain,
+                                   'kde': self._kde,
+                                   'kde_band': self._kde_bandwidth,
+                                   'use_weights': use_weights,
+                                   'analysis_func': analysis_func,
+                                   'analysis_func_kwargs': analysis_func_kwargs}
+            # Generate and run the multicore solver:
+            resample_pool = PipePool(worker_func=_resample_pipe_func,
+                                     output_obj=output_data,
+                                     iter_kwargs=kwargs_list,
+                                     noniter_kwargs=non_iter_kwargs)
+            resample_pool.run(num_cores=num_cores)
 
         if conf_lvl is None:
             return output_data
@@ -535,6 +573,39 @@ class ResampleKDEAnalysis(ResampleAnalysis):
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
+
+def _resample_pipe_func(pipe_access, xdomain,
+                        kde, kde_band,
+                        use_weights,
+                        analysis_func, analysis_func_kwargs):
+    alive = True
+    while alive:
+        # try:
+        if pipe_access.poll():
+            new_input = pipe_access.recv()
+            if new_input == 'close':
+                alive = False
+                pipe_access.close()
+            else:
+                if use_weights:
+                    new_kde = kde(new_input['dataset'],
+                                  bandwidth=kde_band,
+                                  weights=new_input['weights'])
+                else:
+                    new_kde = kde(new_input['dataset'],
+                                  bandwidth=kde_band)
+
+                if analysis_func is None:
+                    output_data = new_kde(xdomain)
+                else:
+                    output_data = analysis_func(new_kde(xdomain), **analysis_func_kwargs)
+                result = new_input['index'], output_data
+                pipe_access.send(result)
+
+
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
 
 def curvefit_passable_wrapper(datapoints: np.ndarray,
                               fit_func: FunctionType=None,

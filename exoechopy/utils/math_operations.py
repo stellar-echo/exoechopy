@@ -6,16 +6,19 @@ Will likely be broken into separate modules once I know all of the math that is 
 
 import decimal
 import numpy as np
+import multiprocessing as multi
 from scipy import stats
 from astropy import units as u
 from astropy import constants
 from scipy.signal import savgol_filter
+from .constants import FunctionType
 
 __all__ = ['angle_between_vectors', 'vect_from_spherical_coords', 'compute_lag',
            'SphericalLatitudeGen', 'stochastic_flare_process', 'bi_erf_model', 'bigaussian_model',
            'window_range',
            'take_noisy_derivative', 'take_noisy_2nd_derivative', 'linear_detrend',
-           'round_dec', 'row_col_grid']
+           'round_dec', 'row_col_grid',
+           'PipePool']
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 # Vector math
@@ -315,3 +318,109 @@ def row_col_grid(num_pts: int) -> (int, int):
 
     """
     return int(np.sqrt(num_pts)), int(np.ceil(num_pts/int(np.sqrt(num_pts))))
+
+
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+# Multiprocessing support
+
+class PipePool:
+    """
+    Manually implemented pipe-based pool-like system.
+    No error handling implemented yet.
+    Hopefully handles memory better than starmap/map_async/apply_async,
+    where all data is saved on memory until pool is complete.
+    However, those approaches are viable for a lot of systems.
+    """
+    def __init__(self,
+                 worker_func,
+                 output_obj: np.ndarray,
+                 iter_kwargs: list,
+                 noniter_kwargs: dict=None):
+        """Create a pool-like object to perform a process in parallel
+
+        Parameters
+        ----------
+        worker_func
+            Target function, must be structured as f(pipe_access, *args, **kwargs)
+            Target function should return (index for output_obj, vals to put into output_obj)
+            - pipe_access is used to send data back to the Pool from the thread (see _pipe_wrapped_worker)
+            - index is used to determine where in output_obj the data should be placed (see _index_wrapper)
+        output_obj
+            The indexable object that the PipePool should place results into
+        iter_kwargs
+            List of kwargs to initialize pipe with
+        noniter_kwargs
+            Optional list of re-used kwargs to initialize pipe with
+            Useful if you need to use the same data over and over and making copies would be memory intensive
+        """
+        self._worker_func = worker_func
+        self._output_obj = output_obj
+        self._iterable_kwargs = iter_kwargs
+        if noniter_kwargs is None:
+            noniter_kwargs = {}
+        self._noniterable_kwargs = noniter_kwargs
+
+    def run(self, num_cores: int=None):
+        """Implement the PipePool
+
+        Parameters
+        ----------
+        num_cores
+            Number of cores to use in doling out processes
+
+        """
+        if num_cores is None:
+            num_cores = max(multi.cpu_count()-1, 1)
+        all_pipes = []
+        all_processes = []
+
+        # Add new jobs if available cores / work to perform:
+        while len(all_pipes) < min(num_cores, len(self._iterable_kwargs)):
+            pipe_local, pipe_remote = multi.Pipe()
+            # Initialize the separate process:
+            p = multi.Process(target=self._worker_func,
+                              args=(pipe_remote,),
+                              kwargs=self._noniterable_kwargs)
+            all_pipes.append(pipe_local)
+            all_processes.append(p)
+            p.start()
+            # print("INIT: ", p.pid, pipe_local.fileno())
+            pipe_local.send(self._iterable_kwargs.pop())
+
+        while len(self._iterable_kwargs) > 0:
+            # See if there are any jobs that have completed:
+            for pipe in all_pipes:
+                if pipe.poll():
+                    ind, val = pipe.recv()
+                    self._output_obj[ind] = val
+                    pipe.send(self._iterable_kwargs.pop())
+                    if len(self._iterable_kwargs) == 0:
+                        break
+                    # else:
+                    #     print("Killing pipe: ", pipe.fileno())
+                    #     pipe.send(False)
+
+        # Close it out with blocking:
+        for pipe in all_pipes:
+            try:
+                # print("Closing pipe: ", pipe.fileno())
+                ind, val = pipe.recv()
+                self._output_obj[ind] = val
+                # pipe.close()
+            except BrokenPipeError:
+                print("BROKE: ", pipe.fileno())
+        for proc, pipe in zip(all_processes, all_pipes):
+            pipe.send('close')
+            proc.terminate()
+
+
+def _index_wrapper(ind, func, *args, **kwargs):
+    """Takes an index as the first arg and returns it as the first value in a tuple"""
+    return ind, func(*args, **kwargs)
+
+
+def _pipe_wrapped_worker(pipe, func, *args, **kwargs):
+    """Takes a function and sends its return back through the pipe"""
+    result = func(*args, **kwargs)
+    pipe.send(result)
+    pipe.close()

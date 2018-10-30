@@ -11,6 +11,7 @@ import exoechopy as eep
 from exoechopy.utils.math_operations import *
 from exoechopy.utils.constants import *
 import matplotlib.pyplot as plt
+from multiprocessing import cpu_count
 
 
 def run():
@@ -344,7 +345,7 @@ def run():
     Everything else will be somewhere in between.  
 
     The following is an example of one data processing technique that has had some success:
-    (Warning: This is very slow, needs to be re-implemented as a multicore process)
+    (Warning: This is very slow!!)
 
     """)
 
@@ -368,6 +369,7 @@ def run():
         density_cdf /= np.max(density_cdf)
         return density_cdf
 
+    # Initialize arrays needed to generate plots:
     means = np.zeros(num_tests)
     lower_means = np.zeros(num_tests)
     upper_means = np.zeros(num_tests)
@@ -375,6 +377,7 @@ def run():
     lower_max_conf = np.zeros(num_tests)
     upper_min_conf = np.zeros(num_tests)
     upper_max_conf = np.zeros(num_tests)
+    # Analyze data:
     for c_i, current_index in enumerate(test_indices):
         means[c_i] = np.mean(all_autocorr[:, current_index-min_lag_offset])
         std_dev = np.std(all_autocorr[:, current_index-min_lag_offset])
@@ -386,11 +389,16 @@ def run():
         rejects = current_analysis.remove_outliers_by_jackknife_sigma_testing(np.mean, 2)
         print("Number of rejected points: ", len(rejects))
 
-        all_resamples = current_analysis.bootstrap_with_kde(500)
+        # Optimal speedup is typically achieved around 6 cores here, provided there are spare cores to still run OS
+        # Speedup is minimal until you are sampling > 2000 bootstrap samples, 1000 isn't worth it
+        # A better programmer should be able to squeeze more speedup out
+        num_cores = max(1, min(cpu_count()-2, 6))
+        all_resamples = current_analysis.bootstrap_with_kde(2000, num_cores=num_cores)
+
         fit_vals = np.zeros((len(all_resamples), 2))
         for r_i, resample in enumerate(all_resamples):
             cdf = approximate_cdf(resample)
-            # Create a lambda function just to pin one of the two Gaussians to zero, let the other float
+            # We create a lambda function just to pin one of the two Gaussians to zero, let the other float
             # Could define a specific version of this function, but often you'll want to set a value other than zero
             init_pos = 0.
             popt_bierf, pcov_bierf = optimize.curve_fit(lambda x, m2, s: bi_erf_model(x, init_pos, m2, s),
