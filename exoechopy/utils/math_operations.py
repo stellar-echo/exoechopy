@@ -325,7 +325,7 @@ def row_col_grid(num_pts: int) -> (int, int):
 
 class PipePool:
     """
-    Manually implemented pipe-based pool-like system.
+    Manually implemented asynchronous pipe-based pool-like system.
     No error handling implemented yet.
     Hopefully handles memory better than starmap/map_async/apply_async,
     where all data is saved on memory until pool is complete.
@@ -360,13 +360,15 @@ class PipePool:
             noniter_kwargs = {}
         self._noniterable_kwargs = noniter_kwargs
 
-    def run(self, num_cores: int=None):
+    def run(self, num_cores: int=None, chunksize: int=1):
         """Implement the PipePool
 
         Parameters
         ----------
         num_cores
             Number of cores to use in doling out processes
+        chunksize
+            Approximate number of iterables to pass at a time to limit communication on pipe
 
         """
         if num_cores is None:
@@ -384,31 +386,26 @@ class PipePool:
             all_pipes.append(pipe_local)
             all_processes.append(p)
             p.start()
-            # print("INIT: ", p.pid, pipe_local.fileno())
-            pipe_local.send(self._iterable_kwargs.pop())
+            num_iters = min(chunksize, len(self._iterable_kwargs))
+            pipe_local.send([self._iterable_kwargs.pop() for xi in range(num_iters)])
 
         while len(self._iterable_kwargs) > 0:
             # See if there are any jobs that have completed:
             for pipe in all_pipes:
                 if pipe.poll():
-                    ind, val = pipe.recv()
-                    self._output_obj[ind] = val
-                    pipe.send(self._iterable_kwargs.pop())
+                    results = pipe.recv()
+                    for ind, val in results:
+                        self._output_obj[ind] = val
+                    num_iters = min(chunksize, len(self._iterable_kwargs))
+                    pipe.send([self._iterable_kwargs.pop() for xi in range(num_iters)])
                     if len(self._iterable_kwargs) == 0:
                         break
-                    # else:
-                    #     print("Killing pipe: ", pipe.fileno())
-                    #     pipe.send(False)
 
         # Close it out with blocking:
         for pipe in all_pipes:
-            try:
-                # print("Closing pipe: ", pipe.fileno())
-                ind, val = pipe.recv()
+            results = pipe.recv()
+            for ind, val in results:
                 self._output_obj[ind] = val
-                # pipe.close()
-            except BrokenPipeError:
-                print("BROKE: ", pipe.fileno())
         for proc, pipe in zip(all_processes, all_pipes):
             pipe.send('close')
             proc.terminate()

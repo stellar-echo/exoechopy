@@ -10,8 +10,10 @@ from ..utils import FunctionType
 from typing import Type
 from scipy import optimize
 from ..utils.math_operations import PipePool
+from ..utils.math_operations import bi_erf_model
 
-__all__ = ['GaussianKDE', 'TophatKDE', 'ResampleAnalysis', 'ResampleKDEAnalysis', 'curvefit_passable_wrapper']
+__all__ = ['GaussianKDE', 'TophatKDE', 'ResampleAnalysis', 'ResampleKDEAnalysis',
+           'bigaussian_fit_analysis_1', 'curvefit_passable_wrapper']
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
@@ -441,6 +443,7 @@ class ResampleKDEAnalysis(ResampleAnalysis):
                            conf_lvl: float=None,
                            use_weights: bool=False,
                            num_cores: int=1,
+                           chunksize: int=1,
                            **analysis_func_kwargs):
         """Resamples a sample with replacement, applies the KDE, then performs analysis and repeats
 
@@ -461,7 +464,9 @@ class ResampleKDEAnalysis(ResampleAnalysis):
             Boolean, whether or not to use weights, if implemented for the KDE method
         num_cores
             Number of cores to use in running the resampling analysis.
-            Recommend using multiprocessing.cpu_count()-1
+            Recommend using multiprocessing.cpu_count()-1, often
+        chunksize
+            Number of iterables to pass at a time, if using multiple cores
         analysis_func_kwargs
 
         Returns
@@ -543,7 +548,7 @@ class ResampleKDEAnalysis(ResampleAnalysis):
                                      output_obj=output_data,
                                      iter_kwargs=kwargs_list,
                                      noniter_kwargs=non_iter_kwargs)
-            resample_pool.run(num_cores=num_cores)
+            resample_pool.run(num_cores=num_cores, chunksize=chunksize)
 
         if conf_lvl is None:
             return output_data
@@ -579,30 +584,122 @@ def _resample_pipe_func(pipe_access, xdomain,
                         kde, kde_band,
                         use_weights,
                         analysis_func, analysis_func_kwargs):
+    """Function used for communicating with the PipePool and handling resampling analysis
+
+    Parameters
+    ----------
+    pipe_access
+    xdomain
+    kde
+    kde_band
+    use_weights
+    analysis_func
+    analysis_func_kwargs
+
+    Returns
+    -------
+
+    """
     alive = True
     while alive:
         # try:
         if pipe_access.poll():
-            new_input = pipe_access.recv()
-            if new_input == 'close':
+            list_of_new_args = pipe_access.recv()
+            if list_of_new_args == 'close':
                 alive = False
                 pipe_access.close()
             else:
-                if use_weights:
-                    new_kde = kde(new_input['dataset'],
-                                  bandwidth=kde_band,
-                                  weights=new_input['weights'])
-                else:
-                    new_kde = kde(new_input['dataset'],
-                                  bandwidth=kde_band)
+                result = []
+                for new_input in list_of_new_args:
+                    if use_weights:
+                        new_kde = kde(new_input['dataset'],
+                                      bandwidth=kde_band,
+                                      weights=new_input['weights'])
+                    else:
+                        new_kde = kde(new_input['dataset'],
+                                      bandwidth=kde_band)
 
-                if analysis_func is None:
-                    output_data = new_kde(xdomain)
-                else:
-                    output_data = analysis_func(new_kde(xdomain), **analysis_func_kwargs)
-                result = new_input['index'], output_data
+                    if analysis_func is None:
+                        output_data = new_kde(xdomain)
+                    else:
+                        output_data = analysis_func(new_kde(xdomain), **analysis_func_kwargs)
+                    result.append((new_input['index'], output_data))
                 pipe_access.send(result)
 
+
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
+# Define a custom processing algorithm:
+def approximate_cdf(y_data):
+    density_cdf = np.cumsum(y_data)
+    density_cdf -= np.min(density_cdf)
+    density_cdf /= np.max(density_cdf)
+    return density_cdf
+
+
+def bigaussian_fit_analysis_1(all_resamples, x_vals, num_cores=1, chunksize=1,
+                              fixed_mean=0., init_mean=0., init_std_dev=None):
+    fit_vals = np.zeros((len(all_resamples), 2))
+    if init_std_dev is None:
+        init_std_dev = np.std(x_vals)/2
+    if num_cores == 1:
+        for r_i, resample in enumerate(all_resamples):
+            cdf = approximate_cdf(resample)
+            # We create a lambda function just to pin one of the two Gaussians to zero, let the other float
+            # Could define a specific version of this function, but often you'll want to set a value other than zero
+            popt_bierf, pcov_bierf = optimize.curve_fit(lambda x, m2, s: bi_erf_model(x, fixed_mean, m2, s),
+                                                        x_vals, cdf,
+                                                        p0=[init_mean + init_std_dev, init_std_dev / 2],
+                                                        absolute_sigma=True)
+            popt_bierf = [x for x in popt_bierf]
+            popt_bierf.insert(1, fixed_mean)
+            fit_vals[r_i, :] = min(popt_bierf[:2]), max(popt_bierf[:2])
+    else:
+        assert num_cores > 1
+        kwargs_list = [{'index': r_i,
+                        'dataset': resample} for r_i, resample in enumerate(all_resamples)]
+        non_iter_kwargs = {'xdomain': x_vals,
+                           'init_mean': init_mean,
+                           'fixed_mean': fixed_mean,
+                           'init_std_dev': init_std_dev}
+
+        # Generate and run the multicore solver:
+        resample_pool = PipePool(worker_func=_bigaussian_pipe_func,
+                                 output_obj=fit_vals,
+                                 iter_kwargs=kwargs_list,
+                                 noniter_kwargs=non_iter_kwargs)
+        resample_pool.run(num_cores=num_cores, chunksize=chunksize)
+
+    return fit_vals
+
+
+def _bigaussian_pipe_func(pipe_access, xdomain, fixed_mean, init_mean, init_std_dev):
+    alive = True
+    while alive:
+        # try:
+        if pipe_access.poll():
+            list_of_new_args = pipe_access.recv()
+            if list_of_new_args == 'close':
+                alive = False
+                pipe_access.close()
+            else:
+                result = []
+                for new_input in list_of_new_args:
+                    resample = new_input['dataset']
+                    cdf = approximate_cdf(resample)
+                    # We create a lambda function just to pin one of the two Gaussians to zero, let the other float
+                    # Could define a specific version of this function,
+                    # but often you'll want to set a value other than zero
+                    popt_bierf, pcov_bierf = optimize.curve_fit(lambda x, m2, s: bi_erf_model(x, fixed_mean, m2, s),
+                                                                xdomain, cdf,
+                                                                p0=[init_mean + init_std_dev, init_std_dev / 2],
+                                                                absolute_sigma=True)
+                    popt_bierf = [x for x in popt_bierf]
+                    popt_bierf.insert(1, fixed_mean)
+                    output_data = min(popt_bierf[:2]), max(popt_bierf[:2])
+
+                    result.append((new_input['index'], output_data))
+                pipe_access.send(result)
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 

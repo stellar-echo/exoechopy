@@ -13,6 +13,7 @@ from exoechopy.utils.constants import *
 import matplotlib.pyplot as plt
 from multiprocessing import cpu_count
 
+import time
 
 def run():
 
@@ -350,6 +351,24 @@ def run():
     """)
 
     num_bins = 1000
+    num_bootstrap_resamples = 500
+
+    # Optimal speedup is typically achieved around 6 cores here, provided there are spare cores to still run OS
+    # Speedup is minimal until you are sampling > 2000 bootstrap samples, 1000 isn't worth it
+    # A better programmer should be able to squeeze more speedup out
+
+    # If this runs too slowly, reduce the number of bootstraps to 500, which yields comparable results.
+    if num_bootstrap_resamples > 1000:
+        num_cores_bootstrap = max(1, min(cpu_count() - 2, 6))
+        chunk_size_bootstrap = 6
+        num_cores_bigauss = max(1, min(cpu_count() - 2, 3))
+        chunk_size_bigauss = 10
+    else:
+        num_cores_bootstrap = 1
+        chunk_size_bootstrap = 1
+        num_cores_bigauss = 1
+        chunk_size_bigauss = 1
+
     spread = np.max(all_autocorr)-np.min(all_autocorr)
     overfill_fraction = .2
     x_vals = np.linspace(np.min(all_autocorr)-spread*overfill_fraction,
@@ -361,13 +380,6 @@ def run():
 
     test_indices = [approx_index_lag + l_i for l_i in range(-5, 7)]
     num_tests = len(test_indices)
-
-    # Define a custom processing algorithm:
-    def approximate_cdf(y_data):
-        density_cdf = np.cumsum(y_data)
-        density_cdf -= np.min(density_cdf)
-        density_cdf /= np.max(density_cdf)
-        return density_cdf
 
     # Initialize arrays needed to generate plots:
     means = np.zeros(num_tests)
@@ -386,28 +398,31 @@ def run():
                                                            kde=eep.analyze.GaussianKDE,
                                                            kde_bandwidth='silverman')
 
+        start_time = time.time()
         rejects = current_analysis.remove_outliers_by_jackknife_sigma_testing(np.mean, 2)
-        print("Number of rejected points: ", len(rejects))
+        stop_time = time.time()
+        print("\nCurrent lag index: ", current_index,
+              ", Number of rejected points: ", len(rejects),
+              "\tJackknife time: ", stop_time-start_time)
 
-        # Optimal speedup is typically achieved around 6 cores here, provided there are spare cores to still run OS
-        # Speedup is minimal until you are sampling > 2000 bootstrap samples, 1000 isn't worth it
-        # A better programmer should be able to squeeze more speedup out
-        num_cores = max(1, min(cpu_count()-2, 6))
-        all_resamples = current_analysis.bootstrap_with_kde(2000, num_cores=num_cores)
+        start_time = time.time()
+        all_resamples = current_analysis.bootstrap_with_kde(num_bootstrap_resamples,
+                                                            num_cores=num_cores_bootstrap,
+                                                            chunksize=chunk_size_bootstrap)
+        stop_time = time.time()
+        print("bootstrap_with_kde cores: ", num_cores_bootstrap,
+              ", chunksize: ", chunk_size_bootstrap, ", \tTime: ", stop_time - start_time)
 
-        fit_vals = np.zeros((len(all_resamples), 2))
-        for r_i, resample in enumerate(all_resamples):
-            cdf = approximate_cdf(resample)
-            # We create a lambda function just to pin one of the two Gaussians to zero, let the other float
-            # Could define a specific version of this function, but often you'll want to set a value other than zero
-            init_pos = 0.
-            popt_bierf, pcov_bierf = optimize.curve_fit(lambda x, m2, s: bi_erf_model(x, init_pos, m2, s),
-                                                        x_vals, cdf,
-                                                        p0=[means[c_i]+std_dev, std_dev/2],
-                                                        absolute_sigma=True)
-            popt_bierf = [x for x in popt_bierf]
-            popt_bierf.insert(1, init_pos)
-            fit_vals[r_i, :] = min(popt_bierf[:2]), max(popt_bierf[:2])
+        start_time = time.time()
+        # Provides a list of estimated (mean1, mean2) for a bigaussian
+        fit_vals = eep.analyze.bigaussian_fit_analysis_1(all_resamples.copy(), x_vals,
+                                                         init_mean=means[c_i], init_std_dev=std_dev,
+                                                         num_cores=num_cores_bigauss,
+                                                         chunksize=chunk_size_bigauss)
+        stop_time = time.time()
+        print("optimize.curve_fit cores: ", num_cores_bigauss,
+              ", chunksize: ", chunk_size_bigauss, ", \tTime: ", stop_time - start_time)
+
         lower_means[c_i] = np.mean(fit_vals[:, 0])
         upper_means[c_i] = np.mean(fit_vals[:, 1])
         lower_min_conf[c_i], lower_max_conf[c_i] = np.percentile(fit_vals[:, 0], [lower_interval, upper_interval])
