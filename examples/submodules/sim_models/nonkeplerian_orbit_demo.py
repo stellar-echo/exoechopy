@@ -22,7 +22,7 @@ def run():
     the star wobble.  
     Or stars.  The engine is not optimized for large numbers of bodies, but N<10 is fairly straightforward.
     
-    In this first, example, we show a pair of equal mass stars orbiting each other.  
+    In this first example, we show a pair of equal mass stars orbiting each other.  
     """)
 
     star_mass = .6*u.M_sun

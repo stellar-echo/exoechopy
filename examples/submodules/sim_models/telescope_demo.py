@@ -52,21 +52,21 @@ def run():
 
     MyDeltaFlareActivity = eep.simulate.active_regions.FlareActivity(
         eep.simulate.flares.DeltaFlare, intensity_pdf=delta_flare_intensities,
-                                               label=region_1_name)
+        label=region_1_name)
 
     ActiveRegion1 = eep.simulate.active_regions.ActiveRegion(flare_activity=MyDeltaFlareActivity,
-                                                occurrence_freq_pdf=approximate_num_flares/2/observation_duration,
-                                                region=region_1)
+        occurrence_freq_pdf=approximate_num_flares/2/observation_duration,
+        region=region_1)
 
     MyStar.add_active_regions(ActiveRegion1)
 
     #  =============================================================  #
     MyTelescope = eep.simulate.Telescope(collection_area=telescope_area,
-                                                efficiency=total_efficiency,
-                                                cadence=observation_cadence,
-                                                observation_target=MyStar,
-                                                random_seed=telescope_random_seed,
-                                                name="My First Telescope")
+                                         efficiency=total_efficiency,
+                                         cadence=observation_cadence,
+                                         observation_target=MyStar,
+                                         random_seed=telescope_random_seed,
+                                         name="My First Telescope")
 
     MyTelescope.prepare_continuous_observational_run(observation_duration, print_report=True)
     MyTelescope.collect_data(save_diagnostic_data=True)

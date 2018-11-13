@@ -311,7 +311,7 @@ class FlareActivity:
 
             # Repack the original units with the computed values using the fancy dict keywords:
             flare_list = [self._flare_type(**dict(zip(self._flare_new_kwargs,
-                                                      [ai*ui if ui != 'str' else u.Quantity(ai, ui)
+                                                      [ai*ui if ui != 'str' else ai
                                                        for ai, ui in zip(arg_i, self._kw_units)])))
                           for arg_i in arg_dataframe.values]
         else:
@@ -329,7 +329,8 @@ class FlareActivity:
     def flare_kwargs(self, kwargs):
         self._flare_kwarg_vals, self._flare_kwarg_types, self._flare_new_kwargs, self._kw_units \
             = parse_pdf_kwargs(kwargs)
-        self._kw_units = [u.Unit(u_i) for u_i in self._kw_units]
+        self._kw_units = [u.Unit(u_i) if u_i != 'str' else u_i
+                          for u_i in self._kw_units]
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
