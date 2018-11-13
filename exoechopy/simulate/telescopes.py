@@ -314,7 +314,7 @@ class Telescope:
 
                     # Slightly speed up calculations by reducing number of norms:
                     exo_flare_vect = exo_vect-flare_vect
-                    earth_exo_phase_angle = np.arccos(np.dot(earth_vect, exo_flare_vect/ev_norm))
+                    earth_exo_phase_angle = u.Quantity(np.arccos(np.dot(earth_vect, exo_flare_vect/ev_norm)), 'rad')
                     exoplanet_earth_visibility = exoplanet.get_echo_magnitude(dist_to_source=ev_norm,
                                                                               earth_angle=earth_exo_phase_angle)
                     if save_diagnostic_data:

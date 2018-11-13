@@ -17,7 +17,7 @@ __all__ = ['angle_between_vectors', 'vect_from_spherical_coords', 'compute_lag',
            'SphericalLatitudeGen', 'stochastic_flare_process', 'bi_erf_model', 'bigaussian_model',
            'window_range',
            'take_noisy_derivative', 'take_noisy_2nd_derivative', 'linear_detrend',
-           'round_dec', 'row_col_grid',
+           'round_dec', 'row_col_grid', 'is_nested',
            'PipePool']
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -318,6 +318,28 @@ def row_col_grid(num_pts: int) -> (int, int):
 
     """
     return int(np.sqrt(num_pts)), int(np.ceil(num_pts/int(np.sqrt(num_pts))))
+
+
+def is_nested(iterable) -> bool:
+    """Determines if an iterable has lists in it
+
+    Parameters
+    ----------
+    iterable
+        Iterable object, typically a list
+
+    Returns
+    -------
+    bool
+        True if a nested list is found
+        False if not
+    """
+    try:
+        _ = iter(iterable)
+        return any(isinstance(i, list) for i in iterable)
+    except TypeError:
+        return False
+
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #

@@ -297,6 +297,7 @@ class FlareActivity:
             raise NotImplementedError("self.intensity_pdf does not have a generic handling solution yet")
         flare_collection.assign_property(property_key='flare_intensities', property_val=intensity_list)
 
+        # TODO: convert this to a standalone function soon
         if len(self.flare_kwargs) > 0:
             arg_array = np.zeros(n_flares, dtype=self._flare_kwarg_types)
             arg_dataframe = pd.DataFrame(arg_array)
@@ -310,7 +311,7 @@ class FlareActivity:
 
             # Repack the original units with the computed values using the fancy dict keywords:
             flare_list = [self._flare_type(**dict(zip(self._flare_new_kwargs,
-                                                      [ai*ui if ui != 'str' else ai
+                                                      [ai*ui if ui != 'str' else u.Quantity(ai, ui)
                                                        for ai, ui in zip(arg_i, self._kw_units)])))
                           for arg_i in arg_dataframe.values]
         else:
@@ -320,73 +321,6 @@ class FlareActivity:
         return flare_collection
 
     # ------------------------------------------------------------------------------------------------------------ #
-    def _interpret_kwarg_types(self, _kwargs):
-        """Interprets custom kwargs to pass flexible options to underlying flares
-
-        Parameters
-        ----------
-        _kwargs
-
-        Returns
-        -------
-
-        """
-        arg_type_list = []
-        new_args = []
-        new_kw = []
-        kw_units = []
-        # Keep units in registration with different kwarg types such as floats, ints, ranges, and distribution funcs
-        for (kw, val) in _kwargs.items():
-            if isinstance(val, CountType):
-                if isinstance(val, u.Quantity):
-                    if isinstance(val.value, np.ndarray):
-                        new_args.append(stats.uniform(loc=val[0], scale=val[1] - val[0]))
-                    else:
-                        new_args.append(val.value)
-                    kw_units.append(val.unit)
-                else:
-                    new_args.append(val)
-                    kw_units.append(1.)
-                arg_type_list.append((str(kw), 'float64'))
-            elif isinstance(val, (list, tuple)):
-                if isinstance(val[1], u.IrreducibleUnit):
-                    kw_units.append(val[1])
-                    if isinstance(val[0], (list, tuple)):
-                        new_args.append(stats.uniform(loc=val[0][0], scale=val[0][1] - val[0][0]))
-                    else:
-                        new_args.append(val[0])
-                else:
-                    new_args.append(stats.uniform(loc=val[0], scale=val[1]-val[0]))
-                    kw_units.append(1.)
-                arg_type_list.append((str(kw), 'float64'))
-            elif isinstance(val, RVFrozen):
-                arg_type_list.append((str(kw), 'float64'))
-                new_args.append(val)
-                kw_units.append(1.)
-            else:
-                if isinstance(val, str):
-                    string_length = 16
-                    # For use in a structured numpy array:
-                    arg_type_list.append((str(kw), 'U'+str(string_length)))
-                    if len(val) > string_length:
-                        AstropyUserWarning("Structured numpy array only configured to accept U"+str(string_length)+" strings, received "
-                                           + val +", converting to "+val[:string_length])
-                        val = val[:string_length]
-                    new_args.append(val)
-                    kw_units.append("str")
-                else:
-                    arg_type_list.append(type(val))
-                    new_args.append(val)
-                    kw_units.append(1)
-
-            if kw[-4:] == '_pdf':
-                new_kw.append(kw[:-4])
-            else:
-                new_kw.append(kw)
-
-        return new_args, arg_type_list, new_kw, kw_units
-
-    # ------------------------------------------------------------------------------------------------------------ #
     @property
     def flare_kwargs(self):
         return self._flare_kwarg_vals
@@ -394,7 +328,8 @@ class FlareActivity:
     @flare_kwargs.setter
     def flare_kwargs(self, kwargs):
         self._flare_kwarg_vals, self._flare_kwarg_types, self._flare_new_kwargs, self._kw_units \
-            = self._interpret_kwarg_types(kwargs)
+            = parse_pdf_kwargs(kwargs)
+        self._kw_units = [u.Unit(u_i) for u_i in self._kw_units]
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
@@ -409,31 +344,7 @@ class FlareActivity:
     @intensity_pdf.setter
     def intensity_pdf(self, intensity_pdf):
         if isinstance(intensity_pdf, PDFType):
-            if isinstance(intensity_pdf, CountType):
-                self._intensity_pdf = intensity_pdf
-                if isinstance(intensity_pdf, u.Quantity):
-                    # Strip unit, recombine later (just to be consistent between types)
-                    self._intensity_pdf = intensity_pdf.value
-                    self._intensity_pdf_unit = intensity_pdf.unit
-            elif isinstance(intensity_pdf, (list, tuple)):
-                if len(intensity_pdf) > 1:
-                    if isinstance(intensity_pdf[1], CountType):
-                        self._intensity_pdf = stats.uniform(loc=intensity_pdf[0], scale=intensity_pdf[1]-intensity_pdf[0])
-                    elif isinstance(intensity_pdf[1], u.UnitBase):
-                        # Strip list structure, call recursively:
-                        self.intensity_pdf = intensity_pdf[0]
-                        self._intensity_pdf_unit = intensity_pdf[1]
-                    else:
-                        warnings.warn("intensity_pdf is list with unanticipated type, proceed with caution", AstropyUserWarning)
-                        self._intensity_pdf = intensity_pdf
-                else:
-                    # Strip list structure, call recursively:
-                    self.intensity_pdf = intensity_pdf[0]
-            elif isinstance(intensity_pdf, RVFrozen):
-                self._intensity_pdf = intensity_pdf
-            else:
-                warnings.warn("intensity_pdf is unanticipated type, proceed with caution", AstropyUserWarning)
-                self._intensity_pdf = intensity_pdf
+            self._intensity_pdf, self._intensity_pdf_unit = parse_pdf(intensity_pdf)
         else:
             raise TypeError("intensity_pdf must be None or PDFType")
         if self._intensity_pdf_unit is None:
@@ -441,8 +352,7 @@ class FlareActivity:
         self._intensity_pdf_unit = u.ph/u.s/u.m**2
 
 
-    # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
-
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 class Region:
     """Base region class."""

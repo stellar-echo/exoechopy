@@ -1,6 +1,6 @@
 
 """
-Basically just pi.
+Miscellaneous useful values and types
 """
 
 import numpy as np

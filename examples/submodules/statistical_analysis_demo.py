@@ -15,6 +15,7 @@ from multiprocessing import cpu_count
 
 import time
 
+
 def run():
 
     print("""
@@ -353,12 +354,11 @@ def run():
     num_bins = 1000
     num_bootstrap_resamples = 500
 
-    # Optimal speedup is typically achieved around 6 cores here, provided there are spare cores to still run OS
-    # Speedup is minimal until you are sampling > 2000 bootstrap samples, 1000 isn't worth it
-    # A better programmer should be able to squeeze more speedup out
-
-    # If this runs too slowly, reduce the number of bootstraps to 500, which yields comparable results.
+    # If the number of resamples is below 1000, there's no point in adding the parallel processing overhead,
+    # though there may be improvements to the parallel code in future pushes.
     if num_bootstrap_resamples > 1000:
+        # Optimal speedup is typically achieved around 6 cores here, provided there are spare cores to still run OS
+        # Speedup is minimal until you are sampling > 2000 bootstrap samples, 1000 isn't always worth it
         num_cores_bootstrap = max(1, min(cpu_count() - 2, 6))
         chunk_size_bootstrap = 6
         num_cores_bigauss = max(1, min(cpu_count() - 2, 3))
@@ -415,7 +415,7 @@ def run():
 
         start_time = time.time()
         # Provides a list of estimated (mean1, mean2) for a bigaussian
-        fit_vals = eep.analyze.bigaussian_fit_analysis_1(all_resamples.copy(), x_vals,
+        fit_vals = eep.analyze.bigaussian_fit_analysis_1(all_resamples, x_vals,
                                                          init_mean=means[c_i], init_std_dev=std_dev,
                                                          num_cores=num_cores_bigauss,
                                                          chunksize=chunk_size_bigauss)
