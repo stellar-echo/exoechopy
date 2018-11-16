@@ -144,8 +144,9 @@ def run():
     the echo intensity is <0.001 times the flare strength.
     """)
 
-    lightcurve = MyTelescope._pure_lightcurve
-    time_domain = MyTelescope._time_domain
+    # Calling get_degraded_lightcurve() with no args returns a copy of the pure lightcurve:
+    lightcurve = MyTelescope.get_degraded_lightcurve()
+    time_domain = MyTelescope.get_time_domain()
     eep.visualize.interactive_lightcurve(time_domain, lightcurve)
 
     print("""

@@ -10,13 +10,14 @@ import multiprocessing as multi
 from scipy import stats
 from astropy import units as u
 from astropy import constants
-from scipy.signal import savgol_filter
+from scipy import signal
 from .constants import FunctionType
 
 __all__ = ['angle_between_vectors', 'vect_from_spherical_coords', 'compute_lag',
            'SphericalLatitudeGen', 'stochastic_flare_process', 'bi_erf_model', 'bigaussian_model',
            'window_range',
-           'take_noisy_derivative', 'take_noisy_2nd_derivative', 'linear_detrend',
+           'take_noisy_derivative', 'take_noisy_2nd_derivative', 'linear_detrend', 'gaussian_fft_filter',
+           'asymmetric_filter_1',
            'round_dec', 'row_col_grid', 'is_nested',
            'PipePool']
 
@@ -224,8 +225,12 @@ def take_noisy_derivative(data_array: np.ndarray,
     np.ndarray
         Returns the Savitzky-Golay estimate of the first derivative
     """
-    return savgol_filter(data_array, window_length=window_size, polyorder=2, deriv=1, delta=sample_cadence,
-                         mode='mirror')
+    return signal.savgol_filter(data_array,
+                                window_length=window_size,
+                                polyorder=2,
+                                deriv=1,
+                                delta=sample_cadence,
+                                mode='mirror')
 
 
 def take_noisy_2nd_derivative(data_array: np.ndarray,
@@ -249,8 +254,10 @@ def take_noisy_2nd_derivative(data_array: np.ndarray,
     np.ndarray
         Returns the Savitzky-Golay estimate of the second derivative
     """
-    return savgol_filter(data_array, window_length=window_size, polyorder=2, deriv=2, delta=sample_cadence,
-                         mode='mirror')
+    return signal.savgol_filter(data_array,
+                                window_length=window_size,
+                                polyorder=2, deriv=2, delta=sample_cadence,
+                                mode='mirror')
 
 
 def linear_detrend(data_array: np.ndarray) -> np.ndarray:
@@ -278,6 +285,32 @@ def linear_detrend(data_array: np.ndarray) -> np.ndarray:
     else:
         return u.Quantity(data_array-fit(xvals), unit)
 
+
+def gaussian_fft_filter(data_array, radius):
+    filter_kernel = signal.windows.gaussian(radius*12, std=radius)
+    filter_kernel /= np.sum(filter_kernel)
+    filtered_signal = data_array - signal.fftconvolve(data_array.copy(), filter_kernel, mode='same')
+    return filtered_signal
+
+
+def asymmetric_filter_1(width: int, skew: float):
+    """
+    Generate a multi-derivative filter.
+    Skew=0 gives 2nd derivative, skew=1 gives 1st derivative, in between interpolates between them.
+    Empirically, it seems that the inverse decay constant squared makes for a good skew
+    """
+    width = max(5, 4*(int(width//4))+1)  # Must satisfy N*4+1, N an integer
+    half_index = int(width//2)+1
+    quarter_index = int(width//4)+1
+    u1 = np.bartlett(half_index)
+    deriv_filter = np.zeros(width)
+    deriv2_filter = -np.bartlett(width)
+    deriv_filter[:half_index] = -u1
+    deriv_filter[half_index-1:] = u1
+    deriv2_filter[quarter_index-1:-quarter_index+1] += 2*u1
+
+    dot_array = -skew*deriv_filter + (1-skew)*deriv2_filter
+    return dot_array
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 # Indexing and integer math
@@ -339,7 +372,6 @@ def is_nested(iterable) -> bool:
         return any(isinstance(i, list) for i in iterable)
     except TypeError:
         return False
-
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #

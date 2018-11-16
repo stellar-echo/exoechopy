@@ -6,7 +6,112 @@ This module provides different algorithms for identifying and extracting flares 
 import numpy as np
 from scipy import signal
 
-__all__ = ['find_peaks_stddev_thresh']
+__all__ = ['FlareCatalog', 'find_peaks_stddev_thresh']
+
+
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
+
+class FlareCatalog:
+    def __init__(self,
+                 lightcurve: np.ndarray,
+                 extract_range: (tuple, list)=None):
+        self._lightcurve = lightcurve
+        self._flare_indices = []
+
+        # Distance before and after flare peak to extract:
+        self._look_back = None
+        self._look_forward = None
+        if extract_range is not None:
+            self.set_extraction_range(extract_range)
+
+        self._slice_indices = None
+        self._all_flares = None
+        self._correlator_lag_matrix = None
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    def set_extraction_range(self, extract_range):
+        self._look_back = extract_range[0]
+        self._look_forward = extract_range[1]
+        self._generate_slices()
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    def generate_correlator_matrix(self, *args):
+        if self._all_flares is None:
+            self._generate_slices()
+
+        test_correlation = self._all_flares[0]
+        for arg in args:
+            try:
+                # Test to see if this is a (func, kwarg) pair:
+                _ = iter(arg)
+                test_correlation = arg[0](test_correlation, **arg[1])
+            except TypeError:
+                test_correlation = arg(test_correlation)
+
+        self._correlator_lag_matrix = np.zeros((len(self._all_flares), len(test_correlation)))
+        self._correlator_lag_matrix[0] = test_correlation
+        for ii in range(1, len(self._all_flares)):
+            test_correlation = self._all_flares[ii]
+            for arg in args:
+                try:
+                    # Test to see if this is a (func, kwarg) pair:
+                    _ = iter(arg)
+                    test_correlation = arg[0](test_correlation, **arg[1])
+                except TypeError:
+                    test_correlation = arg(test_correlation)
+            self._correlator_lag_matrix[ii] = test_correlation
+
+    def get_correlator_matrix(self):
+        if self._correlator_lag_matrix is None:
+            raise ValueError("Correlator matrix is not initialized, run generate_correlator_matrix() first")
+        else:
+            return self._correlator_lag_matrix
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    def identify_flares_with_protocol(self, func, **kwargs):
+        """Applies the protocol to the lightcurve, generating a list of candidate flares
+
+        Parameters
+        ----------
+        func
+            Function to use to identify flares
+            If the function requires args, they should be passed as a tuple with a kwargs dictionary
+            Args are applied as:
+            flare_indices = func(lightcurve, **kwargs)
+        """
+        self._flare_indices = func(self._lightcurve, **kwargs)
+        self._generate_slices()
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    def compute_flare_weights(self, func, **kwargs):
+        raise NotImplementedError()
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    def get_flare_curves(self) -> np.ndarray:
+        if self._all_flares is None:
+            self._generate_flare_array()
+        return self._all_flares.copy()
+
+    def _generate_flare_array(self):
+        if self._slice_indices is not None:
+            self._all_flares = np.zeros((len(self._slice_indices), self._look_forward+self._look_back))
+            for ii, (i_0, i_N) in enumerate(self._slice_indices):
+                self._all_flares[ii] = self._lightcurve[i_0:i_N]
+        else:
+            raise ValueError("Extraction range is not initialized, run set_extraction_range() first")
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    def _generate_slices(self):
+        if len(self._flare_indices) > 0 and self._look_back is not None and self._look_forward is not None:
+            # Collect all flares where the beginning and end slice are not on the edge of the dataset:
+            self._slice_indices = [(f_i - self._look_back, f_i + self._look_forward) for f_i in self._flare_indices
+                                   if f_i - self._look_back >= 0 and f_i + self._look_forward < len(self._lightcurve)]
+            self._generate_flare_array()
+
+
+
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 
 def find_peaks_stddev_thresh(lightcurve_data: np.ndarray,

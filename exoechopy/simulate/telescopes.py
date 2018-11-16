@@ -363,6 +363,37 @@ class Telescope:
             # To add: stellar variability, degraded signals
 
     # ------------------------------------------------------------------------------------------------------------ #
+    def get_degraded_lightcurve(self, *args):
+        """Degrade the pure lightcurve, saving the result to self._noisy_lightcurve
+
+        Parameters
+        ----------
+        args
+            Format should be a list of functions to apply, in the order desired
+            If the function requires args, they should be passed as a tuple with a kwargs dictionary:
+            (func, kwargs)
+            Args are applied as:
+            new_lightcurve = func(old_lightcurve)
+            or
+            new_lightcurve = func(old_lightcurve, **kwargs)
+
+        Returns
+        -------
+
+        """
+        if self._pure_lightcurve is None:
+            raise ValueError("Lightcurve is uninitialized, run collect_data() first")
+        self._noisy_lightcurve = self._pure_lightcurve.copy()
+        for arg in args:
+            try:
+                # Test to see if this is a (func, kwarg) pair:
+                _ = iter(arg)
+                self._noisy_lightcurve = arg[0](self._noisy_lightcurve, **arg[1])
+            except TypeError:
+                self._noisy_lightcurve = arg(self._noisy_lightcurve)
+        return self._noisy_lightcurve.copy()
+
+    # ------------------------------------------------------------------------------------------------------------ #
     def observation_report(self):
         print(self._name+" total observation time: "+u_str(self._observation_time.to(u.d)))
         print("Quiescent photons/sample: "+u_str(self._quiescent_intensity_sample))
@@ -434,4 +465,9 @@ class Telescope:
             self._observation_time = u.Quantity(observation_time, unit=u.s)
             warnings.warn("Casting observation_time, input as "+str(observation_time)+", to s.", AstropyUserWarning)
 
-
+    # ------------------------------------------------------------------------------------------------------------ #
+    def get_time_domain(self):
+        if self._time_domain is None:
+            raise ValueError("Time domain is not initialized")
+        else:
+            return self._time_domain.copy()
