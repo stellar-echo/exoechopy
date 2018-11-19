@@ -352,9 +352,9 @@ class ExponentialFlare1(ProtoFlare):
             self._decay = u.Quantity(decay, lw_time_unit).value
             warnings.warn("Casting decay, input as " + str(decay) + ", to seconds", AstropyUserWarning)
 
-        if self._decay < self._onset/2:
-            warnings.warn("Decay, " + str(decay.round(3)) + ", shorter than onset/2, "
-                          + str((onset/2).round(3)) + ", may generate backward-looking flares", AstropyUserWarning)
+        if self._decay < self._onset/3:
+            warnings.warn("Decay, " + str(decay.round(3)) + ", shorter than onset/3, "
+                          + str((onset/3).round(3)) + ", may generate backward-looking flares", AstropyUserWarning)
 
         if isinstance(max_decay, IntFloat):
             self._decay_duration = self._decay * max_decay

@@ -312,6 +312,7 @@ def asymmetric_filter_1(width: int, skew: float):
     dot_array = -skew*deriv_filter + (1-skew)*deriv2_filter
     return dot_array
 
+
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 # Indexing and integer math
 

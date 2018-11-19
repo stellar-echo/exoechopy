@@ -15,7 +15,8 @@ __all__ = ['FlareCatalog', 'find_peaks_stddev_thresh']
 class FlareCatalog:
     def __init__(self,
                  lightcurve: np.ndarray,
-                 extract_range: (tuple, list)=None):
+                 extract_range: (tuple, list)=None,
+                 time_domain: np.ndarray=None):
         self._lightcurve = lightcurve
         self._flare_indices = []
 
@@ -28,6 +29,9 @@ class FlareCatalog:
         self._slice_indices = None
         self._all_flares = None
         self._correlator_lag_matrix = None
+        self._time_domain = time_domain
+        self._flare_times = None
+        self._slice_tuple = None
 
     # ------------------------------------------------------------------------------------------------------------ #
     def set_extraction_range(self, extract_range):
@@ -61,12 +65,35 @@ class FlareCatalog:
                 except TypeError:
                     test_correlation = arg(test_correlation)
             self._correlator_lag_matrix[ii] = test_correlation
+        self._slice_tuple = tuple(ii for ii in range(len(self._all_flares)))
 
     def get_correlator_matrix(self):
         if self._correlator_lag_matrix is None:
             raise ValueError("Correlator matrix is not initialized, run generate_correlator_matrix() first")
         else:
             return self._correlator_lag_matrix
+
+    def run_lag_hypothesis(self, lag_array, func=None, *func_args):
+        """Provide a list of lag times to extract correlator values from
+
+        Parameters
+        ----------
+        lag_array
+            Lag indices to test (integers)
+        func
+            Optional function to run on the resulting lags
+            Ex: np.mean
+        func_args
+            Optional args to pass to the process function
+
+        Returns
+        -------
+
+        """
+        if func is None:
+            return self._correlator_lag_matrix[self._slice_tuple, lag_array]
+        else:
+            return func(self._correlator_lag_matrix[self._slice_tuple, lag_array], *func_args)
 
     # ------------------------------------------------------------------------------------------------------------ #
     def identify_flares_with_protocol(self, func, **kwargs):
@@ -93,11 +120,19 @@ class FlareCatalog:
             self._generate_flare_array()
         return self._all_flares.copy()
 
+    def get_flare_indices(self):
+        return self._flare_indices.copy()
+
+    def get_flare_times(self):
+        return self._flare_times.copy()
+
     def _generate_flare_array(self):
         if self._slice_indices is not None:
             self._all_flares = np.zeros((len(self._slice_indices), self._look_forward+self._look_back))
             for ii, (i_0, i_N) in enumerate(self._slice_indices):
                 self._all_flares[ii] = self._lightcurve[i_0:i_N]
+            if self._time_domain is not None:
+                self._flare_times = self._time_domain[self._flare_indices]
         else:
             raise ValueError("Extraction range is not initialized, run set_extraction_range() first")
 
@@ -105,8 +140,9 @@ class FlareCatalog:
     def _generate_slices(self):
         if len(self._flare_indices) > 0 and self._look_back is not None and self._look_forward is not None:
             # Collect all flares where the beginning and end slice are not on the edge of the dataset:
-            self._slice_indices = [(f_i - self._look_back, f_i + self._look_forward) for f_i in self._flare_indices
+            self._flare_indices = [f_i for f_i in self._flare_indices
                                    if f_i - self._look_back >= 0 and f_i + self._look_forward < len(self._lightcurve)]
+            self._slice_indices = [(f_i - self._look_back, f_i + self._look_forward) for f_i in self._flare_indices]
             self._generate_flare_array()
 
 
@@ -119,7 +155,8 @@ def find_peaks_stddev_thresh(lightcurve_data: np.ndarray,
                              smoothing_radius: float=None,
                              min_index_gap: int=None,
                              extra_search_pad: int=None,
-                             num_smoothing_rad: int=None) -> np.ndarray:
+                             num_smoothing_rad: int=None,
+                             single_flare_gap: int=None) -> np.ndarray:
     """Relatively low-overhead peak finder for an array based on deviation above a threshold.
 
     Has some filtering functionality to prevent detection of multiple peaks within the same flare event.
@@ -136,10 +173,14 @@ def find_peaks_stddev_thresh(lightcurve_data: np.ndarray,
         Optional Gaussian smoothing filter to run prior to peak finding, helps eliminate salt & pepper noise
     min_index_gap
         Require each peak be at least this many indices from another peak
+        To avoid two peaks in the same window, make this small
+        To avoid a noisy event to be registered as multiple events, make this large
     extra_search_pad
         Add an optional extra search on either side of a peak, useful if Gaussian is aggressive
     num_smoothing_rad
         How many points to include in filter window, based on smoothing_radius
+    single_flare_gap
+        If two flares occur within this gap, remove both from the list
 
     Returns
     -------
@@ -188,6 +229,11 @@ def find_peaks_stddev_thresh(lightcurve_data: np.ndarray,
     return_array[region_i+1] = np.argmax(
         lightcurve_data[min_search_ind-extra_search_pad:last_region+extra_search_pad]) + \
                                min_search_ind - extra_search_pad
+
+    if single_flare_gap is not None:
+        nearby_flares = np.where(np.diff(return_array) < single_flare_gap)[0]
+        return_array = np.delete(return_array, np.concatenate((nearby_flares, nearby_flares+1)))
+
     return return_array
 
 

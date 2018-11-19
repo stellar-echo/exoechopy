@@ -19,7 +19,7 @@ __all__ = ['KeplerianOrbit', 'true_anomaly_from_mean', 'reduced_keplerian_to_2bo
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 
-class KeplerianOrbit(Plottable):
+class KeplerianOrbit:
     """
     Base class for objects that travel on a Keplerian Orbit, solved with Newton's method.
     """
@@ -65,7 +65,7 @@ class KeplerianOrbit(Plottable):
         self._semimajor_axis = None
         self._semimajor_axis_lw = None
         if semimajor_axis is None:
-            self.semimajor_axis = Distance(1, unit=u.au)
+            self.semimajor_axis = u.Quantity(1, unit=u.au)
         else:
             self.semimajor_axis = semimajor_axis
 
@@ -90,22 +90,22 @@ class KeplerianOrbit(Plottable):
         self._initial_anomaly = None
         self._initial_anomaly_lw = None
         if initial_anomaly is None or initial_anomaly == 0.:
-            self.initial_anomaly = Angle(0., unit=u.rad)
+            self.initial_anomaly = u.Quantity(0., unit=u.rad)
         else:
             self.initial_anomaly = initial_anomaly
 
         if inclination is None or inclination == 0.:
-            self._inclination = Angle(0., unit=u.rad)
+            self._inclination = u.Quantity(0., unit=u.rad)
         else:
             if isinstance(inclination, Angle) or isinstance(inclination, u.Quantity):
                 self._inclination = inclination.to(u.rad)
             else:
-                self._inclination = Angle(inclination, unit=u.rad)
+                self._inclination = u.Quantity(inclination, unit=u.rad)
                 warnings.warn("Casting inclination, input as " + str(inclination) + ", to radians",
                               AstropyUserWarning)
 
         if longitude is None or longitude == 0.:
-            self._longitude = Angle(0., unit=u.rad)
+            self._longitude = u.Quantity(0., unit=u.rad)
         else:
             if isinstance(longitude, Angle) or isinstance(longitude, u.Quantity):
                 self._longitude = longitude.to(u.rad)
@@ -138,6 +138,15 @@ class KeplerianOrbit(Plottable):
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
+    def eccentricity(self):
+        return self._eccentricity
+
+    @eccentricity.setter
+    def eccentricity(self, eccentricity):
+        self._eccentricity = eccentricity
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    @property
     def periapsis_arg(self):
         return self._periapsis_arg
 
@@ -156,13 +165,30 @@ class KeplerianOrbit(Plottable):
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
+    def inclination(self):
+        return self._inclination
+
+    @inclination.setter
+    def inclination(self, inclination):
+        self._inclination = inclination
+
+    @property
+    def longitude(self):
+        return self._longitude
+
+    @longitude.setter
+    def longitude(self, longitude):
+        self._longitude = longitude
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    @property
     def initial_anomaly(self):
         return self._initial_anomaly
 
     @initial_anomaly.setter
     def initial_anomaly(self, initial_anomaly):
         if initial_anomaly == 0.:
-            self._initial_anomaly = Angle(0., unit=u.rad)
+            self._initial_anomaly = u.Quantity(0., unit=u.rad)
         else:
             if isinstance(initial_anomaly, Angle) or isinstance(initial_anomaly, u.Quantity):
                 self._initial_anomaly = initial_anomaly.to(u.rad)
@@ -303,7 +329,7 @@ class KeplerianOrbit(Plottable):
         return self.calc_xyz_at_angle_au(u.Quantity(theta, u.rad))
 
     def calc_xyz_at_time(self, t0: u.Quantity) -> u.Quantity:
-        """Provides the distance at a time, or np.array of times
+        """Provides the distance at a time
 
         Parameters
         ----------
