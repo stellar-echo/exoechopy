@@ -11,8 +11,8 @@ import time
 
 
 def run():
-    #  =============================================================  #
-    #               Create synthetic data to analyze                  #
+    #   ============================================================================================================   #
+    #   Create synthetic data to analyze
 
     # Load the template star system:
     cwd = Path.cwd()
@@ -30,7 +30,12 @@ def run():
     observation_campaign["star_parameters"]["active_region"]["intensity_pdf"] = 100000.
 
     # Ensure we watch long enough to get a good sample:
-    observation_campaign["telescope_parameters"]["observation_time"] = (6*24., "hr")
+    observation_campaign["telescope_parameters"]["observation_time"] = (12*24., "hr")
+
+    # Set a good ratio of flares/hr based on our observation time:
+    # Distribution is uniform between loc and loc+scale:
+    observation_campaign["star_parameters"]["active_region"]["occurrence_freq_pdf"] = {"uniform": {"loc": 100,
+                                                                                                   "scale": 1500}}
 
     # Generate the data:
     telescope = observation_campaign.initialize_experiments()[0]
@@ -49,8 +54,8 @@ def run():
     # Examine the synthetic lightcurve:
     eep.visualize.interactive_lightcurve(time_domain, lightcurve)
 
-    #  =============================================================  #
-    #                 Perform analysis on the data                    #
+    #   ============================================================================================================   #
+    #   Perform analysis on the data:
 
     # Extract the flares into a flare catalog, after doing some pre-processing:
     flare_catalog = eep.analyze.FlareCatalog(lightcurve - np.median(lightcurve),
@@ -73,7 +78,6 @@ def run():
     # eep.visualize.plot_flare_array(lightcurve, flare_catalog.get_flare_indices(),
     #                                back_pad=look_back, forward_pad=look_forward,
     #                                display_index=True)
-
 
     #      ---------------      Create the filters used to identify the echo      ---------------      #
     correlation_process = (eep.analyze.autocorrelate_array, {'min_lag': min_lag, 'max_lag': max_lag})
@@ -122,6 +126,8 @@ def run():
     star = observation_campaign.gen_stars()[0]
     earth_vect = star.earth_direction_vector
     cadence = telescope.cadence
+
+    # Initialize our search object:
     dummy_object = eep.simulate.KeplerianOrbit(semimajor_axis=planet.semimajor_axis,
                                                eccentricity=planet.eccentricity,
                                                star_mass=star.mass,
@@ -130,51 +136,66 @@ def run():
                                                longitude=planet.longitude,
                                                periapsis_arg=planet.periapsis_arg)
 
-    # Get flare times in seconds, convert from u.Quantity to np.array:
-    flare_times = flare_catalog.get_flare_times().to(u.s).value
-
     # Set the search space:
     min_inclination = 0
     max_inclination = np.pi/2
-    num_tests = 100
+    num_tests = 50
     inclination_tests = u.Quantity(np.linspace(min_inclination, max_inclination, num_tests), 'rad')
-    results = np.zeros(num_tests)
     # Speed up calculation by precalculating the Keplerian orbit on a coarse mesh and using cubic interpolation:
     num_interpolation_points = 50
+
+    orbit_search = eep.analyze.OrbitSearch(flare_catalog, dummy_object, cadence,
+                                           lag_offset=-filter_width, clip_range=(0, max_lag-filter_width))
+
     # Generate the predicted lags associated with each hypothesis orbit:
-    print("Testing orbital inclinations")
-    for ii, inc in enumerate(inclination_tests):
-        # Update test orbit:
-        dummy_object.inclination = inc
-        planet_vectors = dummy_object.evaluate_positions_at_times_lw(flare_times, num_points=num_interpolation_points)
-        # Subtract the filter_width, since that operation offset the lags:
-        all_lags = eep.utils.compute_lag_simple(planet_vectors, earth_vect)/cadence.value-filter_width
-        # Clip to avoid running over array size: (note, also should de-weight these points)
-        all_lags = np.clip(np.round(all_lags), 0, max_lag-filter_width).astype('int')
-        results[ii] = flare_catalog.run_lag_hypothesis(all_lags, func=np.mean)
+    print("Searching orbital inclinations")
+    results, _ = orbit_search.run(earth_direction_vector=earth_vect,
+                                  lag_func=np.mean,
+                                  num_interpolation_points=num_interpolation_points,
+                                  inclination=inclination_tests)
 
     plt.plot(inclination_tests, results, color='k', lw=1)
+    # plt.annotate("This peak is due to the echo,\n"
+    #              "this one is a false positive.", xy=(25, .00004), xytext=(22.5, .0003),
+    #              arrowprops=dict(arrowstyle="->", connectionstyle="arc3, rad=.3"), zorder=25)
+
     plt.xlabel("Orbital inclination (rad)")
     plt.ylabel("Detection metric")
     plt.tight_layout()
     plt.show()
 
-    # Run a search along another axis:
+    #      ---------------      Verify the results      ---------------      #
+    print("Resampling orbital inclinations along lag domain")
+    num_resamples = 1000
+    all_resamples = np.random.choice(flare_catalog.num_flares, (num_resamples, flare_catalog.num_flares))
+    all_results, _ = orbit_search.run(earth_direction_vector=earth_vect,
+                                      lag_func=np.mean,
+                                      num_interpolation_points=num_interpolation_points,
+                                      resample_order=all_resamples,
+                                      inclination=inclination_tests)
+    # Reset order, in case we need it again
+    flare_catalog.set_sampling_order()
+
+    # Uncertainty interval:
+    interval = 95
+    lower, upper = np.percentile(all_results, [(100-interval)/2, 50+interval/2], axis=0)
+    eep.visualize.plot_signal_w_uncertainty(inclination_tests, results,
+                                            y_plus_interval=upper, y_minus_interval=lower,
+                                            x_axis_label="Inclination (rad)",
+                                            y_axis_label="Detection metric")
+
+    #      ---------------      Run a search along another orbital element      ---------------      #
     min_semimajor_axis = 0.02
     max_semimajor_axis = 0.07
     semimajor_axis_tests = u.Quantity(np.linspace(min_semimajor_axis, max_semimajor_axis, num_tests), "au")
-    dummy_object.inclination = planet.inclination
-    results = np.zeros(num_tests)
+
     # Generate the predicted lags associated with each hypothesis orbit:
-    print("Testing semimajor axes")
-    for ii, a in enumerate(semimajor_axis_tests):
-        dummy_object.semimajor_axis = a
-        planet_vectors = dummy_object.evaluate_positions_at_times_lw(flare_times, num_points=num_interpolation_points)
-        # Subtract the filter_width, since that operation offset the lags:
-        all_lags = eep.utils.compute_lag_simple(planet_vectors, earth_vect)/cadence.value-filter_width
-        # Clip to avoid running over array size: (note, also should de-weight these points)
-        all_lags = np.clip(np.round(all_lags), 0, max_lag-filter_width).astype('int')
-        results[ii] = flare_catalog.run_lag_hypothesis(all_lags, func=np.mean)
+    print("Searching semimajor axes")
+    results, _ = orbit_search.run(earth_direction_vector=earth_vect,
+                                  lag_func=np.mean,
+                                  num_interpolation_points=num_interpolation_points,
+                                  inclination=planet.inclination,  # Reset from previous run
+                                  semimajor_axis=semimajor_axis_tests)
 
     plt.plot(semimajor_axis_tests, results, color='k', lw=1)
     plt.xlabel("Semimajor axis (au)")
@@ -193,19 +214,13 @@ def run():
     semimajor_axis_tests = u.Quantity(np.linspace(min_semimajor_axis, max_semimajor_axis, a_axis_tests), "au")
     inclination_tests = u.Quantity(np.linspace(min_inclination, max_inclination, inc_axis_tests), 'rad')
 
-    results_2d = np.zeros((a_axis_tests, inc_axis_tests))
+    #      ---------------      Run a search along two orbital elements      ---------------      #
     print("Running 2D orbital search...")
-    for ri, a in enumerate(semimajor_axis_tests):
-        for ci, inc in enumerate(inclination_tests):
-            dummy_object.semimajor_axis = a
-            dummy_object.inclination = inc
-            planet_vectors = dummy_object.evaluate_positions_at_times_lw(flare_times,
-                                                                         num_points=num_interpolation_points)
-            # Subtract the filter_width, since that operation offset the lags:
-            all_lags = eep.utils.compute_lag_simple(planet_vectors, earth_vect) / cadence.value - filter_width
-            # Clip to avoid running over array size: (note, also should de-weight these points)
-            all_lags = np.clip(np.round(all_lags), 0, max_lag - filter_width).astype('int')
-            results_2d[ri, ci] = flare_catalog.run_lag_hypothesis(all_lags, func=np.mean)
+    results_2d, _ = orbit_search.run(earth_direction_vector=earth_vect,
+                                     lag_func=np.mean,
+                                     num_interpolation_points=num_interpolation_points,
+                                     inclination=inclination_tests,
+                                     semimajor_axis=semimajor_axis_tests)
 
     plt.imshow(np.transpose(results_2d),
                cmap='inferno', origin='lower', aspect='auto',
@@ -217,14 +232,10 @@ def run():
     plt.tight_layout()
     plt.show()
 
-    #      ---------------      Verify the results      ---------------      #
-
-
 
 
 # ******************************************************************************************************************** #
 # ************************************************  TEST & DEMO CODE  ************************************************ #
-
 
 if __name__ == "__main__":
     run()

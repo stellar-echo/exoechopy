@@ -31,7 +31,7 @@ class FlareCatalog:
         self._correlator_lag_matrix = None
         self._time_domain = time_domain
         self._flare_times = None
-        self._slice_tuple = None
+        self._indexing_tuple = None
 
     # ------------------------------------------------------------------------------------------------------------ #
     def set_extraction_range(self, extract_range):
@@ -65,7 +65,22 @@ class FlareCatalog:
                 except TypeError:
                     test_correlation = arg(test_correlation)
             self._correlator_lag_matrix[ii] = test_correlation
-        self._slice_tuple = tuple(ii for ii in range(len(self._all_flares)))
+        self.set_sampling_order()
+
+    def set_sampling_order(self, order=None):
+        """Allows resampling of lags by changing up their order
+
+        Parameters
+        ----------
+        order
+            New ordering, e.g., [3, 0, 100, 9, ...]
+            Can include repeats (e.g., bootstrapping)
+
+        """
+        if order is None:
+            self._indexing_tuple = tuple(ii for ii in range(len(self._all_flares)))
+        else:
+            self._indexing_tuple = tuple(order)
 
     def get_correlator_matrix(self):
         if self._correlator_lag_matrix is None:
@@ -73,7 +88,7 @@ class FlareCatalog:
         else:
             return self._correlator_lag_matrix
 
-    def run_lag_hypothesis(self, lag_array, func=None, *func_args):
+    def run_lag_hypothesis(self, lag_array, func=None, resample_order=None, *func_args):
         """Provide a list of lag times to extract correlator values from
 
         Parameters
@@ -83,6 +98,8 @@ class FlareCatalog:
         func
             Optional function to run on the resulting lags
             Ex: np.mean
+        resample_order
+            Optional new order for the flares to have occurred
         func_args
             Optional args to pass to the process function
 
@@ -90,10 +107,12 @@ class FlareCatalog:
         -------
 
         """
+        if resample_order is not None:
+            self.set_sampling_order(resample_order)
         if func is None:
-            return self._correlator_lag_matrix[self._slice_tuple, lag_array]
+            return self._correlator_lag_matrix[self._indexing_tuple, lag_array]
         else:
-            return func(self._correlator_lag_matrix[self._slice_tuple, lag_array], *func_args)
+            return func(self._correlator_lag_matrix[self._indexing_tuple, lag_array], *func_args)
 
     # ------------------------------------------------------------------------------------------------------------ #
     def identify_flares_with_protocol(self, func, **kwargs):
@@ -136,6 +155,13 @@ class FlareCatalog:
         else:
             raise ValueError("Extraction range is not initialized, run set_extraction_range() first")
 
+    @property
+    def num_flares(self):
+        if self._all_flares is None:
+            return 0
+        else:
+            return len(self._all_flares)
+
     # ------------------------------------------------------------------------------------------------------------ #
     def _generate_slices(self):
         if len(self._flare_indices) > 0 and self._look_back is not None and self._look_forward is not None:
@@ -144,7 +170,6 @@ class FlareCatalog:
                                    if f_i - self._look_back >= 0 and f_i + self._look_forward < len(self._lightcurve)]
             self._slice_indices = [(f_i - self._look_back, f_i + self._look_forward) for f_i in self._flare_indices]
             self._generate_flare_array()
-
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
