@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 import astropy.units as u
 
+import time
+
 
 def run():
     #  =============================================================  #
@@ -17,24 +19,24 @@ def run():
     observation_campaign = eep.io.generate_system_from_file(cwd/"system_template.exo")
 
     # Change the planet parameters from the defaults:
-    semimajor_axis = .05
-    observation_campaign["planet_parameters"]["semimajor_axis"] = (semimajor_axis, "au")
+    observation_campaign["planet_parameters"]["semimajor_axis"] = (.05, "au")
 
     # observation_campaign["planet_parameters"]["planet_radius"] = (8, "R_jup")
 
     # # Tilt the system at an angle relative to Earth:
     observation_campaign["planet_parameters"]["inclination"] = (.5, "rad")
-    # observation_campaign["planet_parameters"]["planet_albedo"] = 0.
+
     # Set a uniform flare intensity (defaults to a distribution):
     observation_campaign["star_parameters"]["active_region"]["intensity_pdf"] = 100000.
+
     # Ensure we watch long enough to get a good sample:
     observation_campaign["telescope_parameters"]["observation_time"] = (6*24., "hr")
 
     # Generate the data:
     telescope = observation_campaign.initialize_experiments()[0]
-    telescope.collect_data()
+    telescope.collect_data(save_diagnostic_data=True)
 
-    # Add some poisson noise:
+    # Add some Poisson noise:
     lightcurve = telescope.get_degraded_lightcurve(eep.simulate.methods.add_poisson_noise)
     time_domain = telescope.get_time_domain()
 
@@ -44,7 +46,8 @@ def run():
     in a non-uniform distribution of flares.  This represents a real experimental artifact.
     """)
 
-    # eep.visualize.interactive_lightcurve(time_domain, lightcurve)
+    # Examine the synthetic lightcurve:
+    eep.visualize.interactive_lightcurve(time_domain, lightcurve)
 
     #  =============================================================  #
     #                 Perform analysis on the data                    #
@@ -102,16 +105,19 @@ def run():
     #      ---------------      Generate lag-correlator matrix      ---------------      #
     flare_catalog.generate_correlator_matrix(correlation_process, filter_process, crop_fit_process)
     correlation_results = flare_catalog.get_correlator_matrix()
-    # for c in correlation_results:
-    #     plt.plot(c, color='k', lw=1, drawstyle='steps-post')
-    #     plt.show()
     print("Number of flares analyzed: ", len(correlation_results))
     raw_correlation = np.mean(correlation_results, axis=0)
+
     plt.plot(lag_domain[-len(raw_correlation):], raw_correlation, color='k', lw=1, drawstyle='steps-post')
+    plt.xlabel("Lag (index)")
+    plt.ylabel("Correlator matrix metric")
+    plt.title("Mean of all correlator metrics")
+    plt.tight_layout()
     plt.show()
 
     #      ---------------      Search the matrix for echoes      ---------------      #
-    # We are only searching a single axis here, so we're going to steal the exact solution for the other elements
+    # We are only searching a single orbital element here,
+    # so we're going to steal the exact solution for the other elements
     planet = observation_campaign.gen_planets()[0]
     star = observation_campaign.gen_stars()[0]
     earth_vect = star.earth_direction_vector
@@ -123,26 +129,91 @@ def run():
                                                inclination=planet.inclination,
                                                longitude=planet.longitude,
                                                periapsis_arg=planet.periapsis_arg)
-    flare_times = flare_catalog.get_flare_times()
+
+    # Get flare times in seconds, convert from u.Quantity to np.array:
+    flare_times = flare_catalog.get_flare_times().to(u.s).value
 
     # Set the search space:
     min_inclination = 0
-    max_inclination = np.pi/3
+    max_inclination = np.pi/2
     num_tests = 100
     inclination_tests = u.Quantity(np.linspace(min_inclination, max_inclination, num_tests), 'rad')
     results = np.zeros(num_tests)
+    # Speed up calculation by precalculating the Keplerian orbit on a coarse mesh and using cubic interpolation:
+    num_interpolation_points = 50
+    # Generate the predicted lags associated with each hypothesis orbit:
+    print("Testing orbital inclinations")
     for ii, inc in enumerate(inclination_tests):
+        # Update test orbit:
         dummy_object.inclination = inc
-        planet_vectors = [dummy_object.calc_xyz_at_time(f_i) for f_i in flare_times]
-        # Subtract the filter_width, since that operation offset the lags, and clip to avoid errors:
-        all_lags = [np.clip(-filter_width + eep.utils.round_dec((eep.utils.compute_lag(np.zeros(3),
-                                                                                       v_i, earth_vect)/cadence).decompose().value),
-                            0, max_lag-filter_width)
-                    for v_i in planet_vectors]
+        planet_vectors = dummy_object.evaluate_positions_at_times_lw(flare_times, num_points=num_interpolation_points)
+        # Subtract the filter_width, since that operation offset the lags:
+        all_lags = eep.utils.compute_lag_simple(planet_vectors, earth_vect)/cadence.value-filter_width
+        # Clip to avoid running over array size: (note, also should de-weight these points)
+        all_lags = np.clip(np.round(all_lags), 0, max_lag-filter_width).astype('int')
         results[ii] = flare_catalog.run_lag_hypothesis(all_lags, func=np.mean)
+
     plt.plot(inclination_tests, results, color='k', lw=1)
     plt.xlabel("Orbital inclination (rad)")
     plt.ylabel("Detection metric")
+    plt.tight_layout()
+    plt.show()
+
+    # Run a search along another axis:
+    min_semimajor_axis = 0.02
+    max_semimajor_axis = 0.07
+    semimajor_axis_tests = u.Quantity(np.linspace(min_semimajor_axis, max_semimajor_axis, num_tests), "au")
+    dummy_object.inclination = planet.inclination
+    results = np.zeros(num_tests)
+    # Generate the predicted lags associated with each hypothesis orbit:
+    print("Testing semimajor axes")
+    for ii, a in enumerate(semimajor_axis_tests):
+        dummy_object.semimajor_axis = a
+        planet_vectors = dummy_object.evaluate_positions_at_times_lw(flare_times, num_points=num_interpolation_points)
+        # Subtract the filter_width, since that operation offset the lags:
+        all_lags = eep.utils.compute_lag_simple(planet_vectors, earth_vect)/cadence.value-filter_width
+        # Clip to avoid running over array size: (note, also should de-weight these points)
+        all_lags = np.clip(np.round(all_lags), 0, max_lag-filter_width).astype('int')
+        results[ii] = flare_catalog.run_lag_hypothesis(all_lags, func=np.mean)
+
+    plt.plot(semimajor_axis_tests, results, color='k', lw=1)
+    plt.xlabel("Semimajor axis (au)")
+    plt.ylabel("Detection metric")
+    plt.tight_layout()
+    plt.show()
+
+    # Run a 2D search to show how that works:
+    a_axis_tests = 20
+    min_semimajor_axis = 0.04
+    max_semimajor_axis = 0.06
+    inc_axis_tests = 20
+    min_inclination = .25
+    max_inclination = .75
+
+    semimajor_axis_tests = u.Quantity(np.linspace(min_semimajor_axis, max_semimajor_axis, a_axis_tests), "au")
+    inclination_tests = u.Quantity(np.linspace(min_inclination, max_inclination, inc_axis_tests), 'rad')
+
+    results_2d = np.zeros((a_axis_tests, inc_axis_tests))
+    print("Running 2D orbital search...")
+    for ri, a in enumerate(semimajor_axis_tests):
+        for ci, inc in enumerate(inclination_tests):
+            dummy_object.semimajor_axis = a
+            dummy_object.inclination = inc
+            planet_vectors = dummy_object.evaluate_positions_at_times_lw(flare_times,
+                                                                         num_points=num_interpolation_points)
+            # Subtract the filter_width, since that operation offset the lags:
+            all_lags = eep.utils.compute_lag_simple(planet_vectors, earth_vect) / cadence.value - filter_width
+            # Clip to avoid running over array size: (note, also should de-weight these points)
+            all_lags = np.clip(np.round(all_lags), 0, max_lag - filter_width).astype('int')
+            results_2d[ri, ci] = flare_catalog.run_lag_hypothesis(all_lags, func=np.mean)
+
+    plt.imshow(np.transpose(results_2d),
+               cmap='inferno', origin='lower', aspect='auto',
+               extent=[min_semimajor_axis, max_semimajor_axis, min_inclination, max_inclination])
+    plt.xlabel("Semimajor axis (au)")
+    plt.ylabel("Inclination (rad)")
+    plt.title("2D orbit search: Semimajor axis v Inclination")
+    plt.colorbar()
     plt.tight_layout()
     plt.show()
 

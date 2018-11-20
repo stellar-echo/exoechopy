@@ -13,7 +13,7 @@ from astropy import constants
 from scipy import signal
 from .constants import FunctionType
 
-__all__ = ['angle_between_vectors', 'vect_from_spherical_coords', 'compute_lag',
+__all__ = ['angle_between_vectors', 'vect_from_spherical_coords', 'compute_lag', 'compute_lag_simple',
            'SphericalLatitudeGen', 'stochastic_flare_process', 'bi_erf_model', 'bigaussian_model',
            'window_range',
            'take_noisy_derivative', 'take_noisy_2nd_derivative', 'linear_detrend', 'gaussian_fft_filter',
@@ -82,6 +82,33 @@ def compute_lag(start_vect: u.Quantity,
         return (v2_norm-u.Quantity(np.dot(v2, detect_vect), v2.unit))/constants.c, v2_norm
     else:
         return (v2_norm-u.Quantity(np.dot(v2, detect_vect), v2.unit))/constants.c
+
+
+c_au_s = constants.c.to(u.au/u.s).value
+
+
+def compute_lag_simple(echo_vect: np.ndarray,
+                       detect_vect: np.ndarray) -> np.ndarray:
+    """Calculate the lag from a flare echo, assuming source is at origin, and ignoring units
+
+    Assumes vector is in AU and provides lag in seconds
+
+    Parameters
+    ----------
+    echo_vect
+        Location of the echo-ing object
+    detect_vect
+        *Normalized* vector in the direction of the detection (Earth)
+
+    Returns
+    -------
+    np.ndarray
+        Echo lag quantity
+
+    """
+    # Vector from the starting point to the echo source:
+    v2_norm = np.linalg.norm(echo_vect, axis=-1)
+    return (v2_norm-np.dot(echo_vect, detect_vect, ))/c_au_s
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #

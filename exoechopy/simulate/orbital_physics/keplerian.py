@@ -5,7 +5,7 @@ This module provides simple Keplerian orbits for simulations and analysis.
 
 import warnings
 import numpy as np
-from scipy import optimize
+from scipy import optimize, interpolate
 from astropy import units as u
 from astropy.coordinates import Angle
 from astropy.coordinates import Distance
@@ -61,6 +61,8 @@ class KeplerianOrbit:
         """
         super().__init__(**kwargs)
 
+        self._parent_mass = None
+
         # Initialize semimajor axis
         self._semimajor_axis = None
         self._semimajor_axis_lw = None
@@ -79,7 +81,6 @@ class KeplerianOrbit:
         self._eccentric_factor = np.sqrt((1 + self._eccentricity) / (1 - self._eccentricity))
 
         #  Initialize parent_mass, then call set/reset function:
-        self._parent_mass = None
         self._grav_param = None
         self._orbital_period = None
         self._orbital_frequency = None
@@ -122,6 +123,8 @@ class KeplerianOrbit:
         else:
             self.periapsis_arg = periapsis_arg
 
+        self._precomputed_orbit = None
+
     # ------------------------------------------------------------------------------------------------------------ #
     @property
     def semimajor_axis(self):
@@ -135,6 +138,8 @@ class KeplerianOrbit:
             self._semimajor_axis = Distance(semimajor_axis, unit=u.au)
             warnings.warn("Casting semimajor axis, input as "+str(semimajor_axis)+", to AU", AstropyUserWarning)
         self._semimajor_axis_lw = self._semimajor_axis.to(lw_distance_unit).value
+        # Reset the pre-computed orbit and orbital parameters:
+        self.update_orbital_parameters()
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
@@ -144,6 +149,8 @@ class KeplerianOrbit:
     @eccentricity.setter
     def eccentricity(self, eccentricity):
         self._eccentricity = eccentricity
+        # Reset the pre-computed orbit and orbital parameters:
+        self.update_orbital_parameters()
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
@@ -162,6 +169,8 @@ class KeplerianOrbit:
                 warnings.warn("Casting periapsis_arg, input as " + str(periapsis_arg) + ", to radians",
                               AstropyUserWarning)
         self._periapsis_arg_lw = self._periapsis_arg.value
+        # Reset the pre-computed orbit and orbital parameters:
+        self.update_orbital_parameters()
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
@@ -171,6 +180,8 @@ class KeplerianOrbit:
     @inclination.setter
     def inclination(self, inclination):
         self._inclination = inclination
+        # Reset the pre-computed orbit and orbital parameters:
+        self.update_orbital_parameters()
 
     @property
     def longitude(self):
@@ -179,6 +190,8 @@ class KeplerianOrbit:
     @longitude.setter
     def longitude(self, longitude):
         self._longitude = longitude
+        # Reset the pre-computed orbit and orbital parameters:
+        self.update_orbital_parameters()
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
@@ -197,6 +210,8 @@ class KeplerianOrbit:
                 warnings.warn("Casting initial_anomaly, input as " + str(initial_anomaly) + ", to radians",
                               AstropyUserWarning)
         self._initial_anomaly_lw = self._initial_anomaly.value
+        # Reset the pre-computed orbit and orbital parameters:
+        self.update_orbital_parameters()
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
@@ -387,15 +402,44 @@ class KeplerianOrbit:
         return orbit_positions
 
     # ------------------------------------------------------------------------------------------------------------ #
-    def generate_orbital_positions_by_time(self, num_points):
-        """
-        Returns a list of positions along the path for a single orbit
-        :param int num_points: Number of points to plot
-        :return list:
+    def generate_orbital_positions_by_time(self, num_points: int):
+        """Calculate num_points positions along an orbit, evenly spaced in time
+
+        Parameters
+        ----------
+        num_points
+            Number of data points to include in computation
+
+        Returns
+        -------
+        list
+            Vectors corresponding to orbital position as a function of time for a single orbit
         """
         all_times = np.linspace(0 * u.s, self.orbital_period, num_points)
         orbit_positions = [self.calc_xyz_at_time_au_lw(ti) for ti in all_times]
         return orbit_positions
+
+    def precompute_orbit(self, num_points):
+        t_vals = np.linspace(0 * u.s, self.orbital_period, num_points)
+        xyz_vals = np.array(self.generate_orbital_positions_by_time(num_points))
+        self._precomputed_orbit = interpolate.interp1d(t_vals, xyz_vals, kind='cubic', axis=0)
+
+    def evaluate_positions_at_times_lw(self, times_in_sec: np.ndarray, num_points=100) -> np.ndarray:
+        """Quickly calculate the positions at a given array of times using pre-computed results
+
+        Parameters
+        ----------
+        times_in_sec
+        num_points
+
+        Returns
+        -------
+        np.ndarray
+            Positions at the requested times
+        """
+        if self._precomputed_orbit is None:
+            self.precompute_orbit(num_points)
+        return self._precomputed_orbit(times_in_sec % self.orbital_period.value)
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
@@ -428,10 +472,14 @@ class KeplerianOrbit:
             else:
                 self._parent_mass = u.Quantity(parent_mass, u.M_sun)
                 warnings.warn("Casting star mass, input as " + str(parent_mass) + ", to M_sun", AstropyUserWarning)
-            if self._parent_mass.value > 0:
-                self._grav_param = self._parent_mass * const.G
-                self._orbital_period = (2 * np.pi * self._semimajor_axis**1.5 * np.sqrt(1/self._grav_param)).decompose().to(u.s)
-                self._orbital_frequency = np.sqrt(self._grav_param/self._semimajor_axis**3).decompose().to(u.Hz)*u.rad
+            self.update_orbital_parameters()
+
+    def update_orbital_parameters(self):
+        self._precomputed_orbit = None
+        if self._parent_mass is not None:
+            self._grav_param = self._parent_mass * const.G
+            self._orbital_period = (2 * np.pi * self._semimajor_axis**1.5 * np.sqrt(1/self._grav_param)).decompose().to(u.s)
+            self._orbital_frequency = np.sqrt(self._grav_param/self._semimajor_axis**3).decompose().to(u.Hz)*u.rad
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
