@@ -202,13 +202,15 @@ def plot_signal_w_uncertainty(x_data: np.ndarray, y_data: np.ndarray, y_plus_int
     ax.set_title(plt_title, y=1.1)
     ax.set_xlabel(x_axis_label)
     ax.set_ylabel(y_axis_label)
-    ax.legend(loc='best')
-    plt.tight_layout()
     if save is None:
+        ax.legend(loc='best')
+        plt.tight_layout()
         plt.show()
     elif save == 'ax' or save == 'hold':
         return ax
     else:
+        ax.legend(loc='best')
+        plt.tight_layout()
         plt.savefig(save)
         plt.close()
 

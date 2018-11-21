@@ -6,13 +6,15 @@ This module provides different algorithms for identifying and extracting flares 
 import numpy as np
 from scipy import signal
 
-__all__ = ['FlareCatalog', 'find_peaks_stddev_thresh']
+__all__ = ['LightcurveFlareCatalog', 'find_peaks_stddev_thresh']
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 
-class FlareCatalog:
+# TODO: Create a FlareCatalog from pre-extracted flares, inherit all catalogs from a common class
+
+class LightcurveFlareCatalog:
     def __init__(self,
                  lightcurve: np.ndarray,
                  extract_range: (tuple, list)=None,

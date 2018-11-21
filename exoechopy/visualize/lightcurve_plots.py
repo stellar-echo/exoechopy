@@ -238,6 +238,8 @@ def plot_flare_array(lightcurve: np.ndarray,
     savefile
         If None, runs plt.show()
         If filepath str, saves to savefile location (must include file extension)
+    display_index
+        If True, display the flare index number from the lightcurve on each flare
     """
 
     num_flares = len(flare_indices)
