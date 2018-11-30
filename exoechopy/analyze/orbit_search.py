@@ -4,7 +4,6 @@ from ..utils import *
 from .flare_manipulation import *
 from ..simulate.orbital_physics import KeplerianOrbit
 
-from astropy import stats
 from astropy import units as u
 from scipy.special import erfinv
 
@@ -56,6 +55,7 @@ class OrbitSearch:
             lag_metric: FunctionType = None,
             num_interpolation_points: int = 50,
             resample_order: np.ndarray = None,
+            flare_mask: np.ndarray = None,
             weighted: bool = False,
             **kwargs):
         """
@@ -73,6 +73,9 @@ class OrbitSearch:
             Number of points to interpolate for the orbital positions (50 is often plenty)
         resample_order
             Optional array of resampled indices to pass to run_lag_hypothesis
+        flare_mask
+            Optional mask to apply to the flares, useful for testing subsamples (like outlier removal or jackknifing)
+            without changing the actual flare arrays
         weighted
             Optional boolean to include weights in the search, defaults to False
         kwargs
@@ -84,6 +87,9 @@ class OrbitSearch:
         -------
         np.ndarray
         """
+
+        num_flares = self.num_flares
+
         if num_interpolation_points is None:
             # Err on safe side:
             num_interpolation_points = 500
@@ -111,7 +117,11 @@ class OrbitSearch:
 
         # Perform the search:
         if resample_order is None:
-            dim_list = [len(x) for x in search_parameters]
+            if flare_mask is None or np.ndim(flare_mask) == 1:
+                dim_list = [len(x) for x in search_parameters]
+            else:
+                dim_list = [len(flare_mask)]
+                dim_list.extend([len(x) for x in search_parameters])
         else:
             if resample_order.ndim > 1:
                 dim_list = [len(resample_order)]
@@ -119,10 +129,10 @@ class OrbitSearch:
             else:
                 dim_list = [len(x) for x in search_parameters]
         if lag_metric is None:
-            dim_list.append(self.num_flares)
+            dim_list.append(num_flares)
         else:
             # Try the lag_metric on some random data without extracting the real data, should be adequate... right?
-            test_result = lag_metric(np.linspace(10, 20, self.num_flares))
+            test_result = lag_metric(np.linspace(10, 20, num_flares))
             try:
                 _ = iter(test_result)
                 if len(test_result) > 1:
@@ -148,23 +158,41 @@ class OrbitSearch:
                 # Clip to avoid running over array size: (note, also should de-weight these points)
                 all_lags = np.clip(np.round(all_lags), self._clip_range[0], self._clip_range[1]).astype('int')
                 if resample_order is None:
-                    return_array[tuple(ind)] = self._flare_catalog.run_lag_hypothesis(all_lags,
-                                                                                      func=lag_metric,
-                                                                                      flare_weights=weighted)
+                    if flare_mask is None or np.ndim(flare_mask) == 1:
+                        return_array[tuple(ind)] = self._flare_catalog.run_lag_hypothesis(all_lags,
+                                                                                          func=lag_metric,
+                                                                                          flare_weights=weighted,
+                                                                                          flare_mask=flare_mask)
+                    else:
+                        for n_i, new_mask in enumerate(flare_mask):
+                            return_array[n_i, tuple(ind)] = self._flare_catalog.run_lag_hypothesis(all_lags,
+                                                                                                   func=lag_metric,
+                                                                                                   flare_weights=weighted,
+                                                                                                   flare_mask=new_mask)
                 else:
                     # Single resample:
                     if resample_order.ndim == 1:
                         return_array[tuple(ind)] = self._flare_catalog.run_lag_hypothesis(all_lags,
                                                                                           func=lag_metric,
                                                                                           resample_order=resample_order,
-                                                                                          flare_weights=weighted)
+                                                                                          flare_weights=weighted,
+                                                                                          flare_mask=flare_mask)
                     # Multiple resamples provided:
                     else:
-                        for n_i, new_ordering in enumerate(resample_order):
-                            return_array[n_i, tuple(ind)] = self._flare_catalog.run_lag_hypothesis(all_lags,
-                                                                                                   func=lag_metric,
-                                                                                                   resample_order=new_ordering,
-                                                                                                   flare_weights=weighted)
+                        if flare_mask is not None and np.ndim(flare_mask) > 1:
+                            for n_i, (new_ordering, new_mask) in enumerate(zip(resample_order, flare_mask)):
+                                return_array[n_i, tuple(ind)] = self._flare_catalog.run_lag_hypothesis(all_lags,
+                                                                                                       func=lag_metric,
+                                                                                                       resample_order=new_ordering,
+                                                                                                       flare_weights=weighted,
+                                                                                                       flare_mask=new_mask)
+                        else:
+                            for n_i, new_ordering in enumerate(resample_order):
+                                return_array[n_i, tuple(ind)] = self._flare_catalog.run_lag_hypothesis(all_lags,
+                                                                                                       func=lag_metric,
+                                                                                                       resample_order=new_ordering,
+                                                                                                       flare_weights=weighted,
+                                                                                                       flare_mask=flare_mask)
 
         # Manually iterate through the highest level, since it could be the earth_direction_vector,
         # which requires special treatment:
@@ -218,7 +246,7 @@ class EchoEnsembleAnalysis:
     @property
     def weighted_correlation_matrix(self):
         weights = self._flare_catalog.get_weights()
-        return weights[:, np.newaxis]*self._calculated_correlations/np.sum(weights)
+        return weights[:, np.newaxis] * self._calculated_correlations / np.sum(weights)
 
     # ------------------------------------------------------------------------------------------------------------ #
     def search_orbits(self,
@@ -324,7 +352,7 @@ class EchoEnsembleAnalysis:
     def jackknife_orbit_search(self,
                                stat_func: FunctionType,
                                conf_lvl: float = 0.95,
-                               weighted:bool =False):
+                               weighted: bool = False):
         """Implementation of astropy's jackknife_stats function along a previously implemented orbital search
 
         Parameters
@@ -334,6 +362,8 @@ class EchoEnsembleAnalysis:
         conf_lvl
             Confidence level for the confidence interval of the Jackknife estimate.
             Must be a real-valued number in (0,1). Default value is 0.95.
+        weighted
+            Whether or not to use pre-computed weights in the orbit search
 
         Returns
         -------
@@ -359,13 +389,15 @@ class EchoEnsembleAnalysis:
 
         num_flares = self._orbit_search.num_flares
 
-        jackknife_resamples = stats.jackknife_resampling(np.arange(num_flares))
+        # Generate jackknife indices:
+        jackknife_resample_mask = np.ones([num_flares, num_flares], dtype=bool)
+        np.fill_diagonal(jackknife_resample_mask, False)
 
-        search_results, keys = self._orbit_search.run(resample_order=jackknife_resamples,
-                                                      earth_direction_vector=self._earth_direction_vector,
+        search_results, keys = self._orbit_search.run(earth_direction_vector=self._earth_direction_vector,
                                                       lag_metric=stat_func,
                                                       num_interpolation_points=self._num_interpolation_points,
                                                       weighted=weighted,
+                                                      flare_mask=jackknife_resample_mask,
                                                       **self._search_kwargs)
 
         mean_jack_stat = np.mean(search_results, axis=0)
@@ -391,22 +423,52 @@ class EchoEnsembleAnalysis:
         return estimate, bias, std_err, conf_interval
 
     # ------------------------------------------------------------------------------------------------------------ #
-    def bootstrap_resample_orbits(self,
-                                  stat_func: FunctionType,
-                                  num_resamples: int,
-                                  sample_size: int=None,
-                                  percentile: float = 0.95,
-                                  weighted: bool = False):
+    def bootstrap_lag_resample_orbits(self,
+                                      stat_func: FunctionType,
+                                      num_resamples: int,
+                                      subsample: int = None,
+                                      percentile: float = 0.95,
+                                      weighted: bool = False):
+        """Resample the flares to have occurred at different times
+
+        Parameters
+        ----------
+        stat_func
+            A function to apply to the bootstrapped result, typically np.mean or np.sum
+        num_resamples
+            Number of resamples to run
+        subsample
+            Optional number of subsamples to select
+        percentile
+            Return the upper and lower values of this result (can also be calculated directly from the return result)
+        weighted
+            Boolean determining whether or not to use pre-computed weights
+
+        Returns
+        -------
+
+        """
         if self._orbit_search is None:
             raise ValueError("Orbital search is not initialized, run search_orbits first")
 
         num_flares = self._orbit_search.num_flares
 
-        if sample_size is None:
-            sample_size = num_flares
-        all_resamples = np.random.choice(num_flares, (num_resamples, sample_size))
+        if subsample is None:
+            subsample_size = num_flares
+        else:
+            subsample_size = subsample
+        all_resamples = np.random.choice(num_flares, (num_resamples, subsample_size))
+
+        if subsample is not None:
+            subsample_mask = np.ones(all_resamples.shape)
+            for ind in range(len(subsample_mask)):
+                delete_mask = np.random.choice(np.arange(len(subsample_mask)), num_flares-subsample_size, replace=False)
+                subsample_mask[ind][delete_mask] = False
+        else:
+            subsample_mask = None
 
         search_results, keys = self._orbit_search.run(resample_order=all_resamples,
+                                                      flare_mask=subsample_mask,
                                                       earth_direction_vector=self._earth_direction_vector,
                                                       lag_metric=stat_func,
                                                       num_interpolation_points=self._num_interpolation_points,

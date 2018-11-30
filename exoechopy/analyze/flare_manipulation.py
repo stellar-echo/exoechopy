@@ -94,7 +94,7 @@ class BaseFlareCatalog:
 
         """
         if order is None:
-            self._index_order_tuple = tuple(ii for ii in range(len(self._all_flares)))
+            self._index_order_tuple = tuple(range(len(self._all_flares)))
         else:
             self._index_order_tuple = tuple(order)
 
@@ -103,6 +103,7 @@ class BaseFlareCatalog:
                            func=None,
                            resample_order=None,
                            flare_weights=False,
+                           flare_mask=None,
                            lag_weights=False,
                            *func_args):
         """Provide a list of lag times to extract correlator values from
@@ -119,6 +120,8 @@ class BaseFlareCatalog:
         flare_weights
             If True, applies weights to the correlator_lag_matrix result
             Implemented as w_i * c_i/np.sum(w)
+        flare_mask
+            Optional mask to ignore certain flares, good for outlier rejection
         lag_weights
             Placeholder, not yet implemented.  If True, will apply lag-based weights to the correlator_lag_matrix result
             This can be helpful for reducing the weight of short-time lags, which are closer to the peak.
@@ -131,13 +134,21 @@ class BaseFlareCatalog:
         -------
         np.ndarray
         """
-        if resample_order is not None:
+
+        if flare_mask is not None:
+            lag_array = lag_array[flare_mask]
+
+        if resample_order is None:
+            if flare_mask is None:
+                self.set_sampling_order()
+            else:
+                self.set_sampling_order(np.arange(len(self._all_flares))[flare_mask])
+        else:
             self.set_sampling_order(resample_order)
 
         if flare_weights:
             weights = self._flare_weights[np.array(self._index_order_tuple)]
-            return_array = weights * self._correlator_lag_matrix[
-                self._index_order_tuple, lag_array] / np.sum(weights)
+            return_array = weights * self._correlator_lag_matrix[self._index_order_tuple, lag_array] / np.sum(weights)
         else:
             return_array = self._correlator_lag_matrix[self._index_order_tuple, lag_array]
 

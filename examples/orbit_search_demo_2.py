@@ -38,9 +38,9 @@ def run():
     orbital_inclination = 0.5
     observation_campaign["planet_parameters"]["inclination"] = (orbital_inclination, "rad")
 
-    # Give the star a radius for hit-miss purposes:
-    observation_campaign["star_parameters"]["star_type"] = "Star"
-    observation_campaign["star_parameters"]["star_radius"] = (1, 'm')
+    # # Give the star a radius for hit-miss purposes:
+    # observation_campaign["star_parameters"]["star_type"] = "Star"
+    # observation_campaign["star_parameters"]["star_radius"] = (1, 'm')
 
     # Set a uniform flare intensity (defaults to a distribution):
     observation_campaign["star_parameters"]["active_region"]["flare_kwargs"]["decay_pdf"] = \
@@ -329,6 +329,30 @@ def run():
 
     print("Resampling orbital inclinations along lag domain...")
 
+    # TODO: Figure out zero-index wackiness
+
+    est, bias, std_err, conf = analysis_suite.jackknife_orbit_search(np.sum, conf_lvl=0.98, weighted=False)
+    print("est.shape: ", est.shape)
+    print("bias.shape: ", bias.shape)
+    print("std_err.shape: ", std_err.shape)
+    print("conf.shape: ", conf.shape)
+    plt.plot(inclination_tests * 180 / np.pi, est)
+    plt.title("EST")
+    plt.show()
+
+    plt.plot(inclination_tests * 180 / np.pi, bias)
+    plt.title("BIAS")
+    plt.show()
+
+    plt.plot(inclination_tests * 180 / np.pi, std_err)
+    plt.title("STD_ERR")
+    plt.show()
+
+    plt.plot(inclination_tests * 180 / np.pi, conf[0])
+    plt.plot(inclination_tests * 180 / np.pi, conf[1])
+    plt.title("CONF")
+    plt.show()
+
     # How many times to resample the lags (with replacement-- i.e., bootstrap)
     # Larger numbers are more accurate, but in this case the result is stable enough by 1000
     num_resamples = 1000
@@ -336,10 +360,10 @@ def run():
     # Uncertainty interval:
     interval = 98
 
-    resample_result, percentiles = analysis_suite.bootstrap_resample_orbits(stat_func=np.sum,
-                                                                            num_resamples=num_resamples,
-                                                                            percentile=interval/100,
-                                                                            weighted=True)
+    resample_result, percentiles = analysis_suite.bootstrap_lag_resample_orbits(stat_func=np.sum,
+                                                                                num_resamples=num_resamples,
+                                                                                percentile=interval/100,
+                                                                                weighted=True)
 
     meanvals = np.mean(resample_result, axis=0)
 
@@ -416,10 +440,10 @@ def run():
     #      ---------------      Characterize the results      ---------------      #
     print("Resampling semimajor axes along lag domain...")
 
-    resample_result, percentiles = analysis_suite.bootstrap_resample_orbits(stat_func=np.sum,
-                                                                            num_resamples=num_resamples,
-                                                                            percentile=interval / 100,
-                                                                            weighted=True)
+    resample_result, percentiles = analysis_suite.bootstrap_lag_resample_orbits(stat_func=np.sum,
+                                                                                num_resamples=num_resamples,
+                                                                                percentile=interval / 100,
+                                                                                weighted=True)
 
     meanvals = np.mean(resample_result, axis=0)
 

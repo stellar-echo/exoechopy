@@ -365,9 +365,9 @@ def run():
     #      ---------------      Characterize the results      ---------------      #
     print("Resampling semimajor axes along lag domain...")
 
-    resample_result, percentiles = analysis_suite.bootstrap_resample_orbits(stat_func=np.mean,
-                                                                            num_resamples=num_resamples,
-                                                                            percentile=interval/100)
+    resample_result, percentiles = analysis_suite.bootstrap_lag_resample_orbits(stat_func=np.mean,
+                                                                                num_resamples=num_resamples,
+                                                                                percentile=interval/100)
 
     meanvals = np.mean(resample_result, axis=0)
 
@@ -426,7 +426,6 @@ def run():
     plt.show()
 
     # TODO: Select highest points, define regions around them, and repeat the local search, then resample
-
 
 
 # ******************************************************************************************************************** #
