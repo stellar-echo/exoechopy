@@ -27,7 +27,7 @@ class KeplerianOrbit:
     def __init__(self,
                  semimajor_axis: (u.Quantity, Distance)=None,
                  eccentricity: float=None,
-                 star_mass: u.Quantity=None,
+                 parent_mass: u.Quantity=None,
                  initial_anomaly: (u.Quantity, Angle)=None,
                  inclination: (u.Quantity, Angle)=None,
                  longitude: (u.Quantity, Angle)=None,
@@ -45,7 +45,7 @@ class KeplerianOrbit:
             Default 1 AU
         eccentricity
             Orbit eccentricity
-        star_mass
+        parent_mass
             Mass of star as an astropy quantity
             Default 1 M_sun
         initial_anomaly
@@ -84,8 +84,8 @@ class KeplerianOrbit:
         self._grav_param = None
         self._orbital_period = None
         self._orbital_frequency = None
-        if star_mass is not None:
-            self.parent_mass = star_mass  # Must be called after defining semimajor_axis, enforce later
+        if parent_mass is not None:
+            self.parent_mass = parent_mass  # Must be called after defining semimajor_axis, enforce later
 
         #  Initialize initial anomaly
         self._initial_anomaly = None

@@ -112,7 +112,7 @@ planet_parameters = {
     "planet_mass": (10., "M_jup"),
     "planet_radius": (2, "R_jup"),
     # Hint the star mass, just in case it gets separated from star later on:
-    "planet_host_star_mass": (0.6, "M_sun"),
+    "parent_mass": (0.6, "M_sun"),
 
     # Keplerian Orbital parameters
     "eccentricity": 0.,

@@ -40,7 +40,7 @@ def run():
                                               point_color='k', path_color='dimgray',
                                               name=name_1,
                                               mass=planet_mass,
-                                              star_mass=star_mass+planet_mass)
+                                              parent_mass=star_mass + planet_mass)
 
     planet_pos, star_pos, planet_vel, star_vel = eep.simulate.reduced_keplerian_to_2body(Planet1,
                                                                                          planet_mass,
@@ -94,7 +94,7 @@ def run():
                                               point_color='k', path_color='dimgray',
                                               name=name_1,
                                               mass=planet_mass,
-                                              star_mass=star_mass+planet_mass)
+                                              parent_mass=star_mass + planet_mass)
     keplerian_positions = np.transpose(np.array([Planet2.calc_xyz_at_time(ti) for ti in time_domain]))
 
     plt.plot(time_domain / period, u.Quantity(keplerian_positions[0] - planet_star_separation[0].to(u.au).value, u.au).to(u.m),

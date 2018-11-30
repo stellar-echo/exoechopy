@@ -5,6 +5,6 @@ This includes flare identification, autocorrelators, statistical validation meth
 """
 
 from .autocorrelation import *
-from .flare_extraction import *
+from .flare_manipulation import *
 from .stats import *
 from .orbit_search import *

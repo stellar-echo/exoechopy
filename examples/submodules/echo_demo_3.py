@@ -62,7 +62,7 @@ def run():
                                               mass=planet_mass,
                                               point_color='k', path_color='dimgray',
                                               name=planet_name,
-                                              star_mass=planet_mass+star_mass)
+                                              parent_mass=planet_mass + star_mass)
 
     #  =============================================================  #
     #  Create a star

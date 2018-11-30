@@ -150,7 +150,7 @@ class KeplerianExoplanet(KeplerianOrbit, Exoplanet):
     def __init__(self,
                  semimajor_axis: u.Quantity=None,
                  eccentricity: float=None,
-                 star_mass: u.Quantity=None,
+                 parent_mass: u.Quantity=None,
                  initial_anomaly: u.Quantity=None,
                  inclination: u.Quantity=None,
                  longitude: u.Quantity=None,
@@ -168,7 +168,7 @@ class KeplerianExoplanet(KeplerianOrbit, Exoplanet):
             Semimajor axis as an astropy quantity, default 1 AU
         eccentricity
             Orbit eccentricity
-        star_mass
+        parent_mass
             Mass of star as an astropy quantity, default 1 M_Sun
         initial_anomaly
             Initial anomaly relative to star
@@ -187,7 +187,7 @@ class KeplerianExoplanet(KeplerianOrbit, Exoplanet):
         kwargs
         """
 
-        super().__init__(semimajor_axis=semimajor_axis, eccentricity=eccentricity, star_mass=star_mass,
+        super().__init__(semimajor_axis=semimajor_axis, eccentricity=eccentricity, parent_mass=parent_mass,
                          initial_anomaly=initial_anomaly, inclination=inclination, longitude=longitude,
                          periapsis_arg=periapsis_arg, albedo=albedo, radius=radius, mass=mass, **kwargs)
 

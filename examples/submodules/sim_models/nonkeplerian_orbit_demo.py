@@ -80,7 +80,7 @@ def run():
                                               point_color='k', path_color='dimgray',
                                               name=name_1,
                                               mass=planet_mass,
-                                              star_mass=star_mass+planet_mass)
+                                              parent_mass=star_mass + planet_mass)
 
     # Helper function to convert the Keplerian orbit into Cartesian coordinates
     planet_pos, star_pos, planet_vel, star_vel = eep.simulate.reduced_keplerian_to_2body(Planet1,

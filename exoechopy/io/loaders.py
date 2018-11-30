@@ -203,10 +203,10 @@ class SystemGenerator(dict):
 
                 mass = astropyio.to_quantity(planet['planet_mass'])
                 radius = astropyio.to_quantity(planet['planet_radius'])
-                star_mass = astropyio.to_quantity(planet['planet_host_star_mass'])
+                parent_mass = astropyio.to_quantity(planet['parent_mass'])
 
                 current_planet = _Planet(mass=mass, radius=radius, albedo=planet_albedo,
-                                         star_mass=star_mass,
+                                         parent_mass=parent_mass,
                                          point_color=point_color, name=planet_name,
                                          **planet_kw)
 

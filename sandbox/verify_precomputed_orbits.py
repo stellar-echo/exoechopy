@@ -19,7 +19,7 @@ def run():
 
     planet = eep.simulate.KeplerianOrbit(semimajor_axis=semimajor_axis,
                                          eccentricity=eccentricity,
-                                         star_mass=star_mass,
+                                         parent_mass=star_mass,
                                          initial_anomaly=initial_anomaly,
                                          inclination=inclination,
                                          longitude=longitude,

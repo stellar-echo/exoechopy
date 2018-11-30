@@ -34,7 +34,7 @@ setup(
     packages=find_packages(),
     test_suite='tests.test_suite',
     dependency_links=[],
-    python_requires='>=3.5',
+    python_requires='>=3.6',
     install_requires=[
     'numpy >= 1.11',
     'scipy >= 0.18',

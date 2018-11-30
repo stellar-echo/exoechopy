@@ -33,7 +33,8 @@ def interactive_lightcurve(time_domain: np.ndarray,
     lightcurve
         y values for the plot
     flare_times
-        times that flares occur, for optional visualization
+        Times that flares occur, for optional visualization
+        Not yet implemented.
     max_plot_points
         default maximum number of points to plot
 
@@ -72,14 +73,21 @@ def interactive_lightcurve(time_domain: np.ndarray,
     scale_ax = plt.axes([0.1, 0.15, 0.65, 0.03], facecolor=slider_bg_color)
 
     pos_slider = Slider(pos_ax, "Time", 0, len(time_domain), valinit=max_plot_points//2, valstep=1)
-    scale_slider = Slider(scale_ax, "Window", 100, max_plot_points, valinit=max_plot_points, valstep=1)
+    min_zoom = 100
+    max_zoom = max_plot_points
+    scale_slider = Slider(scale_ax,
+                          label="Zoom",
+                          valmin=min_zoom,
+                          valmax=max_zoom,
+                          valinit=min_zoom,
+                          valstep=1)
 
     reset_ax = plt.axes([0.8, 0.025, 0.1, 0.04])
     reset_button = Button(reset_ax, 'Reset', color=slider_bg_color, hovercolor='0.975')
 
     def update_lightcurve_inner(val):
         ind = pos_slider.val
-        width = scale_slider.val
+        width = min_zoom + max_zoom - scale_slider.val
         low_ind, high_ind = window_range(int(ind), len(time_domain)-1, int(width))
         line1.set_data(time_domain[low_ind:high_ind], lightcurve[low_ind:high_ind])
         ax.set_xlim(time_domain[low_ind], time_domain[high_ind])
