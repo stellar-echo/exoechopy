@@ -46,7 +46,7 @@ class SystemGenerator(dict):
 
         """
         self._file_path = Path(file_path)
-        with open(self._file_path) as json_file:
+        with open(str(self._file_path)) as json_file:
             raw_json = json.load(json_file)
             super().__init__(raw_json)
         self._planets = None
@@ -439,7 +439,7 @@ class SystemGenerator(dict):
         if filename.suffix == "":
             filename = filename.with_suffix(".exo")
 
-        with open(folder/filename, 'w') as json_export_file:
+        with open(str(folder/filename), 'w') as json_export_file:
             json.dump(self.copy(), json_export_file)
 
 
