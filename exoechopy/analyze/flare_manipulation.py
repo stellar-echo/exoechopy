@@ -119,7 +119,7 @@ class BaseFlareCatalog:
             Optional new order for the flares to have occurred
         flare_weights
             If True, applies weights to the correlator_lag_matrix result
-            Implemented as w_i * c_i/np.sum(w)
+            Implemented as w_i * c_i/np.mean(w)
         flare_mask
             Optional mask to ignore certain flares, good for outlier rejection
         lag_weights
@@ -135,20 +135,20 @@ class BaseFlareCatalog:
         np.ndarray
         """
 
-        if flare_mask is not None:
-            lag_array = lag_array[flare_mask]
-
         if resample_order is None:
             if flare_mask is None:
                 self.set_sampling_order()
             else:
+                lag_array = lag_array[flare_mask]
                 self.set_sampling_order(np.arange(len(self._all_flares))[flare_mask])
         else:
             self.set_sampling_order(resample_order)
+            if flare_mask is not None:
+                lag_array = lag_array[flare_mask]
 
         if flare_weights:
             weights = self._flare_weights[np.array(self._index_order_tuple)]
-            return_array = weights * self._correlator_lag_matrix[self._index_order_tuple, lag_array] / np.sum(weights)
+            return_array = weights * self._correlator_lag_matrix[self._index_order_tuple, lag_array] / np.mean(weights)
         else:
             return_array = self._correlator_lag_matrix[self._index_order_tuple, lag_array]
 
@@ -167,6 +167,9 @@ class BaseFlareCatalog:
             return self._all_flares[:, self._look_back:self._look_forward]
         else:
             return self._all_flares.copy()
+
+    def get_flare(self, flare_index):
+        return self._all_flares[flare_index].copy()
 
     def get_flare_times(self):
         return self._flare_times.copy()

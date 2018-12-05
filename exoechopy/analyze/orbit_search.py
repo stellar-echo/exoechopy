@@ -7,7 +7,7 @@ from ..simulate.orbital_physics import KeplerianOrbit
 from astropy import units as u
 from scipy.special import erfinv
 
-__all__ = ['OrbitSearch', 'EchoEnsembleAnalysis']
+__all__ = ['OrbitSearch', 'EchoAnalysisSuite']
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -88,7 +88,13 @@ class OrbitSearch:
         np.ndarray
         """
 
-        num_flares = self.num_flares
+        if flare_mask is None:
+            num_flares = self.num_flares
+        else:
+            if np.ndim(flare_mask) == 1:
+                num_flares = np.sum(flare_mask)
+            else:
+                num_flares = np.sum(flare_mask[0])
 
         if num_interpolation_points is None:
             # Err on safe side:
@@ -115,7 +121,7 @@ class OrbitSearch:
                 # Not iterated, just setting a value:
                 setattr(self._dummy_orbiter, k, v)
 
-        # Perform the search:
+        # Initialize the search, figure out how many dimensions are being considered:
         if resample_order is None:
             if flare_mask is None or np.ndim(flare_mask) == 1:
                 dim_list = [len(x) for x in search_parameters]
@@ -140,6 +146,7 @@ class OrbitSearch:
             except TypeError:
                 pass
         return_array = np.zeros(dim_list)
+        print("dim_list: ", dim_list)
 
         # Magic happens here:
         def recursive_search(depth, ind, _max_depth):
@@ -157,14 +164,16 @@ class OrbitSearch:
                                               earth_direction_vector) / self._cadence + self._lag_offset
                 # Clip to avoid running over array size: (note, also should de-weight these points)
                 all_lags = np.clip(np.round(all_lags), self._clip_range[0], self._clip_range[1]).astype('int')
-                if resample_order is None:
+
+                if resample_order is None:  # No special shenanigans with flare order, standard case:
                     if flare_mask is None or np.ndim(flare_mask) == 1:
                         return_array[tuple(ind)] = self._flare_catalog.run_lag_hypothesis(all_lags,
                                                                                           func=lag_metric,
                                                                                           flare_weights=weighted,
                                                                                           flare_mask=flare_mask)
-                    else:
+                    else:  # Multidimensional flare_mask:
                         for n_i, new_mask in enumerate(flare_mask):
+                            # print("n_i, tuple(ind): ", n_i, tuple(ind))
                             return_array[n_i, tuple(ind)] = self._flare_catalog.run_lag_hypothesis(all_lags,
                                                                                                    func=lag_metric,
                                                                                                    flare_weights=weighted,
@@ -203,6 +212,8 @@ class OrbitSearch:
             index_dim -= 1
         if lag_metric is None:
             index_dim -= 1
+        if np.ndim(flare_mask) > 1:
+            index_dim -= 1
         index = np.zeros(index_dim, dtype='int')
         for v_i, val in enumerate(search_parameters[0]):
             if k != 'earth_direction_vector':
@@ -222,7 +233,7 @@ class OrbitSearch:
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
-class EchoEnsembleAnalysis:
+class EchoAnalysisSuite:
     def __init__(self, flare_catalog: BaseFlareCatalog):
         self._flare_catalog = flare_catalog
         self._calculated_correlations = self._flare_catalog.get_correlator_matrix()
@@ -237,16 +248,24 @@ class EchoEnsembleAnalysis:
         self._search_results = None
         self._all_search_results = None
         self._keys = None
+        self._outlier_mask = None
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
     def correlation_matrix(self):
-        return self._calculated_correlations
+        if self._outlier_mask is None:
+            return self._calculated_correlations
+        else:
+            return self._calculated_correlations[~self._outlier_mask]
 
     @property
     def weighted_correlation_matrix(self):
         weights = self._flare_catalog.get_weights()
-        return weights[:, np.newaxis] * self._calculated_correlations / np.sum(weights)
+        if self._outlier_mask is None:
+            return weights[:, np.newaxis] * self._calculated_correlations / np.mean(weights)
+        else:
+            return weights[~self._outlier_mask, np.newaxis] * self.correlation_matrix / np.mean(
+                weights[~self._outlier_mask])
 
     # ------------------------------------------------------------------------------------------------------------ #
     def search_orbits(self,
@@ -331,11 +350,17 @@ class EchoEnsembleAnalysis:
         else:
             self._search_kwargs = {**self._search_kwargs, **kwargs}
 
+        if self._outlier_mask is None:
+            flare_mask = None
+        else:
+            flare_mask = ~self._outlier_mask
+
         # =============================================================  #
 
         search_results, keys = self._orbit_search.run(earth_direction_vector=self._earth_direction_vector,
                                                       lag_metric=None,
                                                       num_interpolation_points=self._num_interpolation_points,
+                                                      flare_mask=flare_mask,
                                                       weighted=weighted,
                                                       **self._search_kwargs)
         if self._lag_metric is None:
@@ -347,6 +372,70 @@ class EchoEnsembleAnalysis:
         self._keys = keys
 
         return self._search_results, keys
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    def gen_jackknife_sigma_mask(self,
+                                 stat_func: FunctionType,
+                                 sigma: float = 2.,
+                                 weighted: bool = False,
+                                 outlier_fraction: float = 0):
+        """Return a mask of outlier flares based on jackknife testing
+
+        Parameters
+        ----------
+        stat_func
+            Function to apply to the lag_metric, typically np.mean or np.sum
+        sigma
+            Sigma threshold for identifying an outlier, typically 2-5
+        weighted
+            Whether to use flare weights
+        outlier_fraction
+            In what fraction of searches should a flare be an outlier to be removed
+            0 means that it was an outlier at least once in any orbital search configuration
+            1 means that it was an outlier in every single orbital search configuration
+            0.5 means it's an outlier in 50% of searches
+
+        Returns
+        -------
+        np.ndarray
+            Mask of outlier flares
+        """
+        if self._orbit_search is None:
+            raise ValueError("Orbital search is not initialized, run search_orbits first")
+
+        num_flares = self._orbit_search.num_flares
+
+        # Generate jackknife indices:
+        jackknife_resample_mask = np.ones([num_flares, num_flares], dtype=bool)
+        np.fill_diagonal(jackknife_resample_mask, False)
+
+        search_results, keys = self._orbit_search.run(earth_direction_vector=self._earth_direction_vector,
+                                                      lag_metric=stat_func,
+                                                      num_interpolation_points=self._num_interpolation_points,
+                                                      weighted=weighted,
+                                                      flare_mask=jackknife_resample_mask,
+                                                      **self._search_kwargs)
+
+        all_sigmas = np.std(search_results, axis=0)
+        all_means = np.mean(search_results, axis=0)
+        outlier_status = np.abs(search_results - all_means)/all_sigmas
+        sigma_mask = outlier_status > sigma
+        if outlier_fraction == 0:
+            return_mask = np.any(sigma_mask, axis=tuple(np.arange(1, np.ndim(sigma_mask))))
+        elif outlier_fraction == 1:
+            return_mask = np.all(sigma_mask, axis=tuple(np.arange(1, np.ndim(sigma_mask))))
+        else:
+            outlier_count = np.sum(sigma_mask, axis=tuple(np.arange(1, np.ndim(sigma_mask))), dtype=np.float64)
+            outlier_count /= np.sum(search_results.shape[1:])
+            return_mask = outlier_count > outlier_fraction
+        return return_mask
+
+    def set_jackknife_sigma_mask(self,
+                                 stat_func: FunctionType,
+                                 sigma: float = 2.,
+                                 weighted: bool = False,
+                                 outlier_fraction: float = 0):
+        self.set_outlier_mask(self.gen_jackknife_sigma_mask(stat_func, sigma, weighted, outlier_fraction))
 
     # ------------------------------------------------------------------------------------------------------------ #
     def jackknife_orbit_search(self,
@@ -402,7 +491,9 @@ class EchoEnsembleAnalysis:
 
         mean_jack_stat = np.mean(search_results, axis=0)
 
+        # Data without jackknife:
         stat_data = np.apply_along_axis(stat_func, -1, self._all_search_results)
+
         # jackknife bias
         bias = (num_flares - 1) * (mean_jack_stat - stat_data)
 
@@ -452,12 +543,17 @@ class EchoEnsembleAnalysis:
             raise ValueError("Orbital search is not initialized, run search_orbits first")
 
         num_flares = self._orbit_search.num_flares
+        all_flare_indices = np.arange(num_flares)
+        if self._outlier_mask is not None:
+            all_flare_indices = all_flare_indices[~self._outlier_mask]
+            num_flares = np.sum(~self._outlier_mask)
 
         if subsample is None:
             subsample_size = num_flares
         else:
             subsample_size = subsample
-        all_resamples = np.random.choice(num_flares, (num_resamples, subsample_size))
+
+        all_resamples = np.random.choice(all_flare_indices, (num_resamples, subsample_size))
 
         if subsample is not None:
             subsample_mask = np.ones(all_resamples.shape)
@@ -465,7 +561,10 @@ class EchoEnsembleAnalysis:
                 delete_mask = np.random.choice(np.arange(len(subsample_mask)), num_flares-subsample_size, replace=False)
                 subsample_mask[ind][delete_mask] = False
         else:
-            subsample_mask = None
+            if self._outlier_mask is not None:
+                subsample_mask = ~self._outlier_mask
+            else:
+                subsample_mask = None
 
         search_results, keys = self._orbit_search.run(resample_order=all_resamples,
                                                       flare_mask=subsample_mask,
@@ -478,3 +577,14 @@ class EchoEnsembleAnalysis:
         conf_interval_array = np.percentile(search_results, [(100 - percentile * 100) / 2, 50 + percentile * 100 / 2],
                                             axis=0)
         return search_results, conf_interval_array
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    def get_flare(self, flare_index):
+        return self._flare_catalog.get_flare(flare_index)
+
+    def set_outlier_mask(self, flare_mask):
+        self._outlier_mask = flare_mask
+
+    @property
+    def outlier_mask(self):
+        return self._outlier_mask

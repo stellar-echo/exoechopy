@@ -38,9 +38,9 @@ def run():
     orbital_inclination = 0.5
     observation_campaign["planet_parameters"]["inclination"] = (orbital_inclination, "rad")
 
-    # # Give the star a radius for hit-miss purposes:
-    # observation_campaign["star_parameters"]["star_type"] = "Star"
-    # observation_campaign["star_parameters"]["star_radius"] = (1, 'm')
+    # Give the star a radius for hit-miss purposes:
+    observation_campaign["star_parameters"]["star_type"] = "Star"
+    observation_campaign["star_parameters"]["star_radius"] = (1, 'm')
 
     # Set a uniform flare intensity (defaults to a distribution):
     observation_campaign["star_parameters"]["active_region"]["flare_kwargs"]["decay_pdf"] = \
@@ -205,7 +205,7 @@ def run():
 
     flare_catalog.generate_weights_with_protocol(intensity_est)
 
-    analysis_suite = eep.analyze.EchoEnsembleAnalysis(flare_catalog)
+    analysis_suite = eep.analyze.EchoAnalysisSuite(flare_catalog)
 
     correlation_results = analysis_suite.correlation_matrix
     weighted_correlation_results = analysis_suite.weighted_correlation_matrix
@@ -213,7 +213,7 @@ def run():
 
     raw_correlation = np.mean(correlation_results, axis=0)
     # Note: weighted_correlation requires sum rather than mean to achieve same result, based on how weights are computed
-    weighted_correlation = np.sum(weighted_correlation_results, axis=0)
+    weighted_correlation = np.mean(weighted_correlation_results, axis=0)
 
     plt.plot(lag_domain[-len(raw_correlation):], raw_correlation,
              color='darkviolet', lw=1, ls='--', drawstyle='steps-post', label="Unweighted")
@@ -235,6 +235,14 @@ def run():
     plt.legend(loc='upper left')
     plt.tight_layout()
     plt.show()
+
+    # for flare in range(min(len(correlation_results), 10)):
+    #     fig, (ax1, ax2) = plt.subplots(1, 2)
+    #     ax1.plot(analysis_suite.get_flare(flare))
+    #     ax1.set_title(flare)
+    #     ax2.plot(correlation_results[flare])
+    #     plt.tight_layout()
+    #     plt.show()
 
     #      ---------------      Search the matrix for echoes      ---------------      #
 
@@ -276,41 +284,52 @@ def run():
     # The filter_process (above) clips the correlation function, so to keep lags aligned, we explicitly account for this
     lag_offset = -filter_width
 
-    # Run orbit search:
-    print("Searching orbital inclinations...")
-    results, _ = analysis_suite.search_orbits(earth_direction_vector=earth_vect,
-                                              lag_metric=np.sum,
-                                              num_interpolation_points=num_interpolation_points,
-                                              lag_offset=lag_offset,
-                                              clip_range=(0, max_lag - filter_width),
-                                              weighted=True,
-                                              **search_params)
+    mask_list = [False, True]
+    for mask in mask_list:
+        if mask:
+            print("Rerunning search, this time after removing outlier flares...")
+            analysis_suite.set_jackknife_sigma_mask(np.mean,
+                                                    sigma=2.,
+                                                    weighted=True,
+                                                    outlier_fraction=.25)
 
-    unweighted_results, _ = analysis_suite.search_orbits(earth_direction_vector=earth_vect,
-                                                         lag_metric=np.mean,
-                                                         num_interpolation_points=num_interpolation_points,
-                                                         lag_offset=lag_offset,
-                                                         clip_range=(0, max_lag - filter_width),
-                                                         weighted=False,
-                                                         **search_params)
+            print("Number of outlier flares: ", np.sum(analysis_suite.outlier_mask))
 
-    # TODO: Add the S/N floor estimator from a 2R_Jup albedo=1 model to the OrbitSearch as an optional param?
+        # Run orbit search:
+        print("Searching orbital inclinations...")
+        results, _ = analysis_suite.search_orbits(earth_direction_vector=earth_vect,
+                                                  lag_metric=np.mean,
+                                                  num_interpolation_points=num_interpolation_points,
+                                                  lag_offset=lag_offset,
+                                                  clip_range=(0, max_lag - filter_width),
+                                                  weighted=True,
+                                                  **search_params)
 
-    # Generate the predicted lags associated with each hypothesis orbit:
+        unweighted_results, _ = analysis_suite.search_orbits(earth_direction_vector=earth_vect,
+                                                             lag_metric=np.mean,
+                                                             num_interpolation_points=num_interpolation_points,
+                                                             lag_offset=lag_offset,
+                                                             clip_range=(0, max_lag - filter_width),
+                                                             weighted=False,
+                                                             **search_params)
 
-    plt.plot(inclination_tests * 180 / np.pi, results, color='k', lw=1, label="Intensity weighted")
-    plt.plot(inclination_tests * 180 / np.pi, unweighted_results, color='darkviolet', lw=1, ls='--', label="Unweighted")
-    plt.annotate("This peaky region is likely due to an echo",
-                 xy=(orbital_inclination * 180 / np.pi, np.max(results)),
-                 xytext=((orbital_inclination + .1) * 180 / np.pi, .85 * np.max(results)),
-                 arrowprops=dict(arrowstyle="->", connectionstyle="arc3, rad=.3"), zorder=25)
+        # TODO: Add the S/N floor estimator from a 2R_Jup albedo=1 model to the OrbitSearch as an optional param?
 
-    plt.xlabel("Orbital inclination (deg)")
-    plt.ylabel("Detection metric")
-    plt.legend(loc="lower right")
-    plt.title("Detection metric vs orbital inclination")
-    plt.tight_layout()
-    plt.show()
+        # Generate the predicted lags associated with each hypothesis orbit:
+
+        plt.plot(inclination_tests * 180 / np.pi, results, color='k', lw=1, label="Intensity weighted")
+        plt.plot(inclination_tests * 180 / np.pi, unweighted_results, color='darkviolet', lw=1, ls='--', label="Unweighted")
+        plt.annotate("This peaky region is likely due to an echo",
+                     xy=(orbital_inclination * 180 / np.pi, np.max(results)),
+                     xytext=((orbital_inclination + .1) * 180 / np.pi, .85 * np.max(results)),
+                     arrowprops=dict(arrowstyle="->", connectionstyle="arc3, rad=.3"), zorder=25)
+
+        plt.xlabel("Orbital inclination (deg)")
+        plt.ylabel("Detection metric")
+        plt.legend(loc="lower right")
+        plt.title("Detection metric vs orbital inclination")
+        plt.tight_layout()
+        plt.show()
 
     #      ---------------      Characterize the results      ---------------      #
     print("""
@@ -329,30 +348,6 @@ def run():
 
     print("Resampling orbital inclinations along lag domain...")
 
-    # TODO: Figure out zero-index wackiness
-
-    est, bias, std_err, conf = analysis_suite.jackknife_orbit_search(np.sum, conf_lvl=0.98, weighted=False)
-    print("est.shape: ", est.shape)
-    print("bias.shape: ", bias.shape)
-    print("std_err.shape: ", std_err.shape)
-    print("conf.shape: ", conf.shape)
-    plt.plot(inclination_tests * 180 / np.pi, est)
-    plt.title("EST")
-    plt.show()
-
-    plt.plot(inclination_tests * 180 / np.pi, bias)
-    plt.title("BIAS")
-    plt.show()
-
-    plt.plot(inclination_tests * 180 / np.pi, std_err)
-    plt.title("STD_ERR")
-    plt.show()
-
-    plt.plot(inclination_tests * 180 / np.pi, conf[0])
-    plt.plot(inclination_tests * 180 / np.pi, conf[1])
-    plt.title("CONF")
-    plt.show()
-
     # How many times to resample the lags (with replacement-- i.e., bootstrap)
     # Larger numbers are more accurate, but in this case the result is stable enough by 1000
     num_resamples = 1000
@@ -360,7 +355,7 @@ def run():
     # Uncertainty interval:
     interval = 98
 
-    resample_result, percentiles = analysis_suite.bootstrap_lag_resample_orbits(stat_func=np.sum,
+    resample_result, percentiles = analysis_suite.bootstrap_lag_resample_orbits(stat_func=np.mean,
                                                                                 num_resamples=num_resamples,
                                                                                 percentile=interval/100,
                                                                                 weighted=True)
@@ -385,7 +380,9 @@ def run():
     plt.tight_layout()
     plt.show()
 
+
     # TODO: Add hit-miss histogram analysis
+
 
     #      ---------------      Run a search along another orbital element      ---------------      #
 
@@ -407,7 +404,7 @@ def run():
     # Generate the predicted lags associated with each hypothesis orbit:
     print("Searching semimajor axes...")
     results, _ = analysis_suite.search_orbits(earth_direction_vector=earth_vect,
-                                              lag_metric=np.sum,
+                                              lag_metric=np.mean,
                                               num_interpolation_points=num_interpolation_points,
                                               lag_offset=lag_offset,
                                               clip_range=(0, max_lag - filter_width),
@@ -440,7 +437,7 @@ def run():
     #      ---------------      Characterize the results      ---------------      #
     print("Resampling semimajor axes along lag domain...")
 
-    resample_result, percentiles = analysis_suite.bootstrap_lag_resample_orbits(stat_func=np.sum,
+    resample_result, percentiles = analysis_suite.bootstrap_lag_resample_orbits(stat_func=np.mean,
                                                                                 num_resamples=num_resamples,
                                                                                 percentile=interval / 100,
                                                                                 weighted=True)

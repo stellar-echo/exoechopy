@@ -163,7 +163,7 @@ def run():
     #      ---------------      Generate lag-correlator matrix      ---------------      #
     flare_catalog.generate_correlator_matrix(correlation_process, filter_process, crop_fit_process)
 
-    analysis_suite = eep.analyze.EchoEnsembleAnalysis(flare_catalog)
+    analysis_suite = eep.analyze.EchoAnalysisSuite(flare_catalog)
 
     correlation_results = analysis_suite.correlation_matrix
     print("Number of flares analyzed: ", len(correlation_results))
