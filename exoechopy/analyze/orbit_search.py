@@ -1,8 +1,8 @@
 import numpy as np
 
 from ..utils import *
-from .flare_manipulation import *
 from ..simulate.orbital_physics import KeplerianOrbit
+from ..analyze import *
 
 from astropy import units as u
 from scipy.special import erfinv
@@ -56,6 +56,7 @@ class OrbitSearch:
             num_interpolation_points: int = 50,
             resample_order: np.ndarray = None,
             flare_mask: np.ndarray = None,
+            phase_law: FunctionType = None,
             weighted: bool = False,
             **kwargs):
         """
@@ -76,6 +77,9 @@ class OrbitSearch:
         flare_mask
             Optional mask to apply to the flares, useful for testing subsamples (like outlier removal or jackknifing)
             without changing the actual flare arrays
+        phase_law
+            Optional phase law that operates on an angle array to weight the computed exoplanet visibility
+            at the time of the flares
         weighted
             Optional boolean to include weights in the search, defaults to False
         kwargs
@@ -165,10 +169,19 @@ class OrbitSearch:
                 # Clip to avoid running over array size: (note, also should de-weight these points)
                 all_lags = np.clip(np.round(all_lags), self._clip_range[0], self._clip_range[1]).astype('int')
 
+                if phase_law is not None:
+                    all_angles = u.Quantity(angle_between_vector_array(earth_direction_vector, planet_vectors), 'rad')
+                    phase_weights = phase_law(all_angles).value
+                else:
+                    phase_weights = None
+
+                # TODO: Accept external weight, such as star rotation phase
+
                 if resample_order is None:  # No special shenanigans with flare order, standard case:
                     if flare_mask is None or np.ndim(flare_mask) == 1:
                         return_array[tuple(ind)] = self._flare_catalog.run_lag_hypothesis(all_lags,
                                                                                           func=lag_metric,
+                                                                                          phase_weights=phase_weights,
                                                                                           flare_weights=weighted,
                                                                                           flare_mask=flare_mask)
                     else:  # Multidimensional flare_mask:
@@ -176,6 +189,7 @@ class OrbitSearch:
                             # print("n_i, tuple(ind): ", n_i, tuple(ind))
                             return_array[n_i, tuple(ind)] = self._flare_catalog.run_lag_hypothesis(all_lags,
                                                                                                    func=lag_metric,
+                                                                                                   phase_weights=phase_weights,
                                                                                                    flare_weights=weighted,
                                                                                                    flare_mask=new_mask)
                 else:
@@ -183,6 +197,7 @@ class OrbitSearch:
                     if resample_order.ndim == 1:
                         return_array[tuple(ind)] = self._flare_catalog.run_lag_hypothesis(all_lags,
                                                                                           func=lag_metric,
+                                                                                          phase_weights=phase_weights,
                                                                                           resample_order=resample_order,
                                                                                           flare_weights=weighted,
                                                                                           flare_mask=flare_mask)
@@ -192,6 +207,7 @@ class OrbitSearch:
                             for n_i, (new_ordering, new_mask) in enumerate(zip(resample_order, flare_mask)):
                                 return_array[n_i, tuple(ind)] = self._flare_catalog.run_lag_hypothesis(all_lags,
                                                                                                        func=lag_metric,
+                                                                                                       phase_weights=phase_weights,
                                                                                                        resample_order=new_ordering,
                                                                                                        flare_weights=weighted,
                                                                                                        flare_mask=new_mask)
@@ -199,6 +215,7 @@ class OrbitSearch:
                             for n_i, new_ordering in enumerate(resample_order):
                                 return_array[n_i, tuple(ind)] = self._flare_catalog.run_lag_hypothesis(all_lags,
                                                                                                        func=lag_metric,
+                                                                                                       phase_weights=phase_weights,
                                                                                                        resample_order=new_ordering,
                                                                                                        flare_weights=weighted,
                                                                                                        flare_mask=flare_mask)
@@ -249,6 +266,8 @@ class EchoAnalysisSuite:
         self._all_search_results = None
         self._keys = None
         self._outlier_mask = None
+        self._weighted = False
+        self._phase_law = None
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
@@ -274,7 +293,8 @@ class EchoAnalysisSuite:
                       num_interpolation_points: int = None,
                       lag_offset: int = None,
                       clip_range: tuple = None,
-                      weighted: bool = False,
+                      weighted: bool = None,
+                      phase_law: FunctionType = False,
                       **kwargs):
         """Perform a search over a variety of orbital parameters using an OrbitalSearch class
 
@@ -301,6 +321,8 @@ class EchoAnalysisSuite:
             Defaults to (0, None)
         weighted
             Option to include pre-computed weights from the flare_catalog in the orbit search
+        phase_law
+            Optional phase law to use to weight the echoes
         kwargs
             Dictionary of Keplerian orbit parameters to use and search
             {'semimajor_axis': u.Quantity(0.05, 'au'),
@@ -355,13 +377,22 @@ class EchoAnalysisSuite:
         else:
             flare_mask = ~self._outlier_mask
 
+        if weighted is not None:
+            self._weighted = weighted
+
+        # if phase_law is False (default), does not change status
+        # This allows phase_law to be reset by setting it to None
+        if phase_law is None or phase_law:
+            self._phase_law = phase_law
+
         # =============================================================  #
 
         search_results, keys = self._orbit_search.run(earth_direction_vector=self._earth_direction_vector,
                                                       lag_metric=None,
                                                       num_interpolation_points=self._num_interpolation_points,
                                                       flare_mask=flare_mask,
-                                                      weighted=weighted,
+                                                      weighted=self._weighted,
+                                                      phase_law=self._phase_law,
                                                       **self._search_kwargs)
         if self._lag_metric is None:
             self._all_search_results = search_results
@@ -414,6 +445,7 @@ class EchoAnalysisSuite:
                                                       num_interpolation_points=self._num_interpolation_points,
                                                       weighted=weighted,
                                                       flare_mask=jackknife_resample_mask,
+                                                      phase_law=self._phase_law,
                                                       **self._search_kwargs)
 
         all_sigmas = np.std(search_results, axis=0)
@@ -487,6 +519,7 @@ class EchoAnalysisSuite:
                                                       num_interpolation_points=self._num_interpolation_points,
                                                       weighted=weighted,
                                                       flare_mask=jackknife_resample_mask,
+                                                      phase_law=self._phase_law,
                                                       **self._search_kwargs)
 
         mean_jack_stat = np.mean(search_results, axis=0)
@@ -572,11 +605,123 @@ class EchoAnalysisSuite:
                                                       lag_metric=stat_func,
                                                       num_interpolation_points=self._num_interpolation_points,
                                                       weighted=weighted,
+                                                      phase_law=self._phase_law,
                                                       **self._search_kwargs)
 
         conf_interval_array = np.percentile(search_results, [(100 - percentile * 100) / 2, 50 + percentile * 100 / 2],
                                             axis=0)
         return search_results, conf_interval_array
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    def bigauss_kde_orbit_search(self,
+                                 num_bootstrap_resamples: int,
+                                 kde_bins: int = 1000,
+                                 kde_func: 'BaseKDE' = GaussianKDE,
+                                 kde_bandwidth: (str, float) = 'silverman',
+                                 num_cores: int = 1,
+                                 chunk_size: int = 1,
+                                 confidence: float = .95
+                                 ):
+        """Analyze an orbital search for bigaussian behavior using a kde bootstrap method
+
+        Runs the analysis on the most recently computed orbit, including all of its parameters (e.g., weights and masks)
+
+        Parameters
+        ----------
+        num_bootstrap_resamples
+            Number of resamples to run on each search
+        kde_bins
+            Number of bins to use in the KDE analysis, typically need 500-2000 depending on spread of values
+        kde_func
+            What kernel to use, typically GaussianKDE
+        kde_bandwidth
+            Bandwidth to pass to KDE, typically 'silverman' or a float
+        num_cores
+            Number of cores to run the bootstrap on, often not worth the overhead currently
+        chunk_size
+            Number of tasks to send along to each core, often not worth increasing above 1
+        confidence
+            Percentile to compute for determining upper and lower bounds of the Gaussian search
+
+        Returns
+        -------
+        means : np.ndarray
+            Mean values of search results, typically corresponds to traditional search metric
+
+        lower_means : np.ndarray
+            Estimate of lower Gaussian position
+
+        upper_means : np.ndarray
+            Estimate of upper Gaussian position
+
+        lower_min_conf : np.ndarray
+            Lower bound of lower Gaussian based on confidence
+
+        lower_max_conf : np.ndarray
+            Upper bound of lower Gaussian based on confidence
+
+        upper_min_conf : np.ndarray
+            Lower bound of upper Gaussian based on confidence
+
+        upper_max_conf : np.ndarray
+            Upper bound of upper Gaussian based on confidence
+        """
+        if self._orbit_search is None:
+            raise ValueError("Orbital search is not initialized, run search_orbits first")
+
+        # mean_results = np.mean(self._all_search_results, axis=tuple(range(1, self._all_search_results.ndim)))
+        # search_results = self._all_search_results - mean_results[:, np.newaxis]
+
+        search_results = self._all_search_results
+
+        search_shape = search_results.shape[:-1]
+
+        spread = np.max(search_results) - np.min(search_results)
+        overfill_fraction = .2
+        x_vals = np.linspace(np.min(search_results) - spread * overfill_fraction,
+                             np.max(search_results) + spread * overfill_fraction,
+                             kde_bins)
+
+        # Initialize arrays needed to generate plots:
+        means = np.zeros(search_shape)
+        lower_means = np.zeros(search_shape)
+        upper_means = np.zeros(search_shape)
+        lower_min_conf = np.zeros(search_shape)
+        lower_max_conf = np.zeros(search_shape)
+        upper_min_conf = np.zeros(search_shape)
+        upper_max_conf = np.zeros(search_shape)
+
+        lower_interval = 100 * ((1 - confidence) / 2)
+        upper_interval = 100 * (1 - (1 - confidence) / 2)
+
+        # Analyze data:
+        for c_i in np.ndindex(search_shape):
+            all_correlators = search_results[c_i]
+            means[c_i] = np.mean(all_correlators)
+            std_dev = np.std(all_correlators)
+            current_analysis = ResampleKDEAnalysis(dataset=all_correlators,
+                                                   x_domain=x_vals,
+                                                   kde=kde_func,
+                                                   kde_bandwidth=kde_bandwidth)
+
+            all_resamples = current_analysis.bootstrap_with_kde(num_bootstrap_resamples,
+                                                                num_cores=num_cores,
+                                                                chunksize=chunk_size)
+
+            # Provides a list of estimated (mean1, mean2) for a bigaussian
+            fit_vals = bigaussian_fit_analysis_1(all_resamples, x_vals,
+                                                 fixed_mean=min(means[c_i], 0.),
+                                                 init_mean=means[c_i], init_std_dev=std_dev,
+                                                 num_cores=num_cores,
+                                                 chunksize=chunk_size,
+                                                 ratio=.5)
+
+            lower_means[c_i] = np.mean(fit_vals[:, 0])
+            upper_means[c_i] = np.mean(fit_vals[:, 1])
+            lower_min_conf[c_i], lower_max_conf[c_i] = np.percentile(fit_vals[:, 0], [lower_interval, upper_interval])
+            upper_min_conf[c_i], upper_max_conf[c_i] = np.percentile(fit_vals[:, 1], [lower_interval, upper_interval])
+
+        return means, lower_means, upper_means, lower_min_conf, lower_max_conf, upper_min_conf, upper_max_conf
 
     # ------------------------------------------------------------------------------------------------------------ #
     def get_flare(self, flare_index):

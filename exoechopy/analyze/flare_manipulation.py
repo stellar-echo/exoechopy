@@ -105,6 +105,7 @@ class BaseFlareCatalog:
                            flare_weights=False,
                            flare_mask=None,
                            lag_weights=False,
+                           phase_weights=None,
                            *func_args):
         """Provide a list of lag times to extract correlator values from
 
@@ -127,12 +128,16 @@ class BaseFlareCatalog:
             This can be helpful for reducing the weight of short-time lags, which are closer to the peak.
             Will probably allow a unique lag_weight for each flare, since some flares have different FWHM's, which
             would change when to cut-off the short-time lag
+        phase_weights
+            Additional weight to apply, typically driven by a planet phase function, and not stored in the FlareCatalog
+            If both phase_weights and an internal flare_weight are provided, the total weight is given by:
+            phase_weights * flare_weight
         func_args
             Optional args to pass to the process function
 
         Returns
         -------
-        np.ndarray
+        : np.ndarray
         """
 
         if resample_order is None:
@@ -140,17 +145,29 @@ class BaseFlareCatalog:
                 self.set_sampling_order()
             else:
                 lag_array = lag_array[flare_mask]
+                if phase_weights is not None:
+                    phase_weights = phase_weights[flare_mask]
                 self.set_sampling_order(np.arange(len(self._all_flares))[flare_mask])
         else:
             self.set_sampling_order(resample_order)
             if flare_mask is not None:
                 lag_array = lag_array[flare_mask]
+                if phase_weights is not None:
+                    phase_weights = phase_weights[flare_mask]
 
         if flare_weights:
             weights = self._flare_weights[np.array(self._index_order_tuple)]
-            return_array = weights * self._correlator_lag_matrix[self._index_order_tuple, lag_array] / np.mean(weights)
+            if phase_weights is not None:
+                weights *= phase_weights
+            weights /= np.mean(weights)
+            return_array = weights * self._correlator_lag_matrix[self._index_order_tuple, lag_array]
         else:
-            return_array = self._correlator_lag_matrix[self._index_order_tuple, lag_array]
+            if phase_weights is not None:
+                weights = phase_weights
+                weights /= np.mean(weights)
+                return_array = weights * self._correlator_lag_matrix[self._index_order_tuple, lag_array]
+            else:
+                return_array = self._correlator_lag_matrix[self._index_order_tuple, lag_array]
 
         if func is not None:
             return_array = func(return_array, *func_args)

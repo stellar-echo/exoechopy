@@ -638,7 +638,7 @@ def approximate_cdf(y_data):
 
 
 def bigaussian_fit_analysis_1(all_resamples, x_vals, num_cores=1, chunksize=1,
-                              fixed_mean=0., init_mean=0., init_std_dev=None):
+                              fixed_mean=0., init_mean=0., init_std_dev=None, ratio=.5):
     fit_vals = np.zeros((len(all_resamples), 2))
     if init_std_dev is None:
         init_std_dev = np.std(x_vals)/2
@@ -647,7 +647,7 @@ def bigaussian_fit_analysis_1(all_resamples, x_vals, num_cores=1, chunksize=1,
             cdf = approximate_cdf(resample)
             # We create a lambda function just to pin one of the two Gaussians to zero, let the other float
             # Could define a specific version of this function, but often you'll want to set a value other than zero
-            popt_bierf, pcov_bierf = optimize.curve_fit(lambda x, m2, s: bi_erf_model(x, fixed_mean, m2, s),
+            popt_bierf, pcov_bierf = optimize.curve_fit(lambda x, m2, s: bi_erf_model(x, fixed_mean, m2, s, ratio),
                                                         x_vals, cdf,
                                                         p0=[init_mean + init_std_dev, init_std_dev / 2],
                                                         absolute_sigma=True)

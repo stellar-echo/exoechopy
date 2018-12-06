@@ -130,7 +130,7 @@ def plot_signal_w_uncertainty(x_data: np.ndarray, y_data: np.ndarray, y_plus_int
         Optional second line to plot, such as the exact solution
     save
         If None, runs plt.show()
-        If filepath, saves filve
+        If a filepath is provided, saves file
         If 'ax', returns the axes for further plotting (also works with 'hold')
     x_axis_label
         Plot label for x axis
@@ -171,10 +171,12 @@ def plot_signal_w_uncertainty(x_data: np.ndarray, y_data: np.ndarray, y_plus_int
 
     max_z = 20
 
-    ax.plot(x_data, y_data, color=color_1, label=y_label_1, zorder=max_z)
+    ax.plot(x_data, y_data, color=color_1, label=y_label_1, zorder=max_z, drawstyle='steps-post')
     if y_data_2 is not None:
         max_z -= 1
-        ax.plot(x_data, y_data_2, color=color_2, linestyle='--', lw=1, label=y_label_2, zorder=max_z)
+        ax.plot(x_data, y_data_2,
+                color=color_2, linestyle='--', drawstyle='steps-post',
+                lw=1, label=y_label_2, zorder=max_z)
 
     # See if we have a single interval or multiple, handle separately
     if len(np.shape(y_plus_interval)) == 2:
@@ -186,18 +188,18 @@ def plot_signal_w_uncertainty(x_data: np.ndarray, y_data: np.ndarray, y_plus_int
                                                        uncertainty_color, uncertainty_label):
             fill_col = [(1-(1-c_i)*.5) for c_i in mpl_colors.to_rgb(unc_col)]
             max_z -= 1
-            ax.plot(x_data, y_plus, color=unc_col, lw=1, zorder=max_z)
-            ax.plot(x_data, y_minus, color=unc_col, lw=1, zorder=max_z)
+            ax.plot(x_data, y_plus, color=unc_col, lw=1, zorder=max_z, drawstyle='steps-post')
+            ax.plot(x_data, y_minus, color=unc_col, lw=1, zorder=max_z, drawstyle='steps-post')
             max_z -= 1
-            ax.fill_between(x_data, y_plus, y_minus, facecolor=fill_col, label=unc_label, zorder=max_z)
+            ax.fill_between(x_data, y_plus, y_minus, facecolor=fill_col, label=unc_label, zorder=max_z, step='post')
     else:
         fill_col = [(1-(1-c_i)*.5) for c_i in mpl_colors.to_rgba(uncertainty_color)]
         max_z -= 1
-        ax.plot(x_data, y_plus_interval, color=uncertainty_color, lw=1, zorder=max_z)
-        ax.plot(x_data, y_minus_interval, color=uncertainty_color, lw=1, zorder=max_z)
+        ax.plot(x_data, y_plus_interval, color=uncertainty_color, lw=1, zorder=max_z, drawstyle='steps-post')
+        ax.plot(x_data, y_minus_interval, color=uncertainty_color, lw=1, zorder=max_z, drawstyle='steps-post')
         max_z -= 1
         ax.fill_between(x_data, y_plus_interval, y_minus_interval, facecolor=fill_col,
-                        label=uncertainty_label, zorder=max_z)
+                        label=uncertainty_label, zorder=max_z, step='post')
 
     ax.set_title(plt_title, y=1.1)
     ax.set_xlabel(x_axis_label)

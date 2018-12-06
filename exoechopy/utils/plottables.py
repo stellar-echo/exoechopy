@@ -6,7 +6,7 @@ import numpy as np
 from collections import Sequence
 
 
-__all__ = ['Plottable', 'PointCloud']
+__all__ = ['Plottable', 'PointCloud', 'discontinuous_plot_data']
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -151,3 +151,14 @@ class PointCloud(Plottable, Sequence):
 
     def __len__(self):
         return len(self._point_array)
+
+
+def discontinuous_plot_data(data, mask, fill_between_correction=False):
+    nan_array = np.zeros(mask.shape)
+    nan_array[:] = np.nan
+    nan_array[mask] = data
+    if fill_between_correction:
+        disconts = ~mask[1:] & mask[:-1]
+        if np.sum(disconts) > 0:
+            nan_array[1:][disconts] = nan_array[:-1][disconts]
+    return nan_array

@@ -245,7 +245,7 @@ def run():
 
     print("key_list: ", key_list)
 
-    plt.plot(inclination_tests*180/np.pi, results, color='k', lw=1)
+    plt.plot(inclination_tests*180/np.pi, results, color='k', lw=1, drawstyle='steps-post')
     plt.annotate("This peaky region is likely due to an echo",
                  xy=(orbital_inclination*180/np.pi, np.max(results)),
                  xytext=((orbital_inclination+.1)*180/np.pi, .85*np.max(results)),
@@ -349,7 +349,7 @@ def run():
                                               clip_range=(0, max_lag - filter_width),
                                               **search_params)
 
-    plt.plot(semimajor_axis_tests, results, color='k', lw=1)
+    plt.plot(semimajor_axis_tests, results, color='k', lw=1, drawstyle='steps-post')
     plt.annotate("Only one narrow peak emerges \n"
                  "along the semimajor axis \n"
                  "(this time)",

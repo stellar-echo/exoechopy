@@ -22,7 +22,8 @@ def run():
     include a radius effect on the light travel time to the star.
     
     This model generates a continuous light curve, rather than pre-extracted flares, 
-    so to avoid memory issues associated with longer light curves, we'll make sure the flares are very frequent.  
+    and with the additional complexity, more flares are required to detect a signal.
+    To avoid memory issues associated with longer light curves, we'll make sure the flares are very frequent.  
     The planet will only undergo a couple orbits in this time, which means periodogram analysis isn't a great approach.
     """)
 
@@ -38,6 +39,8 @@ def run():
     orbital_inclination = 0.5
     observation_campaign["planet_parameters"]["inclination"] = (orbital_inclination, "rad")
 
+    # observation_campaign["planet_parameters"]["planet_radius"] = (4, "R_jup")
+
     # Give the star a radius for hit-miss purposes:
     observation_campaign["star_parameters"]["star_type"] = "Star"
     observation_campaign["star_parameters"]["star_radius"] = (1, 'm')
@@ -48,11 +51,11 @@ def run():
 
     # Set a good ratio of flares/hr based on our observation time:
     # Distribution is uniform between loc and loc+scale:
-    observation_campaign["star_parameters"]["active_region"]["occurrence_freq_pdf"] = {"uniform": {"loc": 100,
+    observation_campaign["star_parameters"]["active_region"]["occurrence_freq_pdf"] = {"uniform": {"loc": 200,
                                                                                                    "scale": 1500}}
 
     # Ensure we watch long enough to get a good sample:
-    observation_campaign["telescope_parameters"]["observation_time"] = (12*24., "hr")
+    observation_campaign["telescope_parameters"]["observation_time"] = (36*24., "hr")
 
     #      ---------------      Generate the data      ---------------      #
     telescope = observation_campaign.initialize_experiments()[0]
@@ -102,7 +105,7 @@ def run():
 
     # At each flare, include this many points before and after the flare peak in the extracted flare:
     min_lag = 0
-    max_lag = 80
+    max_lag = 100
     look_back = max_lag*2
     look_forward = int(look_back * 3)
 
@@ -187,21 +190,9 @@ def run():
 
     # Implement a flare weight based on the flare intensity, higher intensity = higher weight:
     def intensity_est(data_array):
-        return np.max(data_array)-np.median(data_array)
-
-    # # Implement a flare weight that approximates the flare decay rate
-    # def sharpness_est(data_array):
-    #     # Determined by how many points are above the half-way point in the light curve
-    #     sorted = np.sort(data_array)[::-1]
-    #     # Pick a test value, easy choice is half-way between max and min
-    #     test_val = (np.max(data_array)+np.min(data_array))/2
-    #     est = np.argmax(sorted < test_val)
-    #     # Want shorter flares to be weighted more heavily:
-    #     return 1/(est+1)
-    #
-    # # Implement a composite weight of decay constant and flare intensity:
-    # def composite_weight(data_array):
-    #     return intensity_est(data_array) * sharpness_est(data_array)
+        """Weigh higher intensity flares more heavily than dim flares"""
+        # return np.power(np.max(data_array)-np.median(data_array), 2)
+        return np.max(data_array) - np.median(data_array)
 
     flare_catalog.generate_weights_with_protocol(intensity_est)
 
@@ -212,37 +203,18 @@ def run():
     print("Number of flares analyzed: ", len(correlation_results))
 
     raw_correlation = np.mean(correlation_results, axis=0)
-    # Note: weighted_correlation requires sum rather than mean to achieve same result, based on how weights are computed
     weighted_correlation = np.mean(weighted_correlation_results, axis=0)
 
     plt.plot(lag_domain[-len(raw_correlation):], raw_correlation,
              color='darkviolet', lw=1, ls='--', drawstyle='steps-post', label="Unweighted")
     plt.plot(lag_domain[-len(weighted_correlation):], weighted_correlation,
              color='k', lw=1, drawstyle='steps-post', label="Weighted by intensity")
-    plt.annotate("Note edge effects due to filters chosen.\n"
-                 "These can manifest as ringing when\n"
-                 "the filters are aggressive",
-                 xy=(10, raw_correlation[0]),
-                 xytext=(20, np.min(raw_correlation) * .85),
-                 arrowprops=dict(arrowstyle="->", connectionstyle="arc3, rad=.3"), zorder=25)
-    plt.annotate("",
-                 xy=(80, raw_correlation[-1]),
-                 xytext=(65, np.min(raw_correlation) * .85),
-                 arrowprops=dict(arrowstyle="->", connectionstyle="arc3, rad=.3"), zorder=25)
     plt.xlabel("Lag (index)")
     plt.ylabel("Correlator matrix metric")
     plt.title("Mean of all correlator metrics")
     plt.legend(loc='upper left')
     plt.tight_layout()
     plt.show()
-
-    # for flare in range(min(len(correlation_results), 10)):
-    #     fig, (ax1, ax2) = plt.subplots(1, 2)
-    #     ax1.plot(analysis_suite.get_flare(flare))
-    #     ax1.set_title(flare)
-    #     ax2.plot(correlation_results[flare])
-    #     plt.tight_layout()
-    #     plt.show()
 
     #      ---------------      Search the matrix for echoes      ---------------      #
 
@@ -284,41 +256,54 @@ def run():
     # The filter_process (above) clips the correlation function, so to keep lags aligned, we explicitly account for this
     lag_offset = -filter_width
 
+    phase_law = eep.simulate.lambertian_phase_law
+    # phase_law = None
+
     mask_list = [False, True]
     for mask in mask_list:
         if mask:
+            # Initialize a representative search space, so that the outliers impact both searches used in the demo:
+            _inclines = u.Quantity(np.linspace(min_inclination, max_inclination, 10), 'rad')
+            _semimajors = u.Quantity(np.linspace(0.02, 0.07, 10), "au")
+            _, _ = analysis_suite.search_orbits(inclination=_inclines,
+                                                semimajor_axis=_semimajors)
+
             print("Rerunning search, this time after removing outlier flares...")
             analysis_suite.set_jackknife_sigma_mask(np.mean,
                                                     sigma=2.,
                                                     weighted=True,
-                                                    outlier_fraction=.25)
+                                                    outlier_fraction=.5)
 
             print("Number of outlier flares: ", np.sum(analysis_suite.outlier_mask))
 
         # Run orbit search:
         print("Searching orbital inclinations...")
-        results, _ = analysis_suite.search_orbits(earth_direction_vector=earth_vect,
-                                                  lag_metric=np.mean,
-                                                  num_interpolation_points=num_interpolation_points,
-                                                  lag_offset=lag_offset,
-                                                  clip_range=(0, max_lag - filter_width),
-                                                  weighted=True,
-                                                  **search_params)
-
         unweighted_results, _ = analysis_suite.search_orbits(earth_direction_vector=earth_vect,
                                                              lag_metric=np.mean,
                                                              num_interpolation_points=num_interpolation_points,
                                                              lag_offset=lag_offset,
                                                              clip_range=(0, max_lag - filter_width),
                                                              weighted=False,
+                                                             phase_law=None,
                                                              **search_params)
+
+        results, _ = analysis_suite.search_orbits(earth_direction_vector=earth_vect,
+                                                  lag_metric=np.mean,
+                                                  num_interpolation_points=num_interpolation_points,
+                                                  lag_offset=lag_offset,
+                                                  clip_range=(0, max_lag - filter_width),
+                                                  weighted=True,
+                                                  phase_law=phase_law,
+                                                  **search_params)
 
         # TODO: Add the S/N floor estimator from a 2R_Jup albedo=1 model to the OrbitSearch as an optional param?
 
         # Generate the predicted lags associated with each hypothesis orbit:
 
-        plt.plot(inclination_tests * 180 / np.pi, results, color='k', lw=1, label="Intensity weighted")
-        plt.plot(inclination_tests * 180 / np.pi, unweighted_results, color='darkviolet', lw=1, ls='--', label="Unweighted")
+        plt.plot(inclination_tests * 180 / np.pi, results,
+                 color='k', lw=1, label="Intensity & phase weighted", drawstyle='steps-post')
+        plt.plot(inclination_tests * 180 / np.pi, unweighted_results,
+                 color='darkviolet', lw=1, ls='--', label="Unweighted", drawstyle='steps-post')
         plt.annotate("This peaky region is likely due to an echo",
                      xy=(orbital_inclination * 180 / np.pi, np.max(results)),
                      xytext=((orbital_inclination + .1) * 180 / np.pi, .85 * np.max(results)),
@@ -326,7 +311,7 @@ def run():
 
         plt.xlabel("Orbital inclination (deg)")
         plt.ylabel("Detection metric")
-        plt.legend(loc="lower right")
+        plt.legend(loc="lower left")
         plt.title("Detection metric vs orbital inclination")
         plt.tight_layout()
         plt.show()
@@ -353,7 +338,7 @@ def run():
     num_resamples = 1000
 
     # Uncertainty interval:
-    interval = 98
+    interval = 95
 
     resample_result, percentiles = analysis_suite.bootstrap_lag_resample_orbits(stat_func=np.mean,
                                                                                 num_resamples=num_resamples,
@@ -363,7 +348,8 @@ def run():
     meanvals = np.mean(resample_result, axis=0)
 
     fig, ax = plt.subplots(figsize=(10, 6))
-    eep.visualize.plot_signal_w_uncertainty(inclination_tests * 180 / np.pi, results, color_1="midnightblue",
+    inclination_domain = inclination_tests * 180 / np.pi
+    eep.visualize.plot_signal_w_uncertainty(inclination_domain, results, color_1="midnightblue",
                                             y_label_1="As measured",
                                             y_plus_interval=percentiles[1], y_minus_interval=percentiles[0],
                                             uncertainty_label="Resampled, " + str(interval) + "% confidence",
@@ -371,7 +357,7 @@ def run():
                                             x_axis_label="Inclination (deg)",
                                             y_axis_label="Detection metric",
                                             save='hold', axes_object=ax)
-    ax.annotate("The peaks no longer protrude above the resampled result",
+    ax.annotate("The peaks survive the resample analysis when phase weighting is applied",
                 xy=(orbital_inclination * 180 / np.pi, np.max(results)),
                 xytext=((orbital_inclination + .05) * 180 / np.pi, .85 * np.max(results)),
                 arrowprops=dict(arrowstyle="->", connectionstyle="arc3, rad=.3"), zorder=25)
@@ -380,9 +366,35 @@ def run():
     plt.tight_layout()
     plt.show()
 
+    print("""
+    Here, we run a search for bigaussian results, which would be expected from a hit-miss situation (most real orbits).
+    The calculation is extremely slow, so we pick just our top candidates.
+    """)
 
-    # TODO: Add hit-miss histogram analysis
+    top_percentile_for_analysis = 85
+    result_threshold = np.percentile(results, top_percentile_for_analysis)
+    threshold_mask = results > result_threshold
+    print("Number of points to test: ", np.sum(threshold_mask))
 
+    # Reinitialize results:
+    inclination_tests_subsample = inclination_tests[threshold_mask]
+    results_subsample, _ = analysis_suite.search_orbits(inclination=inclination_tests_subsample)
+
+    packed_results = analysis_suite.bigauss_kde_orbit_search(num_resamples,
+                                                             kde_bins=400,
+                                                             confidence=interval/100)
+
+    print("""
+    Note, there's an error with the matplotlib fill_between plots that prevents the last step of a stepwise
+    plot from filling.  display_1d_orbit_bigauss_search() compensates for that, but if two discontinuous
+    plot regions are separated by a single datapoint, it will fill across the gap!""")
+
+    eep.visualize.display_1d_orbit_bigauss_search(packed_results,
+                                                  domain=inclination_domain,
+                                                  mask=threshold_mask,
+                                                  baseline_result=results,
+                                                  interval=interval,
+                                                  domain_label="Inclination (deg)")
 
     #      ---------------      Run a search along another orbital element      ---------------      #
 
@@ -419,7 +431,7 @@ def run():
                                                          weighted=False,
                                                          **search_params)
 
-    plt.plot(semimajor_axis_tests, results, color='k', lw=1, label="Intensity weighted")
+    plt.plot(semimajor_axis_tests, results, color='k', lw=1, label="Intensity & phase weighted")
     plt.plot(semimajor_axis_tests, unweighted_results,
              color='darkviolet', lw=1, ls="--", label="Unweighted")
     plt.annotate("Peaky region is likely due\n"
@@ -462,7 +474,30 @@ def run():
     plt.tight_layout()
     plt.show()
 
-    # TODO: Add hit-miss histogram analysis
+    print("""
+    Here, we run a search for bigaussian results, which would be expected from a hit-miss situation (most real orbits).
+    The calculation is extremely slow, so we pick just our top candidates.
+    """)
+
+    top_percentile_for_analysis = 80
+    result_threshold = np.percentile(results, top_percentile_for_analysis)
+    threshold_mask = results > result_threshold
+    print("Number of points to test: ", np.sum(threshold_mask))
+
+    # Reinitialize results:
+    semimajor_axis_tests_subsample = semimajor_axis_tests[threshold_mask]
+    results_subsample, _ = analysis_suite.search_orbits(semimajor_axis=semimajor_axis_tests_subsample)
+
+    packed_results = analysis_suite.bigauss_kde_orbit_search(num_resamples,
+                                                             kde_bins=400,
+                                                             confidence=interval/100)
+
+    eep.visualize.display_1d_orbit_bigauss_search(packed_results,
+                                                  domain=semimajor_axis_tests,
+                                                  mask=threshold_mask,
+                                                  baseline_result=results,
+                                                  interval=interval,
+                                                  domain_label="Semimajor axis (au)")
 
     #      ---------------      Run a 2D search to show how that works      ---------------      #
 

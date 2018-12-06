@@ -13,7 +13,8 @@ from astropy import constants
 from scipy import signal
 from .constants import FunctionType
 
-__all__ = ['angle_between_vectors', 'vect_from_spherical_coords', 'compute_lag', 'compute_lag_simple',
+__all__ = ['angle_between_vectors', 'vect_from_spherical_coords', 'angle_between_vector_array',
+           'compute_lag', 'compute_lag_simple',
            'SphericalLatitudeGen', 'stochastic_flare_process', 'bi_erf_model', 'bigaussian_model',
            'window_range',
            'take_noisy_derivative', 'take_noisy_2nd_derivative', 'linear_detrend', 'gaussian_fft_filter',
@@ -42,6 +43,28 @@ def angle_between_vectors(v1: np.ndarray, v2: np.ndarray) -> float:
     """
     return 2*np.arctan2(np.linalg.norm(np.linalg.norm(v2)*v1-np.linalg.norm(v1)*v2),
                         np.linalg.norm(np.linalg.norm(v2)*v1+np.linalg.norm(v1)*v2))
+
+
+def angle_between_vector_array(v1: np.ndarray, vector_array: np.ndarray) -> float:
+    """Smallest angle between two unnormalized vectors
+
+    Parameters
+    ----------
+    v1
+        Vector 1
+    vector_array
+        Array of vectors to test
+
+    Returns
+    -------
+    float
+        Angle in radians as a float
+    """
+    x1 = np.linalg.norm(np.linalg.norm(vector_array,
+                                       axis=1)[:, np.newaxis] * v1 - np.linalg.norm(v1) * vector_array, axis=1)
+    x2 = np.linalg.norm(np.linalg.norm(vector_array,
+                                       axis=1)[:, np.newaxis] * v1 + np.linalg.norm(v1) * vector_array, axis=1)
+    return 2 * np.arctan2(x1, x2)
 
 
 def vect_from_spherical_coords(longitude, latitude) -> np.ndarray:
@@ -148,7 +171,8 @@ def bigaussian_model(data: np.ndarray,
                      amp: float,
                      mean1: float,
                      mean2: float,
-                     sigma: float) -> np.ndarray:
+                     sigma: float,
+                     ratio: float=.5) -> np.ndarray:
     """Produces a pair of gaussians with identical amplitude and sigma but different means
 
     Parameters
@@ -156,13 +180,15 @@ def bigaussian_model(data: np.ndarray,
     data
         Data to apply model to
     amp
-        Amplitude of the gaussians
+        Amplitude of the Gaussians
     mean1
         Mean of Gaussian 1
     mean2
         Mean of Gaussian 2
     sigma
         Single-Gaussian standard deviation
+    ratio
+        Amplitude ratio of Gaussian 1 to Gaussian 2 [0 to 1]
 
     Returns
     -------
@@ -171,10 +197,10 @@ def bigaussian_model(data: np.ndarray,
 
     """
     denom = 2*sigma**2
-    return .5*amp*(np.exp(-(data-mean1)**2/denom)+np.exp(-(data-mean2)**2/denom))
+    return amp*(ratio*np.exp(-(data-mean1)**2/denom)+(1-ratio)*np.exp(-(data-mean2)**2/denom))
 
 
-def bi_erf_model(data, mean1, mean2, sigma):
+def bi_erf_model(data, mean1, mean2, sigma, ratio: float=.5):
     """Produces a pair of error functions with identical standard deviations (to match bigaussian_model)
 
     Parameters
@@ -187,12 +213,14 @@ def bi_erf_model(data, mean1, mean2, sigma):
         Mean of Gaussian 2
     sigma
         Standard deviation
+    ratio
+        Amplitude ratio of Gaussian 1 to Gaussian 2
 
     Returns
     -------
 
     """
-    return .5*(stats.norm.cdf(data, loc=mean1, scale=sigma)+stats.norm.cdf(data, loc=mean2, scale=sigma))
+    return ratio*stats.norm.cdf(data, loc=mean1, scale=sigma)+(1-ratio)*stats.norm.cdf(data, loc=mean2, scale=sigma)
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
