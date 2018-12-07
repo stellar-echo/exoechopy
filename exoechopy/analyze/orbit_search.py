@@ -6,6 +6,7 @@ from ..analyze import *
 
 from astropy import units as u
 from scipy.special import erfinv
+from astropy.stats import LombScargle
 
 __all__ = ['OrbitSearch', 'EchoAnalysisSuite']
 
@@ -89,7 +90,7 @@ class OrbitSearch:
 
         Returns
         -------
-        np.ndarray
+        OrbitSearchResult
         """
 
         if flare_mask is None:
@@ -150,7 +151,7 @@ class OrbitSearch:
             except TypeError:
                 pass
         return_array = np.zeros(dim_list)
-        print("dim_list: ", dim_list)
+        phase_sum = {}
 
         # Magic happens here:
         def recursive_search(depth, ind, _max_depth):
@@ -172,6 +173,7 @@ class OrbitSearch:
                 if phase_law is not None:
                     all_angles = u.Quantity(angle_between_vector_array(earth_direction_vector, planet_vectors), 'rad')
                     phase_weights = phase_law(all_angles).value
+                    phase_sum[tuple(ind)] = np.mean(phase_weights)
                 else:
                     phase_weights = None
 
@@ -240,12 +242,43 @@ class OrbitSearch:
             index[0] = v_i
             recursive_search(1, index, max_depth)
 
-        return return_array, keys
+        results = OrbitSearchResult(return_array, keys, phase_sum=phase_sum)
+
+        return results
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
     def num_flares(self):
         return self._flare_catalog.num_flares
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    def lomb_scargle_periodogram(self):
+        # ls_obj = LombScargle(self._flare_times, )
+        raise NotImplementedError
+
+
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+class OrbitSearchResult:
+    def __init__(self, results, keys, **kwargs):
+        self._results = results
+        self._keys = keys
+        self._dict = {"results": self._results,
+                      "keys": self._keys,
+                      **kwargs}
+
+    @property
+    def results(self):
+        return self._results
+
+    @property
+    def keys(self):
+        return self._keys
+
+    def get_result(self, k):
+        return self._dict[k]
+
+    def apply_to_result(self, func):
+        self._results = np.apply_along_axis(func, -1, self._results)
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -268,6 +301,7 @@ class EchoAnalysisSuite:
         self._outlier_mask = None
         self._weighted = False
         self._phase_law = None
+        self._phase_sum = None
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property
@@ -387,22 +421,31 @@ class EchoAnalysisSuite:
 
         # =============================================================  #
 
-        search_results, keys = self._orbit_search.run(earth_direction_vector=self._earth_direction_vector,
-                                                      lag_metric=None,
-                                                      num_interpolation_points=self._num_interpolation_points,
-                                                      flare_mask=flare_mask,
-                                                      weighted=self._weighted,
-                                                      phase_law=self._phase_law,
-                                                      **self._search_kwargs)
+        search_result_obj = self._orbit_search.run(earth_direction_vector=self._earth_direction_vector,
+                                                   lag_metric=None,
+                                                   num_interpolation_points=self._num_interpolation_points,
+                                                   flare_mask=flare_mask,
+                                                   weighted=self._weighted,
+                                                   phase_law=self._phase_law,
+                                                   **self._search_kwargs)
+
+        search_results = search_result_obj.results
+        keys = search_result_obj.keys
+
         if self._lag_metric is None:
             self._all_search_results = search_results
             self._search_results = search_results
         else:
             self._all_search_results = search_results
-            self._search_results = np.apply_along_axis(lag_metric, -1, search_results)
+            search_result_obj.apply_to_result(lag_metric)
+            self._search_results = search_result_obj.results
         self._keys = keys
+        if self._phase_law is not None:
+            self._phase_sum = search_result_obj.get_result("phase_sum")
+        else:
+            self._phase_sum = None
 
-        return self._search_results, keys
+        return search_result_obj
 
     # ------------------------------------------------------------------------------------------------------------ #
     def gen_jackknife_sigma_mask(self,
@@ -440,13 +483,15 @@ class EchoAnalysisSuite:
         jackknife_resample_mask = np.ones([num_flares, num_flares], dtype=bool)
         np.fill_diagonal(jackknife_resample_mask, False)
 
-        search_results, keys = self._orbit_search.run(earth_direction_vector=self._earth_direction_vector,
-                                                      lag_metric=stat_func,
-                                                      num_interpolation_points=self._num_interpolation_points,
-                                                      weighted=weighted,
-                                                      flare_mask=jackknife_resample_mask,
-                                                      phase_law=self._phase_law,
-                                                      **self._search_kwargs)
+        search_results = self._orbit_search.run(earth_direction_vector=self._earth_direction_vector,
+                                                lag_metric=stat_func,
+                                                num_interpolation_points=self._num_interpolation_points,
+                                                weighted=weighted,
+                                                flare_mask=jackknife_resample_mask,
+                                                phase_law=self._phase_law,
+                                                **self._search_kwargs)
+
+        search_results = search_results.results
 
         all_sigmas = np.std(search_results, axis=0)
         all_means = np.mean(search_results, axis=0)
@@ -514,13 +559,15 @@ class EchoAnalysisSuite:
         jackknife_resample_mask = np.ones([num_flares, num_flares], dtype=bool)
         np.fill_diagonal(jackknife_resample_mask, False)
 
-        search_results, keys = self._orbit_search.run(earth_direction_vector=self._earth_direction_vector,
-                                                      lag_metric=stat_func,
-                                                      num_interpolation_points=self._num_interpolation_points,
-                                                      weighted=weighted,
-                                                      flare_mask=jackknife_resample_mask,
-                                                      phase_law=self._phase_law,
-                                                      **self._search_kwargs)
+        search_results = self._orbit_search.run(earth_direction_vector=self._earth_direction_vector,
+                                                lag_metric=stat_func,
+                                                num_interpolation_points=self._num_interpolation_points,
+                                                weighted=weighted,
+                                                flare_mask=jackknife_resample_mask,
+                                                phase_law=self._phase_law,
+                                                **self._search_kwargs)
+
+        search_results = search_results.results
 
         mean_jack_stat = np.mean(search_results, axis=0)
 
@@ -599,14 +646,16 @@ class EchoAnalysisSuite:
             else:
                 subsample_mask = None
 
-        search_results, keys = self._orbit_search.run(resample_order=all_resamples,
-                                                      flare_mask=subsample_mask,
-                                                      earth_direction_vector=self._earth_direction_vector,
-                                                      lag_metric=stat_func,
-                                                      num_interpolation_points=self._num_interpolation_points,
-                                                      weighted=weighted,
-                                                      phase_law=self._phase_law,
-                                                      **self._search_kwargs)
+        search_results = self._orbit_search.run(resample_order=all_resamples,
+                                                flare_mask=subsample_mask,
+                                                earth_direction_vector=self._earth_direction_vector,
+                                                lag_metric=stat_func,
+                                                num_interpolation_points=self._num_interpolation_points,
+                                                weighted=weighted,
+                                                phase_law=self._phase_law,
+                                                **self._search_kwargs)
+
+        search_results = search_results.results
 
         conf_interval_array = np.percentile(search_results, [(100 - percentile * 100) / 2, 50 + percentile * 100 / 2],
                                             axis=0)
@@ -708,13 +757,21 @@ class EchoAnalysisSuite:
                                                                 num_cores=num_cores,
                                                                 chunksize=chunk_size)
 
+            # The phase_sum represents how visible the exoplanet is within that specific orbit
+            # While the actual visibility changes along the orbit, this provides an approximately
+            # correct ensemble average for the ratio between the amplitudes of the two distributions:
+            if self._phase_sum is None:
+                ratio = 0.5
+            else:
+                ratio = (2-self._phase_sum[tuple(c_i)])/2
+
             # Provides a list of estimated (mean1, mean2) for a bigaussian
             fit_vals = bigaussian_fit_analysis_1(all_resamples, x_vals,
                                                  fixed_mean=min(means[c_i], 0.),
                                                  init_mean=means[c_i], init_std_dev=std_dev,
                                                  num_cores=num_cores,
                                                  chunksize=chunk_size,
-                                                 ratio=.5)
+                                                 ratio=ratio)
 
             lower_means[c_i] = np.mean(fit_vals[:, 0])
             upper_means[c_i] = np.mean(fit_vals[:, 1])

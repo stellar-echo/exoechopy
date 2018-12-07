@@ -238,12 +238,12 @@ def run():
 
     # Generate the predicted lags associated with each hypothesis orbit:
     print("Searching orbital inclinations...")
-    results, key_list = orbit_search.run(earth_direction_vector=earth_vect,
-                                         lag_metric=np.mean,
-                                         num_interpolation_points=num_interpolation_points,
-                                         inclination=inclination_tests)
+    search_result = orbit_search.run(earth_direction_vector=earth_vect,
+                                     lag_metric=np.mean,
+                                     num_interpolation_points=num_interpolation_points,
+                                     inclination=inclination_tests)
 
-    print("key_list: ", key_list)
+    results = search_result.results
 
     plt.plot(inclination_tests*180/np.pi, results, color='k', lw=1, drawstyle='steps-post')
     plt.annotate("This peaky region is likely due to an echo",
@@ -284,11 +284,13 @@ def run():
     all_resamples = np.random.choice(flare_catalog.num_flares, (num_resamples, flare_catalog.num_flares))
 
     # Note: all test orbits are given the same resample ordering!
-    all_results, _ = orbit_search.run(earth_direction_vector=earth_vect,
-                                      lag_metric=np.mean,
-                                      num_interpolation_points=num_interpolation_points,
-                                      resample_order=all_resamples,
-                                      inclination=inclination_tests)
+    bootstrap_search_result = orbit_search.run(earth_direction_vector=earth_vect,
+                                               lag_metric=np.mean,
+                                               num_interpolation_points=num_interpolation_points,
+                                               resample_order=all_resamples,
+                                               inclination=inclination_tests)
+
+    all_results = bootstrap_search_result.results
 
     lower, upper = np.percentile(all_results, [(100-interval)/2, 50+interval/2], axis=0)
     meanvals = np.mean(all_results, axis=0)
@@ -342,12 +344,15 @@ def run():
     # Run orbit search:
     # Generate the predicted lags associated with each hypothesis orbit:
     print("Searching semimajor axes...")
-    results, _ = analysis_suite.search_orbits(earth_direction_vector=earth_vect,
-                                              lag_metric=np.mean,
-                                              num_interpolation_points=num_interpolation_points,
-                                              lag_offset=lag_offset,
-                                              clip_range=(0, max_lag - filter_width),
-                                              **search_params)
+    search_result = analysis_suite.search_orbits(earth_direction_vector=earth_vect,
+                                                 lag_metric=np.mean,
+                                                 num_interpolation_points=num_interpolation_points,
+                                                 lag_offset=lag_offset,
+                                                 clip_range=(0, max_lag - filter_width),
+                                                 **search_params)
+
+    results = search_result.results
+    print("results.shape: ", results.shape)
 
     plt.plot(semimajor_axis_tests, results, color='k', lw=1, drawstyle='steps-post')
     plt.annotate("Only one narrow peak emerges \n"
@@ -408,10 +413,10 @@ def run():
     inclination_tests = u.Quantity(np.linspace(min_inclination, max_inclination, inc_axis_tests), 'rad')
 
     print("Running 2D orbital search...")
-    results_2d, key_list = analysis_suite.search_orbits(inclination=inclination_tests,
-                                                        semimajor_axis=semimajor_axis_tests)
+    search_result_2d = analysis_suite.search_orbits(inclination=inclination_tests,
+                                                    semimajor_axis=semimajor_axis_tests)
 
-    print("key_list: ", key_list)
+    results_2d = search_result_2d.results
 
     plt.imshow(results_2d,
                cmap='inferno', origin='lower', aspect='auto',
@@ -424,8 +429,6 @@ def run():
     plt.title("2D orbit search: Semimajor axis v Inclination")
     plt.tight_layout()
     plt.show()
-
-    # TODO: Select highest points, define regions around them, and repeat the local search, then resample
 
 
 # ******************************************************************************************************************** #

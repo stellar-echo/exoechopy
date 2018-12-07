@@ -180,15 +180,16 @@ def display_1d_orbit_bigauss_search(packed_results,
     plt.ylabel("Correlation signal")
     plt.title(title_str)
 
-    plt.legend(bbox_to_anchor=(1.05, .5), loc=2, borderaxespad=0.)
     plt.subplots_adjust(left=.1, right=.7, top=.9)
 
     if save is None:
+        plt.legend(bbox_to_anchor=(1.05, .5), loc=2, borderaxespad=0.)
         plt.tight_layout()
         plt.show()
     elif save == 'ax' or save == 'hold':
         return plt.gca()
     else:
+        plt.legend(bbox_to_anchor=(1.05, .5), loc=2, borderaxespad=0.)
         plt.tight_layout()
         plt.savefig(save)
         plt.close()

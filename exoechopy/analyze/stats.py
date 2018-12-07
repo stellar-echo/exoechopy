@@ -647,13 +647,16 @@ def bigaussian_fit_analysis_1(all_resamples, x_vals, num_cores=1, chunksize=1,
             cdf = approximate_cdf(resample)
             # We create a lambda function just to pin one of the two Gaussians to zero, let the other float
             # Could define a specific version of this function, but often you'll want to set a value other than zero
-            popt_bierf, pcov_bierf = optimize.curve_fit(lambda x, m2, s: bi_erf_model(x, fixed_mean, m2, s, ratio),
-                                                        x_vals, cdf,
-                                                        p0=[init_mean + init_std_dev, init_std_dev / 2],
-                                                        absolute_sigma=True)
-            popt_bierf = [x for x in popt_bierf]
-            popt_bierf.insert(1, fixed_mean)
-            fit_vals[r_i, :] = min(popt_bierf[:2]), max(popt_bierf[:2])
+            try:
+                popt_bierf, pcov_bierf = optimize.curve_fit(lambda x, m2, s: bi_erf_model(x, fixed_mean, m2, s, ratio),
+                                                            x_vals, cdf,
+                                                            p0=[init_mean + init_std_dev, init_std_dev * ratio],
+                                                            absolute_sigma=True, maxfev=1000)
+                popt_bierf = [x for x in popt_bierf]
+                popt_bierf.insert(1, fixed_mean)
+                fit_vals[r_i, :] = min(popt_bierf[:2]), max(popt_bierf[:2])
+            except RuntimeError:
+                fit_vals[r_i, :] = np.nan, np.nan
     else:
         assert num_cores > 1
         kwargs_list = [{'index': r_i,
@@ -661,7 +664,8 @@ def bigaussian_fit_analysis_1(all_resamples, x_vals, num_cores=1, chunksize=1,
         non_iter_kwargs = {'xdomain': x_vals,
                            'init_mean': init_mean,
                            'fixed_mean': fixed_mean,
-                           'init_std_dev': init_std_dev}
+                           'init_std_dev': init_std_dev,
+                           'ratio': ratio}
 
         # Generate and run the multicore solver:
         resample_pool = PipePool(worker_func=_bigaussian_pipe_func,
@@ -673,7 +677,7 @@ def bigaussian_fit_analysis_1(all_resamples, x_vals, num_cores=1, chunksize=1,
     return fit_vals
 
 
-def _bigaussian_pipe_func(pipe_access, xdomain, fixed_mean, init_mean, init_std_dev):
+def _bigaussian_pipe_func(pipe_access, xdomain, fixed_mean, init_mean, init_std_dev, ratio):
     alive = True
     while alive:
         # try:
@@ -686,11 +690,16 @@ def _bigaussian_pipe_func(pipe_access, xdomain, fixed_mean, init_mean, init_std_
                 result = []
                 for new_input in list_of_new_args:
                     resample = new_input['dataset']
+
                     cdf = approximate_cdf(resample)
                     # We create a lambda function just to pin one of the two Gaussians to zero, let the other float
                     # Could define a specific version of this function,
                     # but often you'll want to set a value other than zero
-                    popt_bierf, pcov_bierf = optimize.curve_fit(lambda x, m2, s: bi_erf_model(x, fixed_mean, m2, s),
+                    popt_bierf, pcov_bierf = optimize.curve_fit(lambda x, m2, s: bi_erf_model(x,
+                                                                                              fixed_mean,
+                                                                                              m2,
+                                                                                              s,
+                                                                                              ratio),
                                                                 xdomain, cdf,
                                                                 p0=[init_mean + init_std_dev, init_std_dev / 2],
                                                                 absolute_sigma=True)
