@@ -1,5 +1,11 @@
 
-"""Generate and analyze some flares and echoes from exoplanets."""
+"""Generate and analyze some flares and echoes from exoplanets.
+
+To run from exoechopy directory
+
+python -m examples.tutorial_part_1
+
+"""
 
 import examples.submodules.sim_models.flares_demo as flare_demo
 import examples.submodules.sim_models.active_regions_demo as active_regions_demo
@@ -25,7 +31,7 @@ The simulate.flares.flares.py module demo:
 flare_demo.run()
 
 print("""
-Collections of flares are handled by the active_regions module, which enables statistical distributions 
+Collections of flares are handled by the active_regions module, which enables statistical distributions
 in intensity, character, and location on the star.
 
 #  =============================================================  #
@@ -45,7 +51,7 @@ The simulate.limbs.py module demo:
 limbs_demo.run()
 
 print("""
-Stars are also able to support multiple orbiting exoplanets.  
+Stars are also able to support multiple orbiting exoplanets.
 The simplest systems use Keplerian physics and do not cause the stars to move
 
 #  =============================================================  #
