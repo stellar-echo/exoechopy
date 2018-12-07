@@ -60,18 +60,27 @@ def run():
     #      ---------------      Generate the data      ---------------      #
     telescope = observation_campaign.initialize_experiments()[0]
     telescope.collect_data(save_diagnostic_data=True)
-    plt.hist(telescope._all_exoplanet_contrasts, bins=100, color="gray")
-    plt.annotate("These are all flares that missed the exoplanet",
-                 xy=(0, 630),
-                 xytext=(1E-5, 500),
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
+    ax1.hist(telescope._all_exoplanet_contrasts, bins=100, color="gray")
+    ax1.annotate("These are all flares that missed the exoplanet",
+                 xy=(0, 1000),
+                 xytext=(1E-5, 800),
                  arrowprops=dict(arrowstyle="->", connectionstyle="arc3, rad=.3"), zorder=25)
-    plt.annotate("These are the flares that echoed off the exoplanet",
+    ax1.annotate("These are the flares that\n"
+                 "echoed off the exoplanet",
                  xy=(0.00013, 40),
                  xytext=(5E-5, 240),
                  arrowprops=dict(arrowstyle="->", connectionstyle="arc3, rad=.1"), zorder=25)
-    plt.title("Distribution of exoplanet echo magnitudes")
-    plt.xlabel("Echo magnitude")
-    plt.ylabel("Number of echoes")
+    ax1.set_title("Distribution of exoplanet echo magnitudes")
+    ax1.set_xlabel("Echo magnitude")
+    ax1.set_ylabel("Number of echoes")
+
+    ax2.hist(telescope._all_exoplanet_lags[telescope._all_exoplanet_lags>0], bins=100, color="gray")
+    ax2.set_title("Distribution of exoplanet echo lags")
+    ax2.set_xlabel("Lag (indices)")
+    ax2.set_ylabel("Number of echoes")
+
     plt.tight_layout()
     plt.show()
 
@@ -320,6 +329,31 @@ def run():
         plt.tight_layout()
         plt.show()
 
+    print("""
+    Compare this to the Lomb-Scargle periodogram of the same data, which does not yet pick up the two stationary
+    points of the orbit.  Explicitly accounting for the orbit provides more samples per bin.
+    """)
+
+    min_freq = 1e-7
+    max_freq = 1e-5
+    planet_freq = (1/planet.orbital_period).to('Hz')
+    planet_min_lag = np.min(telescope._all_exoplanet_lags[telescope._all_exoplanet_lags > 0])
+    planet_max_lag = np.max(telescope._all_exoplanet_lags)
+
+    test_freqs = u.Quantity(np.linspace(min_freq, max_freq, 150), 'Hz')
+
+    ls_periodogram = analysis_suite.lomb_scargle_periodogram(test_freqs)
+    plt.imshow(ls_periodogram, cmap='inferno', origin='lower', aspect='auto',
+               extent=[min_freq, max_freq,
+                       min_lag + filter_width, max_lag])
+    plt.colorbar()
+    plt.scatter([planet_freq.value, planet_freq.value], [planet_min_lag, planet_max_lag], marker="1", color='w')
+    plt.xlabel("Frequency (Hz)")
+    plt.ticklabel_format(style='sci', axis='x', scilimits=(0, 0))
+    plt.ylabel("Lag (index)")
+    plt.title("Lomb-Scargle periodogram of correlators")
+    plt.tight_layout()
+    plt.show()
     #      ---------------      Characterize the results      ---------------      #
     print("""
         Despite having some peaks in the result, it is difficult to assign meaning to them.

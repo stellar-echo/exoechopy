@@ -270,6 +270,7 @@ def plot_flare_array(lightcurve: np.ndarray,
             all_axes[r_i, c_i].set_xticklabels([])
             all_axes[r_i, c_i].set_yticklabels([])
     fig.subplots_adjust(hspace=0, wspace=0)
+    plt.suptitle(str(num_row*num_col)+" normalized flare examples from lightcurve")
     plt.show()
 
     if savefile is None:

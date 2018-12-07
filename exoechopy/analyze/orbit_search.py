@@ -251,11 +251,6 @@ class OrbitSearch:
     def num_flares(self):
         return self._flare_catalog.num_flares
 
-    # ------------------------------------------------------------------------------------------------------------ #
-    def lomb_scargle_periodogram(self):
-        # ls_obj = LombScargle(self._flare_times, )
-        raise NotImplementedError
-
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 class OrbitSearchResult:
@@ -319,6 +314,30 @@ class EchoAnalysisSuite:
         else:
             return weights[~self._outlier_mask, np.newaxis] * self.correlation_matrix / np.mean(
                 weights[~self._outlier_mask])
+
+    @property
+    def flare_times(self):
+        if self._outlier_mask is None:
+            times = self._flare_catalog.get_flare_times()
+        else:
+            times = self._flare_catalog.get_flare_times()[~self._outlier_mask]
+        return times
+
+    # ------------------------------------------------------------------------------------------------------------ #
+    def lomb_scargle_periodogram(self, test_frequencies: (np.ndarray, u.Quantity)):
+        times = self.flare_times
+        if self._weighted:
+            correlators = np.transpose(self.weighted_correlation_matrix)
+        else:
+            correlators = np.transpose(self.correlation_matrix)
+
+        result_array = np.zeros((len(correlators), len(test_frequencies)))
+
+        for lag_index in range(len(correlators)):
+            ls_obj = LombScargle(times, correlators[lag_index])
+            result_array[lag_index] = ls_obj.power(test_frequencies)
+
+        return result_array
 
     # ------------------------------------------------------------------------------------------------------------ #
     def search_orbits(self,
