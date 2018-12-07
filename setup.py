@@ -31,7 +31,7 @@ setup(
     long_description='',
     author='Nanohmics, Inc.',
     author_email='cmann@nanohmics.com',
-    packages=find_packages( exclude = ('examples', 'sandbox', 'tests') ),
+    packages=find_packages( exclude = ('sandbox', 'tests') ),
     test_suite='tests.test_suite',
     dependency_links=[],
     python_requires='>=3.6',
