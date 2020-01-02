@@ -9,7 +9,7 @@ from astropy.utils.exceptions import AstropyUserWarning
 import numpy as np
 from astropy import units as u
 
-__all__ = ['add_poisson_noise']
+__all__ = ['add_poisson_noise', 'scale_signal']
 
 # TODO: Add detector noise
 # TODO: Add readout or other platform noise
@@ -52,3 +52,28 @@ def add_poisson_noise(data_array: np.ndarray,
         return_array[return_array < 0] = 0
     return 1. * np.random.poisson(return_array)
 
+
+#  =============================================================  #
+def scale_signal(data_array: np.ndarray,
+                 scale_factor: (float, int)) -> np.ndarray:
+    """Scales the signal by a set factor
+
+    Parameters
+    ----------
+    data_array
+    scale_factor
+
+    Returns
+    -------
+    Signal scaled by factor
+
+    Examples
+    -------
+    scale = 1/100
+    lightcurve = MyTelescope.get_degraded_lightcurve((scale_signal, {'scale_factor': scale}),
+                                             eep.simulate.methods.add_poisson_noise,
+                                             (scale_signal, {'scale_factor': 1 / scale})
+                                             )
+    """
+    output_data = data_array * scale_factor
+    return output_data

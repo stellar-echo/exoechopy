@@ -105,6 +105,22 @@ class Exoplanet(MassiveObject, Plottable):
         return self._radius
 
     # ------------------------------------------------------------------------------------------------------------ #
+    def estimate_contrast(self) -> float:
+        """Calculates the echo magnitude in superior conjunction, one semimajor axis away from star
+
+        Returns
+        -------
+        Echo contrast estimate, good for order-of-magnitude estimates
+        """
+        if self._contrast is not None:
+            return self._contrast
+        else:
+            return echo_relative_magnitude(self.semimajor_axis,
+                                           u.Quantity(0., 'rad'),
+                                           1.,
+                                           self.radius)
+
+    # ------------------------------------------------------------------------------------------------------------ #
     def get_echo_magnitude(self,
                            dist_to_source: (Distance, u.Quantity)=None,
                            earth_angle: (u.Quantity, Angle)=None,

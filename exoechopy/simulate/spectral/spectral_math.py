@@ -72,5 +72,7 @@ def echo_relative_magnitude(distance_to_star: Distance,
     else:
         alb = geometric_albedo.calculate_albedo_from_phase_law(phase_angle, *phase_law_args)
     inverse_falloff = (planet_radius/distance_to_star)**2
+    if isinstance(inverse_falloff, u.Quantity):
+        inverse_falloff = inverse_falloff.decompose().value
     return alb*inverse_falloff
 

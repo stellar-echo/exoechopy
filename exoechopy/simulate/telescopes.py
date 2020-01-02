@@ -95,7 +95,7 @@ class Telescope:
 
         self._quiescent_intensity_sec = None
         self._quiescent_intensity_sample = None
-        if self._area and self._efficiency and self._cadence and self._observation_target:
+        if self._update_flux_ready():
             self._update_flux()
 
         # Used to notify a few functions to look for pre-computed data, instead of using Keplerian approximation
@@ -326,7 +326,7 @@ class Telescope:
                     i2 = int(flare_echo_time / dt) - 1
                     i3 = i2 + num_plot_points + 2
                     # Handle edges of lightcurve:
-                    i2 = max(i2, 0)
+                    i2 = min(max(i2, 0), len(self._time_domain)-2)
                     i3 = min(i3, len(self._time_domain))
 
                     # Note, this is not a perfect reproduction of the flare:
@@ -400,9 +400,26 @@ class Telescope:
         print("Total number of flares generated: ", self._all_flares.num_flares)
 
     # ------------------------------------------------------------------------------------------------------------ #
+    def _update_flux_ready(self):
+        flux_list = [self._area, self._efficiency, self._cadence, self._observation_target]
+        update_ready = True
+        for item in flux_list:
+            if item is None:
+                update_ready = False
+        return update_ready
+
     def _update_flux(self):
         self._quiescent_intensity_sec = self._observation_target.get_flux()*self._area*self._efficiency
         self._quiescent_intensity_sample = self._quiescent_intensity_sec*self._cadence
+
+    def observation_feasibility_report(self):
+        if self._update_flux_ready():
+            self._update_flux()
+            print("Quiescent photons/sample: " + u_str(self._quiescent_intensity_sample))
+            print("Quiescent photons/sec: " + u_str(self._quiescent_intensity_sec))
+        elif self._area is not None and self._efficiency is not None and self._observation_target is not None:
+            self._quiescent_intensity_sec = self._observation_target.get_flux() * self._area * self._efficiency
+            print("Quiescent photons/sec: "+u_str(self._quiescent_intensity_sec))
 
     # ------------------------------------------------------------------------------------------------------------ #
     @property

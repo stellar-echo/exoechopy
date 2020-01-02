@@ -50,8 +50,8 @@ def plot_autocorr_with_derivatives(raw_autocorr: np.ndarray,
     if lag_index_spotlight is not None:
         if lag_index_spotlight_width is None:
             lag_index_spotlight_width = 10
-        ind_min = lag_index_spotlight - lag_index_spotlight_width//2
-        ind_max = lag_index_spotlight + lag_index_spotlight_width//2
+        ind_min = max(0, lag_index_spotlight - lag_index_spotlight_width//2)
+        ind_max = min(lag_index_spotlight + lag_index_spotlight_width//2, len(autocorr_time_domain))
 
     ax_raw.plot(autocorr_time_domain, raw_autocorr,
                 color='k', lw=1, drawstyle='steps-post')

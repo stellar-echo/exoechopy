@@ -29,11 +29,17 @@ def run():
 
     # Change the planet parameters from the defaults:
     semimajor_axis = 0.05
+    # semimajor_axis = 0.01154
     observation_campaign["planet_parameters"]["semimajor_axis"] = (semimajor_axis, "au")
 
     # Tilt the system at an angle relative to Earth:
     orbital_inclination = 0.5
+    # orbital_inclination = np.pi/2
     observation_campaign["planet_parameters"]["inclination"] = (orbital_inclination, "rad")
+
+    # # Optionally reset the planet radius
+    # planet_radius = 1.121
+    # observation_campaign["planet_parameters"]["planet_radius"] = (planet_radius, "earthRad")
 
     # Set a uniform flare intensity (defaults to a distribution):
     observation_campaign["star_parameters"]["active_region"]["intensity_pdf"] = 100000.
