@@ -21,7 +21,7 @@ With ExoEchoPy, the user will be able to specify a large array of parameters for
 They will then be able to test various methods of detecting these echoes on the data.
 
 ## How to Install ExoEchoPy
-pip install git+https://github.com/chrisma2n/exoechopy.git
+pip install git+https://github.com/stellar-echo/exoechopy.git
 
 ## How to Generate Data
 For now, see the demos in \examples.
