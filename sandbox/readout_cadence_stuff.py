@@ -8,14 +8,11 @@ from pathlib import Path
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+# User input section
 
+# Flare parameters:
 onset_time = 8
 decay_time = 16
-
-onset_s = u.Quantity(onset_time, 's')
-decay_s = u.Quantity(decay_time, 's')
-
-flare_1 = eep.simulate.ParabolicRiseExponentialDecay(onset_s, decay_s)
 
 # Kepler values:
 int_time = 6.02  # s
@@ -25,20 +22,29 @@ cadence = int_time + readout_time
 # How many slightly shifted times to study
 num_offsets = 10
 
+# How many frames are summed (short cadence, it's always 9)
 frames_per_sum = 9
 
+# Duration of the simulation (approximately)
 num_sums = 5
 
-fp = "C:\\Users\\cmann\\Documents\\Nanohmics\\Stellar Echo\\T3 Reports\\Progress Report 10\\Flare shape study\\"
+# Update this to match your computer if you want to save the results
+save_filepath = "C:\\Users\\cmann\\Documents\\Nanohmics\\Stellar Echo\\" \
+                "T3 Reports\\Progress Report 10\\Flare shape study\\"
 
 #  =============================================================  #
 
-saveloc = Path(fp)
+saveloc = Path(save_filepath)
 base_filename = str(int_time) + "_" + str(readout_time) + "_" + str(onset_time) + "_" + str(decay_time) + "_"
 
 num_times = 2*(num_sums+2)*frames_per_sum
 
 start_offsets = np.linspace(0, int_time+readout_time, num_offsets)[:-1]
+
+onset_s = u.Quantity(onset_time, 's')
+decay_s = u.Quantity(decay_time, 's')
+
+flare_1 = eep.simulate.ParabolicRiseExponentialDecay(onset_s, decay_s)
 
 exact_times = u.Quantity(np.linspace(-2*cadence*frames_per_sum, cadence*num_sums*frames_per_sum, num_times*20), 's')
 exact_flare = flare_1.evaluate_over_array(exact_times)
@@ -113,9 +119,7 @@ for offset in start_offsets:
     plt.close()
 
 
-# Next up: Plot the readout flux separately, show how results can vary and estimate how much they vary analytically
-
 # TODO:
 # - Make a helper function that accepts cadence, readout time, start time, and end time and generates points
-# - Make a function that uses the helper function to discretize the flare
+# - Make a function that uses the helper function to discretize the flare, integrate with exoechopy
 
