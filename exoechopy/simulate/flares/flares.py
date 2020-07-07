@@ -11,7 +11,7 @@ from astropy.utils.exceptions import AstropyUserWarning
 from exoechopy.utils.constants import *
 from scipy import stats
 
-__all__ = ['ProtoFlare', 'DeltaFlare', 'ExponentialFlare1']
+__all__ = ['ProtoFlare', 'DeltaFlare', 'ParabolicRiseExponentialDecay', 'ExponentialFlare1']
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
@@ -21,7 +21,7 @@ class ProtoFlare:
     def __init__(self,
                  label=None,
                  **kwargs):
-        """Provides a generic flare flass meant for subclassing.
+        """Provides a generic flare class meant for subclassing.
 
         Parameters
         ----------
@@ -58,7 +58,7 @@ class ProtoFlare:
         See Also
         ----------
         DeltaFlare
-        ExponentialFlare1
+        ParabolicRiseExponentialDecay
         MultipeakFlare
         """
         self._label = label
@@ -141,9 +141,9 @@ class ProtoFlare:
         """
         if isinstance(time_array, u.Quantity):
             time_array = time_array.value
-        dt = time_array[1] - time_array[0]
-        # Provide an end-point for the last bin to integrate over:
-        edge_adjusted_time_array = np.append(time_array, time_array[-1]+dt)
+        dt = time_array[1:] - time_array[:-1]
+
+        edge_adjusted_time_array = time_array
         return np.array([self._integrate_between_times_lw(t0, t1)
                          for t0, t1 in zip(edge_adjusted_time_array[:-1], edge_adjusted_time_array[1:])])/dt
 
@@ -153,6 +153,7 @@ class ProtoFlare:
         This discretizes and 'analytically' integrates the time bins
         Need to re-implement with faster array handling, such as np.where().  For now, just getting it working correctly
         Each bin is integrated over [x_i, x_i+1).
+        The result is 1 bin shorter than the input array.  Use time_array[:-1] to correctly register result.
 
         Parameters
         ----------
@@ -164,7 +165,6 @@ class ProtoFlare:
             Provides the discretized values for the times provided by the time_array
         """
         time_array_lw = time_array.to(lw_time_unit).value
-        dt = time_array[1]-time_array[0]
         return self.evaluate_over_array_lw(time_array_lw)/time_array.unit*u.ph/(u.m)**2
 
     # ------------------------------------------------------------------------------------------------------------ #
@@ -308,7 +308,7 @@ class DeltaFlare(ProtoFlare):
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 
-class ExponentialFlare1(ProtoFlare):
+class ParabolicRiseExponentialDecay(ProtoFlare):
     """A flare with a quadratic onset and exponential decay and C0 continuity."""
     def __init__(self,
                  onset: u.Quantity,
@@ -417,6 +417,37 @@ class ExponentialFlare1(ProtoFlare):
                    / (1-self._epsilon)
         else:
             return self.integrated_counts
+
+
+class ExponentialFlare1(ParabolicRiseExponentialDecay):
+    def __init__(self,
+                 *args,
+                 **kwargs):
+        """Standard impulsive flare with a sharp onset and exponential decay.
+
+        Can multiply values by an intensity to scale for different scenarios.
+        Can divide by .integrated_counts to normalize the total area under the flare curve.
+
+
+        Parameters
+        ----------
+        onset
+            Onset time, follows a parabolic rise in intensity
+        decay
+            Exponential decay constant, exp(-t/decay)
+        max_decay
+            How many decay constants trail the flare peak, which influences the C1 discontinuity at the end of tail
+        kwargs
+
+        See Also
+        ----------
+        ProtoFlare
+        DeltaFlare
+        MultipeakFlare
+        """
+
+        super().__init__(*args, **kwargs)
+        warnings.warn("ExponentialFlare1 is deprecated, use ParabolicRiseExponentialDecay")
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #

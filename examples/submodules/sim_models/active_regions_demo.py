@@ -97,7 +97,7 @@ def run():
     """)
 
     num_test_flares = 6
-    MyExpFlareActivity = active_regions.FlareActivity(flares.ExponentialFlare1,
+    MyExpFlareActivity = active_regions.FlareActivity(flares.ParabolicRiseExponentialDecay,
                                                       intensity_pdf=stats.expon(scale=10 * u.s),
                                                       onset_pdf=[1, 4] * u.s,
                                                       decay_pdf=(stats.rayleigh(scale=5), u.s),

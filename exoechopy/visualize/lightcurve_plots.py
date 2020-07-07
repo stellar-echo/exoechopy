@@ -22,7 +22,7 @@ __all__ = ['interactive_lightcurve', 'render_telescope_lightcurve',
 
 def interactive_lightcurve(time_domain: np.ndarray,
                            lightcurve: np.ndarray,
-                           flare_times: np.ndarray=None,
+                           flare_inds: np.ndarray=None,
                            max_plot_points: int=5000):
     """Provides an interactive plot of a lightcurve
 
@@ -32,7 +32,7 @@ def interactive_lightcurve(time_domain: np.ndarray,
         x-values for the plot
     lightcurve
         y values for the plot
-    flare_times
+    flare_inds
         Times that flares occur, for optional visualization
         Not yet implemented.
     max_plot_points
@@ -60,8 +60,8 @@ def interactive_lightcurve(time_domain: np.ndarray,
     line1, = ax.plot(time_domain[:max_plot_points], lightcurve[:max_plot_points],
                      lw=1, drawstyle='steps-post', color='k')
     ax.set_xlim(time_domain[0], time_domain[max_plot_points])
-    y0 = min(lightcurve[:max_plot_points])
-    y1 = max(lightcurve[:max_plot_points])
+    y0 = np.nanmin(lightcurve[:max_plot_points])
+    y1 = np.nanmax(lightcurve[:max_plot_points])
     dy = max(1, (y1 - y0) * .025)
     ax.set_ylim(y0 - dy, y1 + dy)
 
@@ -91,9 +91,9 @@ def interactive_lightcurve(time_domain: np.ndarray,
         low_ind, high_ind = window_range(int(ind), len(time_domain)-1, int(width))
         line1.set_data(time_domain[low_ind:high_ind], lightcurve[low_ind:high_ind])
         ax.set_xlim(time_domain[low_ind], time_domain[high_ind])
-        y0 = min(lightcurve[low_ind:high_ind])
-        y1 = max(lightcurve[low_ind:high_ind])
-        dy = max(1, (y1-y0)*.025)
+        y0 = np.nanmin(lightcurve[low_ind:high_ind])
+        y1 = np.nanmax(lightcurve[low_ind:high_ind])
+        dy = np.nanmax(1, (y1-y0)*.025)
         ax.set_ylim(y0-dy, y1+dy)
         # Future: add np.where( ) to capture correct scatter plot values
         # I'm hesitating because the number of points will change...
@@ -230,7 +230,8 @@ def plot_flare_array(lightcurve: np.ndarray,
                      back_pad: int,
                      forward_pad: int,
                      savefile: str=None,
-                     display_index: bool=False):
+                     display_index: bool=False,
+                     display_flare_loc: bool=True):
     """Plot an array of flares extracted from a lightcurve
 
     Parameters
@@ -248,6 +249,8 @@ def plot_flare_array(lightcurve: np.ndarray,
         If filepath str, saves to savefile location (must include file extension)
     display_index
         If True, display the flare index number from the lightcurve on each flare
+    display_flare_loc
+        If True, plots a red dot on top of the perceived flare peak
     """
 
     num_flares = len(flare_indices)
@@ -265,6 +268,8 @@ def plot_flare_array(lightcurve: np.ndarray,
                                     transform=all_axes[r_i, c_i].transAxes,
                                     verticalalignment='top', horizontalalignment='right',
                                     color='b')
+        if display_flare_loc:
+            all_axes[r_i, c_i].scatter(back_pad, lightcurve[flare_index], color='r')
     for r_i in range(num_row):
         for c_i in range(num_col):
             all_axes[r_i, c_i].set_xticklabels([])

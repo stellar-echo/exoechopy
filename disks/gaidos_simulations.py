@@ -64,7 +64,7 @@ def generate_sim_flare_echo(quiescent_flux, onset, decay, flare_amp, arr_size = 
     #Generate flare
     onset_time = onset*u.s
     decay_time = decay*u.s
-    init_flare = flares.ExponentialFlare1(onset_time, decay_time) # Onset and decay in seconds
+    init_flare = flares.ParabolicRiseExponentialDecay(onset_time, decay_time) # Onset and decay in seconds
     
     # Time domain
     flare_time_domain = np.linspace(0, (30*arr_size), arr_size)*u.s # Array in units of seconds

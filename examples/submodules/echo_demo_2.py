@@ -76,7 +76,7 @@ def run():
     #  To explicitly specify units, use a tuple of (pdf, unit):
     flare_intensities = ([min_intensity, max_intensity], max_intensity.unit)
 
-    MyExpFlareActivity = eep.simulate.active_regions.FlareActivity(eep.simulate.flares.ExponentialFlare1,
+    MyExpFlareActivity = eep.simulate.active_regions.FlareActivity(eep.simulate.flares.ParabolicRiseExponentialDecay,
                                                                    intensity_pdf=flare_intensities,
                                                                    onset_pdf=[1, 5] * u.s,
                                                                    decay_pdf=(stats.rayleigh(scale=6), u.s))

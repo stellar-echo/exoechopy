@@ -32,7 +32,7 @@ def run():
 
     max_decay_list = [4, 10]
     for max_num_decay in max_decay_list:
-        MyFlare = flares.ExponentialFlare1(onset=onset_time, decay=decay_const, max_decay=max_num_decay)
+        MyFlare = flares.ParabolicRiseExponentialDecay(onset=onset_time, decay=decay_const, max_decay=max_num_decay)
         flare_intensity_list = u.Quantity([MyFlare.evaluate_at_time(ti) for ti in time_domain])
         plt.plot(time_domain, flare_intensity_list,
                  color=color_map(max_num_decay/max(max_decay_list)),
@@ -73,7 +73,7 @@ def run():
     for di, ax in zip(divs, ax_list):
         times = np.linspace(-5, 5, di)*u.s
         evaluated_flare = MyDeltaFlare.evaluate_over_array(times)
-        ax.plot(times, evaluated_flare,
+        ax.plot(times[:-1], evaluated_flare,
                  label=str(di)+"points", color='k', lw=1,
                  marker='.', drawstyle='steps-post')
         ax.set_title(str(di)+"points")
@@ -95,16 +95,16 @@ def run():
     """)
     divs = [10, 20, 50, 200]
     fig, (ax_ct, ax_ctsec) = plt.subplots(1, 2, figsize=(10, 4))
-    MyExponentialFlare = flares.ExponentialFlare1(onset=onset_time, decay=decay_const)
+    MyExponentialFlare = flares.ParabolicRiseExponentialDecay(onset=onset_time, decay=decay_const)
     for di in divs:
         times = np.linspace(-5 * decay_const.value, (onset_time + 10 * decay_const).value, di)*u.s
         evaluated_flare = MyExponentialFlare.evaluate_over_array(times)
         integrated_flare = evaluated_flare*(times[1]-times[0])
-        ax_ct.plot(times, integrated_flare,
+        ax_ct.plot(times[:-1], integrated_flare,
                    label=str(di)+"points",
                    marker='.', drawstyle='steps-post')
         flare_rate = evaluated_flare
-        ax_ctsec.plot(times, flare_rate,
+        ax_ctsec.plot(times[:-1], flare_rate,
                       label=str(di)+"points",
                       marker='.', drawstyle='steps-post')
         print("Time division:", di, "\tFlare counts:", np.sum(evaluated_flare)*(times[1]-times[0]),

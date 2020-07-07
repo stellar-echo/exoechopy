@@ -133,7 +133,7 @@ def run():
     echo_mag = .02
     max_lag = 2*int(lag_time/dt)
 
-    flare = eep.simulate.ExponentialFlare1(5, 4)
+    flare = eep.simulate.ParabolicRiseExponentialDecay(5, 4)
     flare_signal = flare.evaluate_over_array(isolated_flare_time_domain)
     echo_signal = flare.evaluate_over_array(isolated_flare_time_domain-lag_time)
     synthetic_lightcurve = flare_signal + echo_mag*echo_signal
@@ -154,7 +154,7 @@ def run():
     brom_corr_domain = np.arange(correlator_width*dt.value, (max_lag+1)*dt.value, dt.value)
 
     f, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(10, 5))
-    ax1.plot(isolated_flare_time_domain, synthetic_lightcurve,
+    ax1.plot(isolated_flare_time_domain[:-1], synthetic_lightcurve,
              color='k', lw=1., drawstyle='steps-post')
     ax1.set_title("Light curve")
     ax2.plot(autocorr_domain, autocorr,

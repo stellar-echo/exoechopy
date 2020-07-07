@@ -339,10 +339,10 @@ class LightcurveFlareCatalog(BaseFlareCatalog):
 def find_peaks_stddev_thresh(lightcurve_data: np.ndarray,
                              std_dev_threshold: float = None,
                              smoothing_radius: float = None,
-                             min_index_gap: int = None,
-                             extra_search_pad: int = None,
-                             num_smoothing_rad: int = None,
-                             single_flare_gap: int = None) -> np.ndarray:
+                             min_index_gap: int = 1,
+                             extra_search_pad: int = 5,
+                             num_smoothing_rad: int = 5,
+                             single_flare_gap: int = 5) -> np.ndarray:
     """Relatively low-overhead peak finder for an array based on deviation above a threshold.
 
     Has some filtering functionality to prevent detection of multiple peaks within the same flare event.

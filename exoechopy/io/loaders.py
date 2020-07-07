@@ -395,8 +395,8 @@ class SystemGenerator(dict):
                     _flare_type = active_region['flare_type']
                     if _flare_type == "DeltaFlare":
                         _Flare = DeltaFlare
-                    elif _flare_type == "ExponentialFlare1":
-                        _Flare = ExponentialFlare1
+                    elif _flare_type in ("ExponentialFlare1", "ParabolicRiseExponentialDecay", "PRED"):
+                        _Flare = ParabolicRiseExponentialDecay
                     else:
                         raise TypeError("Unknown flare type: ", _flare_type)
                     intensity_pdf = _interpret_pdf(active_region['intensity_pdf'])

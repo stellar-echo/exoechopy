@@ -93,7 +93,7 @@ def run():
     exponential_flare_intensities = stats.expon(scale=max_intensity)
 
     MyExpFlareActivity = eep.simulate.active_regions.FlareActivity(
-        eep.simulate.flares.ExponentialFlare1,
+        eep.simulate.flares.ParabolicRiseExponentialDecay,
         intensity_pdf=exponential_flare_intensities,
         onset_pdf=[1, 4] * u.s,
         decay_pdf=(stats.rayleigh(scale=10), u.s),

@@ -8,11 +8,31 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mpl_colors
 from matplotlib.collections import PolyCollection
 
-__all__ = ['plot_lines_and_points', 'plot_time_series_w_fft', 'plot_two_signals_different_y_axis',
+__all__ = ['plot_simple',
+           'plot_lines_and_points', 'plot_time_series_w_fft', 'plot_two_signals_different_y_axis',
            'plot_signal_w_uncertainty', 'plot_signal_w_threshold', 'pseudo_waterfall',
            'step_plot_w_confidence_intervals', 'step_plot_with_zoom_subplot']
 
+# TODO: use the style sheets instead of manually defining everything
+
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
+
+def plot_simple(x_vals, y_vals,
+                save=None, x_label="", y_label="", plt_title="",
+                x_min=None, x_max=None):
+    plt.plot(x_vals, y_vals, color='k', zorder=0, drawstyle='steps-post', lw=1)
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
+    plt.title(plt_title, y=1.1)
+    if x_min is not None and x_max is not None:
+        plt.xlim(left=x_min, right=x_max)
+    plt.tight_layout()
+    if save is not None:
+        plt.savefig(save)
+        plt.close()
+    else:
+        plt.show()
 
 
 def plot_lines_and_points(line_x, line_y, pts_x, pts_y,
