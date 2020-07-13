@@ -36,7 +36,7 @@ def integrate_flare_with_readout(start_time: u.Quantity,
     cadence = int_time + read_time
     num_frames = int(total_time // cadence)
     all_times = u.Quantity(np.zeros(num_frames * 2), 's')
-    int_times = u.Quantity(np.arange(0, (cadence * num_frames).to('s').value, cadence.to('s').value), 's')
+    int_times = u.Quantity(np.arange(0, (cadence * num_frames).to('s').value, cadence.to('s').value), 's')[:num_frames]
     read_times = int_times + int_time
     all_times[::2] = int_times
     all_times[1::2] = read_times
@@ -219,10 +219,10 @@ kepler_read_time = u.Quantity(0.52, 's')
 kepler_sc_num_frame_sum = 9
 
 segment_start_time = u.Quantity(-180, 's')
-segment_end_time = u.Quantity(540, 's')
+segment_end_time = u.Quantity(750, 's')
 
-test_flare_rise_time = u.Quantity(12, 's')
-test_flare_decay_const = u.Quantity(24, 's')
+test_flare_rise_time = u.Quantity(32, 's')
+test_flare_decay_const = u.Quantity(64, 's')
 
 my_flare = eep.simulate.ParabolicRiseExponentialDecay(test_flare_rise_time,
                                                       test_flare_decay_const)
@@ -261,8 +261,19 @@ init_guess_rise_time = 8
 init_guess_decay_const = 10
 init_guess_flare_time = 11
 in_obs_time_domain, in_obs_lightcurve = sum_frames(times, values, kepler_sc_num_frame_sum, frame_offset=test_offset)
+
+obs_unit = in_obs_lightcurve.unit
+test_noise_level = 100
+
+in_obs_lightcurve *= test_noise_level
+in_obs_lightcurve += u.Quantity(test_noise_level, obs_unit)
+in_obs_lightcurve = np.random.poisson(in_obs_lightcurve.value.astype(int)).astype(float)
+in_obs_lightcurve -= test_noise_level
+in_obs_lightcurve /= test_noise_level
+in_obs_lightcurve = u.Quantity(in_obs_lightcurve, obs_unit)
+
 initial_guesses = np.array((init_guess_rise_time, init_guess_decay_const, init_guess_flare_time))
-bounds = [(1E-6, np.inf), (1E-2, np.inf), (-np.inf, np.inf)]  # May need to make last bound constrained by window
+bounds = [(1E-1, np.inf), (1E-2, np.inf), (-np.inf, np.inf)]  # May need to make last bound constrained by window
 
 f, ax = plt.subplots(ncols=9)
 for test_offset in range(9):
