@@ -2,6 +2,7 @@ import numpy as np
 import exoechopy as eep
 from matplotlib import pyplot as plt
 from astropy import units as u
+from scipy import optimize
 
 
 def integrate_flare_with_readout(start_time: u.Quantity,
@@ -119,10 +120,11 @@ def processed_PRED_signal(rise_time: u.Quantity,
         Number of integrated frames per summation
     frame_offset
         How many cadences to shift the frame summation by
+        Note, this requires compensation of the flare position externally (-cadence * frame_offset)
 
     Returns
     -------
-
+    u.Quantity(summed_frame_times), u.Quantity(summed_frame_values)
     """
     assert frame_offset >= 0
     test_flare = eep.simulate.ParabolicRiseExponentialDecay(rise_time,
@@ -140,18 +142,75 @@ def processed_PRED_signal(rise_time: u.Quantity,
                                                              total_time=total_time,
                                                              flare_model=test_flare)
 
-    print('start_time: ', start_time)
-    print("relative_peak_time: ", relative_peak_time)
-    print("frame_times: ", frame_times)
+    # print('start_time: ', start_time)
+    # print("relative_peak_time: ", relative_peak_time)
+    # print("frame_times: ", frame_times)
 
     summed_times, summed_values = sum_frames(frame_times, frame_values, frames_per_sum, frame_offset)
-    summed_times -= cadence*frame_offset
+    summed_times -= cadence * frame_offset
     return summed_times, summed_values
 
-# TODO: generate synthetic flare, allow shifting within 1 cadence
-# Then, use frame summing (will test each frame-shift as a separate minimization)
-# Then, create the cost function that will be used in minimization
+
+def fitting_cost_function_PRED(opt_params,
+                               obs_time_domain: u.Quantity,
+                               obs_lightcurve,
+                               int_time: u.Quantity,
+                               read_time: u.Quantity,
+                               frames_per_sum: int,
+                               frame_offset: int = 0):
+    """
+    Draft cost function for minimization of difference with real light curve.  Anticipate indexing issues.
+
+    Parameters
+    ----------
+    opt_params
+        Packed optimization parameters:
+        rise_time_s
+            Rise time, float, specified in seconds.  To be optimized.
+        decay_const_s
+            Decay constant, float, specified in seconds.  To be optimized.
+        seg_peak_time_s
+            Time of flare peak in the relative frame of the obs_time_domain, float, specified in seconds.  To be optimized.
+    obs_time_domain
+        Observation time domain
+    obs_lightcurve
+        Actual observed lightcurve
+    int_time
+        Integration time for the detector
+    read_time
+        Readout time for the detector
+    frames_per_sum
+        Number of frames summed into the actual data product
+    frame_offset
+        How many cadences to shift the frame summation by
+        Note, this requires compensation of the flare position externally (-cadence * frame_offset)
+
+    Returns
+    -------
+
+    """
+    rise_time_s, decay_const_s, seg_peak_time_s = opt_params
+    seg_start_time = obs_time_domain[0].to('s')
+    seg_end_time = obs_time_domain[-1].to('s')
+    _, est_flare = processed_PRED_signal(u.Quantity(rise_time_s, 's'),
+                                         u.Quantity(decay_const_s, 's'),
+                                         int_time=int_time,
+                                         read_time=read_time,
+                                         seg_start_time=seg_start_time,
+                                         seg_end_time=seg_end_time,
+                                         seg_peak_time=u.Quantity(seg_peak_time_s, 's'),
+                                         frames_per_sum=frames_per_sum,
+                                         frame_offset=frame_offset)
+    # Ignore last datapoint just in case the est_flare frame shift artificially reduced the signal in the last bin
+    diff = (obs_lightcurve[:len(est_flare) - 1] - est_flare[:-1])
+    cost_func = np.dot(diff, diff)
+    return cost_func
+
+
+# TODO:
+# Create the cost function that will be used in minimization
 # Then, pick parameters from best outcome (analyze other outcomes too, though)
+# Repeat for each frame offset option
 
 
 kepler_int_time = u.Quantity(6.02, 's')
@@ -160,12 +219,10 @@ kepler_read_time = u.Quantity(0.52, 's')
 kepler_sc_num_frame_sum = 9
 
 segment_start_time = u.Quantity(-180, 's')
-segment_end_time = u.Quantity(240, 's')
+segment_end_time = u.Quantity(540, 's')
 
 test_flare_rise_time = u.Quantity(12, 's')
 test_flare_decay_const = u.Quantity(24, 's')
-
-
 
 my_flare = eep.simulate.ParabolicRiseExponentialDecay(test_flare_rise_time,
                                                       test_flare_decay_const)
@@ -175,12 +232,12 @@ times, values = integrate_flare_with_readout(start_time=segment_start_time,
                                              total_time=segment_end_time - segment_start_time,
                                              flare_model=my_flare)
 
+cadence = kepler_int_time + kepler_read_time
+
 f, ax = plt.subplots(ncols=9)
 for test_offset in range(9):
-
     summed_times_0, summed_values_0 = sum_frames(times, values, kepler_sc_num_frame_sum, frame_offset=test_offset)
-    cadence = kepler_int_time+kepler_read_time
-    ax[test_offset].plot(times-test_offset*cadence, values, drawstyle='steps-post', color='k')
+    ax[test_offset].plot(times - test_offset * cadence, values, drawstyle='steps-post', color='k')
     # ax[test_offset].plot(summed_times_0, summed_values_0, drawstyle='steps-post', color='r')
 
     summed_times_1, summed_values_1 = processed_PRED_signal(test_flare_rise_time,
@@ -195,5 +252,64 @@ for test_offset in range(9):
 
     ax[test_offset].plot(summed_times_1, summed_values_1, drawstyle='steps-post', color='g')
 
-    print("Difference: ", np.sum((summed_values_0-summed_values_1))**2)
+    print("Difference: ", np.sum((summed_values_0 - summed_values_1)) ** 2)
+plt.close()
 
+test_offset = 0
+
+init_guess_rise_time = 8
+init_guess_decay_const = 10
+init_guess_flare_time = 11
+in_obs_time_domain, in_obs_lightcurve = sum_frames(times, values, kepler_sc_num_frame_sum, frame_offset=test_offset)
+initial_guesses = np.array((init_guess_rise_time, init_guess_decay_const, init_guess_flare_time))
+bounds = [(1E-6, np.inf), (1E-2, np.inf), (-np.inf, np.inf)]  # May need to make last bound constrained by window
+
+f, ax = plt.subplots(ncols=9)
+for test_offset in range(9):
+    # Plot the easy stuff first:
+    ax[test_offset].plot(times, values, drawstyle='steps-post', color='k', lw=1,
+                         label='Exact solution')
+    ax[test_offset].plot(in_obs_time_domain, in_obs_lightcurve, drawstyle='steps-post', color='g', lw=1,
+                         label='Actual data')
+    print("test_offset: ", test_offset)
+    input_args = (in_obs_time_domain, in_obs_lightcurve,
+                  kepler_int_time, kepler_read_time, kepler_sc_num_frame_sum,
+                  test_offset)
+    print("len(input_args): ", len(input_args))
+
+    res = optimize.minimize(fitting_cost_function_PRED, x0=initial_guesses, args=input_args, bounds=bounds)
+    print("Exact: ", test_flare_rise_time.value, test_flare_decay_const.value, test_flare_rise_time.value)
+    print("Solved: ", res.x)
+    print("Objective function value: ", res.fun)
+    soln_str = ["{:.2f}".format(x) for x in res.x]
+    print(res.message)
+    solved_flare_rise_time, solved_flare_decay_const, solved_peak_time = res.x
+    solved_flare_rise_time = u.Quantity(solved_flare_rise_time, 's')
+    solved_flare_decay_const = u.Quantity(solved_flare_decay_const, 's')
+    solved_peak_time = u.Quantity(solved_peak_time, 's')
+    summed_times_solved, summed_values_solved = processed_PRED_signal(solved_flare_rise_time,
+                                                                      solved_flare_decay_const,
+                                                                      int_time=kepler_int_time,
+                                                                      read_time=kepler_read_time,
+                                                                      seg_start_time=segment_start_time,
+                                                                      seg_end_time=segment_end_time,
+                                                                      seg_peak_time=solved_peak_time,
+                                                                      frames_per_sum=kepler_sc_num_frame_sum,
+                                                                      frame_offset=test_offset)
+    ax[test_offset].plot(summed_times_solved + test_offset * cadence, summed_values_solved,
+                         drawstyle='steps-post', color='b', lw=1.5,
+                         label='Solved')
+
+    my_flare = eep.simulate.ParabolicRiseExponentialDecay(solved_flare_rise_time,
+                                                          solved_flare_decay_const)
+    new_times, new_values = integrate_flare_with_readout(start_time=segment_start_time+test_offset * cadence-solved_peak_time,
+                                                         int_time=kepler_int_time,
+                                                         read_time=kepler_read_time,
+                                                         total_time=segment_end_time - segment_start_time,
+                                                         flare_model=my_flare)
+
+    ax[test_offset].plot(new_times, new_values,
+                         drawstyle='steps-post', color='r', lw=1,
+                         label='Represented solution')
+    ax[test_offset].set_title(str(test_offset) + ", " + str(res.fun) + "\n" + str(soln_str))
+    ax[test_offset].legend()
