@@ -19,7 +19,7 @@ __all__ = ['angle_between_vectors', 'vect_from_spherical_coords', 'angle_between
            'window_range',
            'take_noisy_derivative', 'take_noisy_2nd_derivative', 'linear_detrend', 'gaussian_fft_filter',
            'asymmetric_filter_1',
-           'round_dec', 'row_col_grid', 'is_nested',
+           'round_dec', 'row_col_grid', 'is_nested', 'find_nearest_index', 'find_near_index_floor',
            'PipePool']
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
@@ -430,6 +430,20 @@ def is_nested(iterable) -> bool:
         return False
 
 
+def find_nearest_index(array: np.ndarray, value: float):
+    """Identify the index in the array that best matches the requested value.
+    Derived from https://stackoverflow.com/questions/2566412/find-nearest-value-in-numpy-array"""
+    idx = (np.abs(array - value)).argmin()
+    return idx
+
+
+def find_near_index_floor(array: u.Quantity, value: u.Quantity):
+    """Identify the first index from an array that closely matches the requested value.  Used for finding start times"""
+    unit = value.unit
+    array = array.to(unit)
+    idx = max(0, (array < value).argmin() - 1)
+    return idx
+
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 # Multiprocessing support
 
@@ -531,3 +545,6 @@ def _pipe_wrapped_worker(pipe, func, *args, **kwargs):
     result = func(*args, **kwargs)
     pipe.send(result)
     pipe.close()
+
+
+
