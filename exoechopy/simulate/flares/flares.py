@@ -340,6 +340,10 @@ class ParabolicRiseExponentialDecay(ProtoFlare):
 
         super().__init__(**kwargs)
 
+        assert decay > 0
+        assert onset >= 0
+        assert max_decay > 0
+
         if isinstance(onset, u.Quantity):
             self._onset = onset.to(lw_time_unit).value
         else:

@@ -219,10 +219,12 @@ kepler_read_time = u.Quantity(0.52, 's')
 kepler_sc_num_frame_sum = 9
 
 segment_start_time = u.Quantity(-180, 's')
-segment_end_time = u.Quantity(750, 's')
+segment_end_time = u.Quantity(720, 's')
 
 test_flare_rise_time = u.Quantity(32, 's')
 test_flare_decay_const = u.Quantity(64, 's')
+
+test_flare_start_time = 2.5 * test_flare_rise_time
 
 my_flare = eep.simulate.ParabolicRiseExponentialDecay(test_flare_rise_time,
                                                       test_flare_decay_const)
@@ -255,12 +257,16 @@ for test_offset in range(9):
     print("Difference: ", np.sum((summed_values_0 - summed_values_1)) ** 2)
 plt.close()
 
-test_offset = 0
+test_offset = 5
+time_offset = u.Quantity(165, 's')
+
 
 init_guess_rise_time = 8
 init_guess_decay_const = 10
-init_guess_flare_time = 11
+init_guess_flare_time = 180
 in_obs_time_domain, in_obs_lightcurve = sum_frames(times, values, kepler_sc_num_frame_sum, frame_offset=test_offset)
+
+in_obs_time_domain += time_offset
 
 obs_unit = in_obs_lightcurve.unit
 test_noise_level = 100
@@ -273,54 +279,160 @@ in_obs_lightcurve /= test_noise_level
 in_obs_lightcurve = u.Quantity(in_obs_lightcurve, obs_unit)
 
 initial_guesses = np.array((init_guess_rise_time, init_guess_decay_const, init_guess_flare_time))
-bounds = [(1E-1, np.inf), (1E-2, np.inf), (-np.inf, np.inf)]  # May need to make last bound constrained by window
+bounds = [(1E-1, np.inf), (1E-2, np.inf), (-np.inf, np.inf)]  # May need to make last bound constrained by window?
 
-f, ax = plt.subplots(ncols=9)
-for test_offset in range(9):
-    # Plot the easy stuff first:
-    ax[test_offset].plot(times, values, drawstyle='steps-post', color='k', lw=1,
-                         label='Exact solution')
-    ax[test_offset].plot(in_obs_time_domain, in_obs_lightcurve, drawstyle='steps-post', color='g', lw=1,
-                         label='Actual data')
-    print("test_offset: ", test_offset)
-    input_args = (in_obs_time_domain, in_obs_lightcurve,
-                  kepler_int_time, kepler_read_time, kepler_sc_num_frame_sum,
-                  test_offset)
-    print("len(input_args): ", len(input_args))
 
-    res = optimize.minimize(fitting_cost_function_PRED, x0=initial_guesses, args=input_args, bounds=bounds)
-    print("Exact: ", test_flare_rise_time.value, test_flare_decay_const.value, test_flare_rise_time.value)
-    print("Solved: ", res.x)
-    print("Objective function value: ", res.fun)
-    soln_str = ["{:.2f}".format(x) for x in res.x]
-    print(res.message)
-    solved_flare_rise_time, solved_flare_decay_const, solved_peak_time = res.x
-    solved_flare_rise_time = u.Quantity(solved_flare_rise_time, 's')
-    solved_flare_decay_const = u.Quantity(solved_flare_decay_const, 's')
-    solved_peak_time = u.Quantity(solved_peak_time, 's')
-    summed_times_solved, summed_values_solved = processed_PRED_signal(solved_flare_rise_time,
-                                                                      solved_flare_decay_const,
-                                                                      int_time=kepler_int_time,
-                                                                      read_time=kepler_read_time,
-                                                                      seg_start_time=segment_start_time,
-                                                                      seg_end_time=segment_end_time,
-                                                                      seg_peak_time=solved_peak_time,
-                                                                      frames_per_sum=kepler_sc_num_frame_sum,
-                                                                      frame_offset=test_offset)
-    ax[test_offset].plot(summed_times_solved + test_offset * cadence, summed_values_solved,
-                         drawstyle='steps-post', color='b', lw=1.5,
-                         label='Solved')
+# TODO:
+#  - Create a solution dict
+#  - Take the best answer(s) and provide that as the 'result' for the underlying flare
+#  - Move fitting operations into a class to reduce redundancies and chances of making a mistake
 
-    my_flare = eep.simulate.ParabolicRiseExponentialDecay(solved_flare_rise_time,
-                                                          solved_flare_decay_const)
-    new_times, new_values = integrate_flare_with_readout(start_time=segment_start_time+test_offset * cadence-solved_peak_time,
-                                                         int_time=kepler_int_time,
-                                                         read_time=kepler_read_time,
-                                                         total_time=segment_end_time - segment_start_time,
-                                                         flare_model=my_flare)
+def fit_flares(raw_data_time,
+               raw_data_values,
+               init_guess_rise_time,
+               init_guess_decay_const,
+               init_guess_flare_time,
+               int_time=kepler_int_time,
+               read_time=kepler_read_time,
+               num_frame_sum=kepler_sc_num_frame_sum):
+    result_dict = {}
+    cadence = read_time + int_time
+    for offset in range(num_frame_sum):
+        input_args = (raw_data_time, raw_data_values,
+                      int_time, read_time, num_frame_sum,
+                      offset)
+        initial_guesses = np.array((init_guess_rise_time, init_guess_decay_const, init_guess_flare_time))
+        result = optimize.minimize(fitting_cost_function_PRED, x0=initial_guesses, args=input_args, bounds=bounds)
+        params = result.x
+        rise = u.Quantity(params[0], 's')
+        decay = u.Quantity(params[1], 's')
+        flare_time = u.Quantity(params[2], 's') - offset * cadence
+        result_dict[offset] = {'rise_time': rise,
+                               'decay_const': decay,
+                               'flare_time': flare_time,
+                               'offset': offset,
+                               'cost': result.fun}
+    return result_dict
 
-    ax[test_offset].plot(new_times, new_values,
-                         drawstyle='steps-post', color='r', lw=1,
-                         label='Represented solution')
-    ax[test_offset].set_title(str(test_offset) + ", " + str(res.fun) + "\n" + str(soln_str))
-    ax[test_offset].legend()
+
+def select_best_fit(res_dict: dict):
+    best_result = None
+    best_cost = np.inf
+    for k, v in res_dict.items():
+        if v['cost'] < best_cost:
+            best_cost = v['cost']
+            best_result = v
+    return best_result
+
+
+def best_fit_flare(fit_dict, start_time, int_time, read_time, total_time):
+    fit_flare = eep.simulate.ParabolicRiseExponentialDecay(fit_dict['rise_time'],
+                                                           fit_dict['decay_const'])
+    print("start_time: ", start_time)
+    print("start_time - fit_dict['flare_time']: ", start_time - fit_dict['flare_time'])
+    print("fit_dict['flare_time']: ", fit_dict['flare_time'])
+    fit_times, fit_values = integrate_flare_with_readout(
+        start_time=start_time - fit_dict['flare_time'],
+        int_time=int_time,
+        read_time=read_time,
+        total_time=total_time,
+        flare_model=fit_flare)
+    fit_times += fit_dict['flare_time'] - fit_dict['rise_time']
+    return fit_times, fit_values
+
+
+def best_fit_to_obs(fit_dict, start_time, int_time, read_time, total_time, frames_per_sum):
+    cadence = read_time + int_time
+    fit_times, fit_values = processed_PRED_signal(fit_dict['rise_time'],
+                                                  fit_dict['decay_const'],
+                                                  int_time=int_time,
+                                                  read_time=read_time,
+                                                  seg_start_time=start_time,
+                                                  seg_end_time=total_time + start_time,
+                                                  seg_peak_time=fit_dict['flare_time'],
+                                                  frames_per_sum=frames_per_sum,
+                                                  frame_offset=0)
+    fit_times += fit_dict['flare_time'] - fit_dict['rise_time']
+    return fit_times, fit_values
+
+
+d = fit_flares(in_obs_time_domain, in_obs_lightcurve,
+               init_guess_rise_time, init_guess_decay_const, init_guess_flare_time)
+best_fit_dict = select_best_fit(d)
+
+print("Best fit: ", best_fit_dict)
+
+plt.plot(times + time_offset, values, drawstyle='steps-post', color='k', lw=1,
+         label='Exact solution')
+plt.plot(in_obs_time_domain, in_obs_lightcurve, drawstyle='steps-post', color='g', lw=1,
+         label='Actual data')
+fit_flare_times, fit_flare_values = best_fit_flare(best_fit_dict,
+                                                   in_obs_time_domain[0],
+                                                   kepler_int_time,
+                                                   kepler_read_time,
+                                                   in_obs_time_domain[-1] - in_obs_time_domain[0])
+plt.plot(fit_flare_times, fit_flare_values, drawstyle='steps-post', color='r', lw=1,
+         label='Represented solution')
+
+summed_times_solved, summed_values_solved = best_fit_to_obs(best_fit_dict,
+                                                            in_obs_time_domain[0],
+                                                            kepler_int_time,
+                                                            kepler_read_time,
+                                                            in_obs_time_domain[-1] - in_obs_time_domain[0],
+                                                            kepler_sc_num_frame_sum)
+plt.plot(summed_times_solved, summed_values_solved,
+         drawstyle='steps-post', color='b', lw=1.5,
+         label='Solved')
+
+plt.legend()
+
+# f, ax = plt.subplots(ncols=9)
+# for test_offset in range(9):
+#     # Plot the easy stuff first:
+#     ax[test_offset].plot(times + time_offset, values, drawstyle='steps-post', color='k', lw=1,
+#                          label='Exact solution')
+#     ax[test_offset].plot(in_obs_time_domain, in_obs_lightcurve, drawstyle='steps-post', color='g', lw=1,
+#                          label='Actual data')
+#     print("test_offset: ", test_offset)
+#     input_args = (in_obs_time_domain, in_obs_lightcurve,
+#                   kepler_int_time, kepler_read_time, kepler_sc_num_frame_sum,
+#                   test_offset)
+#     print("len(input_args): ", len(input_args))
+#
+#     res = optimize.minimize(fitting_cost_function_PRED, x0=initial_guesses, args=input_args, bounds=bounds)
+#     print("Exact: ", test_flare_rise_time.value, test_flare_decay_const.value, test_flare_rise_time.value)
+#     print("Solved: ", res.x)
+#     print("Objective function value: ", res.fun)
+#     soln_str = ["{:.2f}".format(x) for x in res.x]
+#     print(res.message)
+#     solved_flare_rise_time, solved_flare_decay_const, solved_peak_time = res.x
+#     solved_flare_rise_time = u.Quantity(solved_flare_rise_time, 's')
+#     solved_flare_decay_const = u.Quantity(solved_flare_decay_const, 's')
+#     solved_peak_time = u.Quantity(solved_peak_time, 's')
+#     summed_times_solved, summed_values_solved = processed_PRED_signal(solved_flare_rise_time,
+#                                                                       solved_flare_decay_const,
+#                                                                       int_time=kepler_int_time,
+#                                                                       read_time=kepler_read_time,
+#                                                                       seg_start_time=segment_start_time + time_offset,
+#                                                                       seg_end_time=segment_end_time + time_offset,
+#                                                                       seg_peak_time=solved_peak_time,
+#                                                                       frames_per_sum=kepler_sc_num_frame_sum,
+#                                                                       frame_offset=test_offset)
+#     ax[test_offset].plot(summed_times_solved + test_offset * cadence, summed_values_solved,
+#                          drawstyle='steps-post', color='b', lw=1.5,
+#                          label='Solved')
+#
+#     my_flare = eep.simulate.ParabolicRiseExponentialDecay(solved_flare_rise_time,
+#                                                           solved_flare_decay_const)
+#     new_times, new_values = integrate_flare_with_readout(
+#         start_time=segment_start_time + test_offset * cadence - solved_peak_time + time_offset,
+#         int_time=kepler_int_time,
+#         read_time=kepler_read_time,
+#         total_time=segment_end_time - segment_start_time,
+#         flare_model=my_flare)
+#
+#     ax[test_offset].plot(new_times, new_values,
+#                          drawstyle='steps-post', color='r', lw=1,
+#                          label='Represented solution')
+#     ax[test_offset].set_title(str(test_offset) + ", " + str(res.fun) + "\n" + str(soln_str))
+#     ax[test_offset].legend()
