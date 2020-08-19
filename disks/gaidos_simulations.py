@@ -1,13 +1,13 @@
-# Simulations using Gaidos (1994) model of echo strength/time delay for an optically thin disk
-
+# Simulations and analysis of flares and disk echoes using Gaidos (1994) model of an optically thin disk
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy import units as u
+from astropy import constants as const
 from exoechopy.simulate import flares
 from sklearn import metrics
 
 
-# Me being lazy; I know this function is in the echopy code somewhere but I don't feel like searching for it
+# Autocorrelation Function
 def autocorrelate_array(data_array,
                         max_lag: int,
                         min_lag: int = 0) -> np.ndarray:
@@ -34,19 +34,20 @@ def autocorrelate_array(data_array,
 class SimFlare:
     """ Generates simulated flares and disk echoes. Uses code from ExoEchoPy to generate flares, and generates disk
     echoes based on Gaidos (1994) model of echo strength for an optically thin disk. Has member functions that visualize
-    and run autocorrelation, along with evaluation via ROC curve."""
+    and run detection algorithms such as autocorrelation, along with evaluation via ROC curve."""
     
-    def __init__(self, echo_strength, quiescent_flux, onset, decay, flare_amp, pristine_array=None,
+    def __init__(self, echo_strength, quiescent_flux, onset, decay, flare_amp, inner_radius, pristine_array=None,
                  noisy_array=None, final_time_array=None, index=None,  arr_size=200, echo=True):
         """
         Parameters:
-        
+
         echo_strength: strength of the echo, as a fraction of the flare luminosity. In practice, this parameter is
         normally about 1%, but it can be tuned here for the purpose of refining detection algorithms.
         quiescent_flux: value of quiescent flux (arbitrary flux units)
         onset: flare onset time (seconds)
         decay: flare decay time (seconds)
         flare_amp: amplitude of flare (arbitrary flux units)
+        inner_radius: inner radius of the disk (AU) used to calculate echo delay times
         arr_size: length of quiescent flux array
         echo: optional; if False, no echo is generated
         """
@@ -54,6 +55,7 @@ class SimFlare:
         self.onset = onset
         self.decay = decay
         self.flare_amp = flare_amp
+        self.inner_radius = inner_radius
         self.arr_size = arr_size
         self.echo = echo
         self.echo_strength = echo_strength
@@ -65,7 +67,7 @@ class SimFlare:
     def gen_sim_flare_echo(self):
         """ Sim flare and echo function. The bread and butter. """
 
-        # Generate quiescent flux
+        # Generate quiescent flux - the background/baseline
         quiescent_list = list(np.zeros(self.arr_size) + self.quiescent_flux)  # Just a list of numbers, no units
 
         # Generate flare
@@ -74,26 +76,30 @@ class SimFlare:
         init_flare = flares.ExponentialFlare1(onset_time, decay_time)  # Onset and decay in seconds
 
         # Time domain
-        flare_time_domain = np.linspace(0, (30 * self.arr_size), self.arr_size)*u.s  # Array in units of seconds
+        flare_time_domain = np.linspace(0, (60 * self.arr_size), self.arr_size)*u.s  # Array in units of seconds
 
         # Flare intensity
         flare_arr = u.Quantity([init_flare.evaluate_at_time(t) for t in flare_time_domain]).value
         flare_intensity = flare_arr * self.flare_amp
-
+        
         # Insert flare into quiescent flux (the position is arbitrary and can be changed without affecting anything)
         pos = 50
         flare_list = list(flare_intensity + self.quiescent_flux)
         for i in range(len(flare_list)):
             quiescent_list.insert(i + pos, flare_list[i])
-
+        
         if self.echo:
             # Create echo
             _echo_ = (flare_intensity * self.echo_strength) + self.quiescent_flux
 
             # Calculate delay based on Gaidos (1994) model of echo strength
-            # this value was calculated assuming an optically thin disk with a 1 AU inner radius
-            delay = 219.18*np.sqrt(init_flare._flare_duration.value) * u.s
-            self.index = round(delay.value/30)  # The place to insert the echo in the time array
+            # this value was calculated assuming an optically thin disk
+            dist = self.inner_radius * (1.496e11 * u.m)
+            tau = (dist/const.c).value * u.s
+            delay = (tau.value/(np.sqrt(self.echo_strength) * np.sqrt(tau.value/init_flare._flare_duration.value)))*u.s
+           
+            # The place to insert the echo in the time array
+            self.index = pos + int(round(delay.value/60))
 
             # Insert the echo at the delay time
             for i in range(len(_echo_)):
@@ -104,7 +110,7 @@ class SimFlare:
         self.noisy_array = np.random.poisson(self.pristine_array)
 
         # Create new time array with new shape
-        self.final_time_array = np.linspace(0, 30*len(self.pristine_array), len(self.pristine_array)) * u.s
+        self.final_time_array = np.linspace(0, 60*len(self.pristine_array), len(self.pristine_array)) * u.s
 
         return self.noisy_array
 
@@ -123,7 +129,7 @@ class SimFlare:
         plt.show()
         
     def plot_ac(self, with_pristine=False):
-        # Plot the autocorrelation function for a SimFlare object. 
+        # Plot the autocorrelation function for a SimFlare object.
 
         # Generate pristine AC
         pr_fl_echo = self.pristine_array[0:200]
@@ -259,18 +265,20 @@ class SimFlare:
 
         plt.show()
 
-    def gen_roc(self, n):
+    def gen_roc(self, n, to_sum=0):
         """For a SimFlare object, generate n flares and generate an ROC curve based on the supplied echo strength.
 
         :param n: int, determines number of flares used to generate curve
+        :param to_sum: int, optional. If not 0, determines the amount of flares to sum to boost the signal of the curve.
+        For example, to_sum = 5 would add every 5 flares generated.
 
         """
 
         # Start with the control case -- No echoes
-        print("Echo strength:", self.echo_strength)
         no_echo_flares = []
         for i in range(0, n):
-            fl = SimFlare(self.echo_strength, self.quiescent_flux, self.onset, self.decay, self.flare_amp, echo=False)
+            fl = SimFlare(self.echo_strength, self.quiescent_flux, self.onset, self.decay, self.flare_amp,
+                          self.inner_radius, echo=False)
             flare = fl.gen_sim_flare_echo()
             no_echo_flares.append(flare)
 
@@ -284,14 +292,14 @@ class SimFlare:
         echo_indices = []
         for array in no_echo_ac:
             echo_indices.append(array[self.index - 50])
-    
+
         # Repeat with flares
-    
+
         # Generate n flares
         echo_flares = []
         for i in range(0, n):
-            fl = SimFlare(self.echo_strength, self.quiescent_flux, self.onset, self.decay, self.flare_amp)
-            print("Echo flares using echo strength of ", self.echo_strength)
+            fl = SimFlare(self.echo_strength, self.quiescent_flux, self.onset, self.decay, self.flare_amp,
+                          self.inner_radius)
             flare = fl.gen_sim_flare_echo()
             echo_flares.append(flare)
 
@@ -316,17 +324,91 @@ class SimFlare:
             tp.append(n_true_hits)
             fp.append(n_false_hits)
 
-        # Calculate AUC score 
+        # Calculate AUC score
         fp.sort()
         tp.sort()
+
         auc = metrics.auc(fp, tp)
 
         # Plot
         plt.figure(figsize=(10, 6))
         plt.xlabel("FPR")
         plt.ylabel("TPR")
-        plt.title("ROC Curve - {}% Echo Strength".format(self.echo_strength*100))
+        plt.title("ROC Curve - {}% Echo Strength \n 10K Flares".format(self.echo_strength*100))
         plt.plot(fp, tp, c="b", alpha=0.7, label="ROC Curve, AUC = {}".format(round(auc, 2)))
         plt.plot([0, 1], [0, 1], c='k', linestyle="dashed", label="random predictor")
+
+        if to_sum > 0:
+            no_echo_flare_sums = np.add.reduceat(no_echo_flares, np.arange(0, len(no_echo_flares), to_sum))
+            no_echo_flare_sums = list(no_echo_flare_sums)
+
+            no_echo_sums_ac = []
+            for flare in no_echo_flare_sums:
+                ac = autocorrelate_array(flare, max_lag=100)
+                no_echo_sums_ac.append(ac)
+
+            no_echo_sums_indices = []
+            for arr in no_echo_sums_ac:
+                no_echo_sums_indices.append(arr[self.index - 50])
+
+            echo_flare_sums = np.add.reduceat(echo_flares, np.arange(0, len(echo_flares), to_sum))
+            echo_flare_sums = list(echo_flare_sums)
+
+            echo_sums_ac = []
+            for flare in echo_flare_sums:
+                ac = autocorrelate_array(flare, max_lag=100)
+                echo_sums_ac.append(ac)
+
+            true_echo_sums_indices = []
+            for arr in echo_sums_ac:
+                true_echo_sums_indices.append(arr[self.index - 50])
+
+            tp_sum = []
+            fp_sum = []
+
+            for ac_val in true_echo_sums_indices:
+                n_true = np.sum(true_echo_sums_indices >= ac_val) / (n / to_sum)
+                n_false = np.sum(no_echo_sums_indices >= ac_val) / (n / to_sum)
+                tp_sum.append(n_true)
+                fp_sum.append(n_false)
+
+            # If the last data point in the summed curve is not (1,1), append it
+            if tp_sum[-1] != 1:
+                tp_sum.append(1)
+
+            if fp_sum[-1] != 1:
+                fp_sum.append(1)
+
+            fp_sum.sort()
+            tp_sum.sort()
+
+            auc_sum = metrics.auc(fp_sum, tp_sum)
+
+            plt.plot(fp_sum, tp_sum, c="r", label="Every %s Flares Summed, AUC = %s" % (to_sum, (round(auc_sum, 2))))
+
         plt.legend(loc=4)
         plt.show()
+
+    def plot_auc(self):
+
+        n_flares = [0, 9, 16, 25, 36, 49, 64, 81, 100]
+        auc = [0.57, 0.7, 0.77, 0.81, 0.81, 0.89, 0.91, 0.94, 0.97]
+
+        plt.figure(figsize=(12, 6))
+        plt.xlabel("Number of Flares Summed")
+        plt.ylabel("AUC Value")
+        plt.title("Summed Flares vs. AUC value")
+        plt.plot(n_flares, auc, c="k")
+        plt.ylim(0.5, 1)
+        plt.show()
+
+
+ex = SimFlare(echo_strength=0.01, quiescent_flux=100, onset=30, decay=15,
+              arr_size=200, flare_amp=3000, inner_radius=0.01)
+ex.gen_sim_flare_echo()
+ex.plot(with_pristine=True)
+ex.plot_ac(with_pristine=True)
+ex.gen_roc(10000, 4)
+ex.plot_auc()
+
+
