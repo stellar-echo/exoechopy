@@ -89,16 +89,19 @@ def interactive_lightcurve(time_domain: np.ndarray,
         ind = pos_slider.val
         width = min_zoom + max_zoom - scale_slider.val
         low_ind, high_ind = window_range(int(ind), len(time_domain)-1, int(width))
-        line1.set_data(time_domain[low_ind:high_ind], lightcurve[low_ind:high_ind])
-        ax.set_xlim(time_domain[low_ind], time_domain[high_ind])
-        y0 = np.nanmin(lightcurve[low_ind:high_ind])
-        y1 = np.nanmax(lightcurve[low_ind:high_ind])
-        dy = np.nanmax(1, (y1-y0)*.025)
-        ax.set_ylim(y0-dy, y1+dy)
-        # Future: add np.where( ) to capture correct scatter plot values
-        # I'm hesitating because the number of points will change...
-        # Also iterate through all axes
-        fig.canvas.draw_idle()
+        try:
+            ax.set_xlim(time_domain[low_ind], time_domain[high_ind])
+            line1.set_data(time_domain[low_ind:high_ind], lightcurve[low_ind:high_ind])
+            y0 = np.nanmin(lightcurve[low_ind:high_ind])
+            y1 = np.nanmax(lightcurve[low_ind:high_ind])
+            dy = np.nanmax((1, (y1-y0)*.025))
+            ax.set_ylim(y0-dy, y1+dy)
+            # Future: add np.nonzero( ) to capture correct scatter plot values
+            # I'm hesitating because the number of points will change...
+            # Also iterate through all axes
+            fig.canvas.draw_idle()
+        except ValueError:
+            pass
 
     pos_slider.on_changed(update_lightcurve_inner)
     scale_slider.on_changed(update_lightcurve_inner)
@@ -231,7 +234,8 @@ def plot_flare_array(lightcurve: np.ndarray,
                      forward_pad: int,
                      savefile: str=None,
                      display_index: bool=False,
-                     display_flare_loc: bool=True):
+                     display_flare_loc: bool=True,
+                     title: str=None):
     """Plot an array of flares extracted from a lightcurve
 
     Parameters
@@ -251,6 +255,8 @@ def plot_flare_array(lightcurve: np.ndarray,
         If True, display the flare index number from the lightcurve on each flare
     display_flare_loc
         If True, plots a red dot on top of the perceived flare peak
+    title
+        If provided, overrides the default title
     """
 
     num_flares = len(flare_indices)
@@ -275,8 +281,11 @@ def plot_flare_array(lightcurve: np.ndarray,
             all_axes[r_i, c_i].set_xticklabels([])
             all_axes[r_i, c_i].set_yticklabels([])
     fig.subplots_adjust(hspace=0, wspace=0)
-    plt.suptitle(str(num_row*num_col)+" normalized flare examples from lightcurve")
-    plt.show()
+    if title is None:
+        plt.suptitle(str(num_flares)+" normalized flare examples from lightcurve")
+    else:
+        plt.suptitle(title)
+        plt.show()
 
     if savefile is None:
         plt.show()
