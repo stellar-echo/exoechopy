@@ -86,3 +86,6 @@ def view_flares(path):
     plt.show()
 
 
+if __name__ == "__main__":
+    import sys
+    view_flares(str(sys.argv[1]))
