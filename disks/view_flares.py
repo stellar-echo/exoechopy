@@ -84,6 +84,8 @@ def view_flares(path):
     plt.title("{} - {} Total Flares Detected, {} above 6sig".format(header.get("OBJECT"), total_flares, flares_six_sigma))
     plt.legend()
     plt.show()
+    
+    print("Hello??")
 
 
 if __name__ == "__main__":
