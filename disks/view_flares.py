@@ -73,7 +73,7 @@ def view_flares(path):
     peaks_six_overlap = list(set(peaks) & set(peaks_six))
 
     # Visualize
-    fig, ax = plt.subplots(2)
+    fig, ax = plt.subplots(2, figsize = (12,6))
     plt.suptitle("{} - {} Total Flares Detected, {} above 6sig".format(header.get("OBJECT"), total_flares, flares_six_sigma))
     ax[0].plot(lc.flux, label="Raw Flux")
     ax[1].plot(lc_detr.flux, label = "Detrended Flux")
