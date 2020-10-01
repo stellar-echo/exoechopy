@@ -84,8 +84,8 @@ def view_flares(path):
     #plt.xlabel("Index")
     #plt.ylabel("Detrended Flux")
     #plt.title("{} - {} Total Flares Detected, {} above 6sig".format(header.get("OBJECT"), total_flares, flares_six_sigma))
-    ax[0].legend()
-    ax[1].legend()
+    # ax[0].legend()
+    # ax[1].legend()
     plt.savefig("{}.png".format(header.get("OBJECT")))
 
 
