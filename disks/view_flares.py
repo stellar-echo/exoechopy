@@ -26,12 +26,12 @@ def view_flares(path):
     time = lc_raw[1].data["TIME"]
 
     lc = lk.LightCurve(time=time, flux=raw_flux)
-    lc = lc.remove_nans().flatten()
+    lc_detr = lc.remove_nans().flatten()
 
     # Different cadences require different flare detection windows
     cadence = header.get("OBSMODE")
     if cadence == "short cadence":
-        x = lc.flux
+        x = lc_detr.flux
         median = np.median(x)
         sigma = np.std(x)
 
@@ -44,7 +44,7 @@ def view_flares(path):
         flares_six_sigma.append(len(peaks_six))
 
     else:
-        y = lc.flux
+        y = lc_detr.flux
         median = np.median(y)
         sigma = np.std(y)
 
@@ -73,16 +73,19 @@ def view_flares(path):
     peaks_six_overlap = list(set(peaks) & set(peaks_six))
 
     # Visualize
-    plt.figure(figsize=(12, 6))
-    plt.plot(lc.flux, label="Detrended Flux")
-    plt.plot(peaks, flare_heights, "x", label="Detected Flares at 3 Sigma")
-    plt.plot(peaks_six, flare_heights_six, "o", c="r", label="Detected Flares at 6 Sigma")
-    plt.axhline(3*np.std(lc.flux) + np.median(lc.flux), c="k", alpha=0.5, linestyle="dotted", label="3 sigma threshold")
-    plt.axhline(6*np.std(lc.flux) + np.median(lc.flux), c="k", alpha=0.5, linestyle="dashed", label="6 sigma threshold")
-    plt.xlabel("Index")
-    plt.ylabel("Detrended Flux")
-    plt.title("{} - {} Total Flares Detected, {} above 6sig".format(header.get("OBJECT"), total_flares, flares_six_sigma))
-    plt.legend()
+    fig, ax = plt.subplots(2)
+    plt.suptitle("{} - {} Total Flares Detected, {} above 6sig".format(header.get("OBJECT"), total_flares, flares_six_sigma))
+    ax[0].plot(lc.flux, label="Raw Flux")
+    ax[1].plot(lc_detr.flux, label = "Detrended Flux")
+    ax[1].plot(peaks, flare_heights, "x", label="Detected Flares at 3 Sigma")
+    ax[1].plot(peaks_six, flare_heights_six, "o", c="r", label="Detected Flares at 6 Sigma")
+    ax[1].axhline(3*np.std(lc.flux) + np.median(lc.flux), c="k", alpha=0.5, linestyle="dotted", label="3 sigma threshold")
+    ax[1].axhline(6*np.std(lc.flux) + np.median(lc.flux), c="k", alpha=0.5, linestyle="dashed", label="6 sigma threshold")
+    #plt.xlabel("Index")
+    #plt.ylabel("Detrended Flux")
+    #plt.title("{} - {} Total Flares Detected, {} above 6sig".format(header.get("OBJECT"), total_flares, flares_six_sigma))
+    ax[0].legend()
+    ax[1].legend()
     plt.savefig("{}.png".format(header.get("OBJECT")))
 
 
