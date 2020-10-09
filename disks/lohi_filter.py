@@ -1,4 +1,34 @@
-# lightcurve_filter
+'''
+ lohi_filter
+ 
+   routines to do butterworth filtering on flux data with
+   nan-masked data. Expect ordered, uniformly spaced elements
+   in time arrays T, with corresponding flux F
+ 
+   main software products:
+   
+   slowfluctuations(T,F, tsmoo): estimates slow, detrended rms fluctuations
+   lohi_filter(T, F, tsmoo, flarethresh=1e99, gapfill=False): use this!
+         returns lowpass, hipass filtered flux with (limited) flare masking
+
+   internal, utility routines:
+
+   butter_highpass(cutoff, fs, order=orderdef): the filter
+   butter_highpass_filter(data, cutoff, fs, order=orderdef): does filtering
+   nangapfill(T,F): fills in nan masked regions in time, flux arrays
+   hipass_filter_basic(t,f,tcut): does high pass, freq=1/tcut
+   lohi_filter_nangap(T,F,tsmoo,gapfill=False): does lo+hi filtering
+   passband_filter(T,F, tshort, tlong): does passband...
+
+   globals:
+
+   orderdef: order of the Butterworth filter
+
+
+
+ bcb 2020
+'''
+
 import numpy as np
 import scipy.interpolate as interp
 import scipy.signal as signal
@@ -6,12 +36,14 @@ import scipy.signal as signal
 orderdef = 4
 
 def butter_highpass(cutoff, fs, order=orderdef):
+    global orderdef
     nyq = 0.5 * fs
     normal_cutoff = cutoff / nyq
     b, a = signal.butter(order, normal_cutoff, btype='high', analog=False)
     return b, a
 
 def butter_highpass_filter(data, cutoff, fs, order=orderdef):
+    global orderdef
     b, a = butter_highpass(cutoff, fs, order=order)
     y = signal.filtfilt(b, a, data)
     return y
@@ -34,10 +66,24 @@ def nangapfill(T,F):
         f[msk] = np.interp(np.flatnonzero(msk), np.flatnonzero(~msk), f[~msk])
     return t,f
 
-def filter_lohi(T,F,tsmoo,gapfill=False):
+
+def hipass_filter_basic(t,f,tsmoo):
+    # all is expected to be good here:
+    # t: array of sampling times, uniform
+    # f: array of samples (same size as t)
+    # tsmoo: smoothing time scale
+    dtest = t[1]-t[0]
+    freqmax = 1/dtest
+    freqcut = 1/tsmoo
+    ffilter = butter_highpass_filter(f,freqcut,freqmax)
+    return ffilter
+
+
+def lohi_filter_nangap(T,F,tsmoo,gapfill=False):
+
     # splits signal F(T) into low-pass, high-pass components,
     # 1/tsmoo is the delineating frequency.
-    # note: if there nans in T or F, this code does its best to
+    # note: if there are nans in T or F, this code does its best to
     # fill in the gaps.
     #
     # T: array, uniformly sampled times, expect equally spaced.
@@ -49,12 +95,10 @@ def filter_lohi(T,F,tsmoo,gapfill=False):
     # flo, fhi: arrays with lo, hi-pass filtered data
 
     dtest = T[1]-T[0]  # we will need delta_T
-    t,f = T[:],F[:]
+    t = np.copy(T)
+    f = np.copy(F)
     t,f = nangapfill(t,f) # do this no matter what...
-    dtest = t[1]-t[0]
-    freqmax = 1/dtest
-    freqcut = 1/tsmoo
-    ffilter = butter_highpass_filter(f,freqcut,freqmax)
+    ffilter = hipass_filter_basic(t,f,tsmoo)
     if gapfill == False: # restore the nans
         t[np.isnan(T)] = np.nan
         msk = np.isnan(F)
@@ -62,30 +106,62 @@ def filter_lohi(T,F,tsmoo,gapfill=False):
         f[msk] = np.nan
     return t,f-ffilter,ffilter
 
-def fstd(f,uselower=False):
-    if uselower:
-        fmed = np.nanmedian(f)
-        ffaint = f[f<=fmed]
-        std = np.sqrt(np.mean((ffaint-fmed)**2))
-    else:
-        std = np.nanstd(f)
-    return std
 
-def slowfluctuations(T,F, tsmoo, gapfill = False):
-    # trotationmin: stellar rotation time scale -- min value
+def passband_filter(T,F, tshort, tlong):
+    # "Nan-gap"-compliant pass-band filter.
+    # T,F: arrays, (orderedm uniformly sampled) time and flux.
+    # tshort, tlong are times that define the pass band.  freq=1/time,
+    td,flod,fhid = lohi_filter_nangap(T,F,tlong)
+    ts,flos,fhis = lohi_filter_nangap(T,F,tshort)
+    fpass = flod-flos
+    return td,fpass
+
+def slowfluctuations(T,F, tsmoo):
+    #
+    # assessment of the fluctuations in the lightcurve F as function of T
+    # in a passband that runs from frequency range  (0.25--1)1*1/tsmoo
+    # or 4/(T[-1]-T[0]), whichever is broader.
+    # 
+    # the idea is to detrend on a large a timescale tdetrend=((T[-1]-T[0])/4)
+    # and then delineate slow and fast fluctuations rel to tsmoo.
+    # Returns:
+    # stddev: std dev = rms of passband-filtered signal (1/tdetrend,1/tsmoo)
+    # 
     delt = np.nanmax(T)-np.nanmin(T)
-    tdetrend = max(0.25*delt,2*tsmoo)
+    tdetrend = 0.25*delt
     if tdetrend<=tsmoo:
-        print(f'can not detrend in {__name__}.lohi()')
-        quit()
-    td,flod,fhid = filter_lohi(T,F,tdetrend,gapfill=gapfill)
-    ts,flos,fhis = filter_lohi(T,F,tsmoo,gapfill=gapfill)
-    dfsmoo = flod-flos
-    smed = np.nanmedian(flos)
-    sstd = fstd(dfsmoo)
-    return smed,sstd,ts,dfsmoo
+        pass
+        #print(f'can not detrend in {__name__}.lohi()')
+        #quit()
+    td, dfsmoo = passband_filter(T,F,tsmoo,tdetrend)
+    sstd = np.nanstd(dfsmoo)
+    return sstd
 
+def lohi_filter(T, F, tsmoo, flarethresh=1e99, gapfill=False):
+    #
+    # extracts lopass and hipass signals with a crude flare removal.
+    # T: array of sample times, uniformly spaced, may contain nans
+    # F: array of samples, may contain nans
+    # flarethresh: z-score of flux peaks that are nan'd out in
+    #     the final lopass calculation
+    #     mean and stddev 
+    #
+    ts,flos,fhis = lohi_filter_nangap(T,F,tsmoo,gapfill=gapfill)
+    if (flarethresh < 1e33):
+        if (gapfill == False):
+            mskgap = np.isnan(F)
+        fstd = np.nanstd(fhis)
+        fmean = np.nanmean(fhis)
+        msk = fhis>flarethresh*fstd
+        Fclip = np.copy(F)
+        Fclip[msk]=np.nan
+        ts,flos,fhis = lohi_filter_nangap(T,Fclip,tsmoo,gapfill=True)
+        if (gapfill == False):
+            flos[mskgap] = F[mskgap]
+            ts = T
+    return ts, flos, F-flos
 
+ 
 if __name__ == "__main__" :
 
     import matplotlib
@@ -96,7 +172,7 @@ if __name__ == "__main__" :
     # looking for this...
 
     file = 'au_mic.lc.npy'
-    #file = ['kepler_candidate5_time.npy','kepler_candidate5_flux.npy']
+    file = ['kepler_candidate5_time.npy','kepler_candidate5_flux.npy']
     if isinstance(file,list):
         t = np.load(file[0])
         pdc = np.load(file[1])
@@ -108,10 +184,12 @@ if __name__ == "__main__" :
         pdc = xs[:]
 
     fmed = np.nanmedian(pdc)
-    fbgfluctuate = fstd(pdc,uselower=True)
+    fbgfluctuate = np.nanstd(pdc)
     delt = t[-1]-t[0]
     
-    tsmoo = [1,2,4,0.25*delt]
+    tsmoo = [0.5,1,2,4]
+    fthresh=3.0 # clips flares at this z-score when filtering 
+    # fthresh=1e99
 
     # plot stuff
     fig, ax = plt.subplots(1, 1, constrained_layout=True)  #  was set for 2x1
@@ -132,9 +210,9 @@ if __name__ == "__main__" :
     ax.text(t[-1]+xoff,np.nanmedian(y+yoff),label)
     #plt.xlim(0,10)
     for i,ts in enumerate(tsmoo):
-        tt,fflo,ffhi = filter_lohi(t,pdc,ts,gapfill=False)
-        smed,sstd,_,_ =  slowfluctuations(t,pdc,ts)
-        print(f'rel slow fluctuation amp: {sstd/smed}')
+        tt,fflo,ffhi = lohi_filter(t,pdc,ts,flarethresh=fthresh,gapfill=False)
+        relslowstd =  slowfluctuations(t,pdc,ts) / np.nanmean(pdc)
+        print(f'rel stellar fluctuations (scale {ts} d): {relslowstd}')
         yoff = i * dyoff
         y = ffhi if (plothipass) else fflo
         label = f'{ts} d'
