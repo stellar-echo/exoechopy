@@ -159,9 +159,6 @@ def star_info(path, hist=True, plot_ac=True, plot_ind_flares=True, lombscarg=Tru
         peaks, peak_val = find_peaks(x, height=three_sig, distance=30)
         total_flares.append(len(peaks))
 
-        print(peaks)
-        print(type(peaks))
-
         six_sig = median + (6*sigma)
         peaks_six, peak_val_six = find_peaks(x, height=six_sig, distance=30)
         flares_six_sigma.append(len(peaks_six))
@@ -213,7 +210,7 @@ def star_info(path, hist=True, plot_ac=True, plot_ind_flares=True, lombscarg=Tru
     # Histogram
     if hist:
         plt.figure(figsize=(12, 6))
-        plt.hist(flare_heights, bins=50, density=True, color="g")
+        plt.hist(flare_heights, bins=50, color="k")
         plt.title("Flare Magnitude Histogram for {} Quarter {}".format(header.get("OBJECT"), header.get("QUARTER")))
         plt.xlabel("Detrended Flare Magnitude")
         plt.ylabel("Count")
