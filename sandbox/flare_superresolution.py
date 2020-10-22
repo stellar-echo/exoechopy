@@ -5,6 +5,8 @@ from scipy import optimize
 
 __all__ = ['FitFlareSuperresolutionPRED']
 
+# TODO - handle double/multi-peak flares
+# TODO - handle deweighting pixels
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
@@ -345,7 +347,7 @@ if __name__ == '__main__':
     cadence = int_time + read_time
     frame_sum = 1
 
-    my_time = u.Quantity(np.arange(-50, 100, cadence * frame_sum), 's')
+    my_time = u.Quantity(np.arange(-50, 150, cadence * frame_sum), 's')
 
     my_flare_time = u.Quantity(7, 's')
     my_flare_onset = u.Quantity(14, 's')

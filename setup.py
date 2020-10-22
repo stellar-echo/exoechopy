@@ -1,4 +1,4 @@
-#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
 #                                                                              #
 #                       OOOOOOOOO---------------OOOOOOOOO                      #
 #                       OOOOO-----------------------OOOOO                      #
@@ -17,11 +17,10 @@
 #                                                                              #
 #                                Nanohmics, Inc.                               #
 #                                                                              #
-#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
 
 
 from setuptools import setup, find_packages
-
 
 # configure setup
 setup(
@@ -31,20 +30,31 @@ setup(
     long_description='',
     author='Nanohmics, Inc.',
     author_email='cmann@nanohmics.com',
-    packages=find_packages( exclude = ('sandbox', 'tests') ),
+    # packages=find_packages(exclude=('sandbox', 'tests')),
+    packages=['exoechopy',
+              'exoechopy.analyze',
+              'exoechopy.experiment',
+              'exoechopy.io',
+              'exoechopy.simulate',
+              'exoechopy.utils',
+              'exoechopy.vestigials',
+              'exoechopy.visualize',
+              'disks',
+              'docs',
+              'examples'],
     test_suite='tests.test_suite',
     dependency_links=[],
     python_requires='>=3.6',
     install_requires=[
-    'numpy >= 1.11',
-    'scipy >= 0.18',
-    'matplotlib >= 3',
-    'pandas >= 0.23',
-    'astropy >= 3.0.4'],
+        'numpy >= 1.11',
+        'scipy >= 0.18',
+        'matplotlib >= 3',
+        'pandas >= 0.23',
+        'astropy >= 3.0.4'],
     extras_require={
-    'docs': [
-      'sphinx >= 1.5',
-      'sphinx_rtd_theme >= 0.1.9', ]},
+        'docs': [
+            'sphinx >= 1.5',
+            'sphinx_rtd_theme >= 0.1.9', ]},
     keywords=['astronomy', 'astrophysics', 'cosmology', 'space', 'science',
               'units', 'table', 'wcs', 'samp', 'coordinate', 'fits',
               'modeling', 'models', 'fitting', 'exoplanet', 'detection'],

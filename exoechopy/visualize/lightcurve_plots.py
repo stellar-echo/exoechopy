@@ -1,4 +1,3 @@
-
 """
 This module generates plots of lightcurves for diagnostic and visualization purposes.
 """
@@ -14,6 +13,7 @@ from ..simulate import *
 __all__ = ['interactive_lightcurve', 'render_telescope_lightcurve',
            'plot_flare_array']
 
+
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 # TODO generalize render_telescope_lightcurve, make it work outside the demo
@@ -22,8 +22,8 @@ __all__ = ['interactive_lightcurve', 'render_telescope_lightcurve',
 
 def interactive_lightcurve(time_domain: np.ndarray,
                            lightcurve: np.ndarray,
-                           flare_inds: np.ndarray=None,
-                           max_plot_points: int=5000):
+                           flare_inds: np.ndarray = None,
+                           max_plot_points: int = 5000):
     """Provides an interactive plot of a lightcurve
 
     Parameters
@@ -40,16 +40,16 @@ def interactive_lightcurve(time_domain: np.ndarray,
 
     """
     if len(time_domain) <= max_plot_points:
-        max_plot_points = len(time_domain)-1
+        max_plot_points = len(time_domain) - 1
 
     if isinstance(time_domain, u.Quantity):
-        x_label = "Time ("+u_labelstr(time_domain)+")"
+        x_label = "Time (" + u_labelstr(time_domain) + ")"
         time_domain = time_domain.value
     else:
         x_label = "Time"
 
     if isinstance(lightcurve, u.Quantity):
-        y_label = "Intensity ("+u_labelstr(lightcurve)+")"
+        y_label = "Intensity (" + u_labelstr(lightcurve) + ")"
         lightcurve = lightcurve.value
     else:
         y_label = "Intensity (arb)"
@@ -72,7 +72,7 @@ def interactive_lightcurve(time_domain: np.ndarray,
     pos_ax = plt.axes([0.1, 0.1, 0.65, 0.03], facecolor=slider_bg_color)
     scale_ax = plt.axes([0.1, 0.15, 0.65, 0.03], facecolor=slider_bg_color)
 
-    pos_slider = Slider(pos_ax, "Time", 0, len(time_domain), valinit=max_plot_points//2, valstep=1)
+    pos_slider = Slider(pos_ax, "Time", 0, len(time_domain), valinit=max_plot_points // 2, valstep=1)
     min_zoom = 100
     max_zoom = max_plot_points
     scale_slider = Slider(scale_ax,
@@ -88,14 +88,14 @@ def interactive_lightcurve(time_domain: np.ndarray,
     def update_lightcurve_inner(val):
         ind = pos_slider.val
         width = min_zoom + max_zoom - scale_slider.val
-        low_ind, high_ind = window_range(int(ind), len(time_domain)-1, int(width))
+        low_ind, high_ind = window_range(int(ind), len(time_domain) - 1, int(width))
         try:
             ax.set_xlim(time_domain[low_ind], time_domain[high_ind])
             line1.set_data(time_domain[low_ind:high_ind], lightcurve[low_ind:high_ind])
             y0 = np.nanmin(lightcurve[low_ind:high_ind])
             y1 = np.nanmax(lightcurve[low_ind:high_ind])
-            dy = np.nanmax((1, (y1-y0)*.025))
-            ax.set_ylim(y0-dy, y1+dy)
+            dy = np.nanmax((1, (y1 - y0) * .025))
+            ax.set_ylim(y0 - dy, y1 + dy)
             # Future: add np.nonzero( ) to capture correct scatter plot values
             # I'm hesitating because the number of points will change...
             # Also iterate through all axes
@@ -153,9 +153,9 @@ def render_telescope_lightcurve(telescope: Telescope,
         max_plot_points = max_plot_points[1]
 
     time_domain = telescope._time_domain[min_plot_points:max_plot_points]
-    dt = time_domain[1]-time_domain[0]
+    dt = time_domain[1] - time_domain[0]
     #  Convert from counts to ct/s and crop out excess points:
-    lightcurve = telescope._pure_lightcurve[min_plot_points:max_plot_points]/dt
+    lightcurve = telescope._pure_lightcurve[min_plot_points:max_plot_points] / dt
 
     min_time = time_domain[0]
     max_time = time_domain[-1]
@@ -172,11 +172,11 @@ def render_telescope_lightcurve(telescope: Telescope,
     ax_array[0].plot(time_domain, lightcurve,
                      color='k', lw=1., drawstyle='steps-post', label="Lightcurve")
 
-    ax_array[0].scatter(flare_times, np.ones(len(flare_times))*np.median(lightcurve),
+    ax_array[0].scatter(flare_times, np.ones(len(flare_times)) * np.median(lightcurve),
                         marker="^", color=flare_color)
     ax_array[0].set_xlim(time_domain[0].value, time_domain[-1].value)
-    ax_array[0].set_ylim(np.min(lightcurve.value)*.95,
-                         np.max(lightcurve.value)*1.1)
+    ax_array[0].set_ylim(np.min(lightcurve.value) * .95,
+                         np.max(lightcurve.value) * 1.1)
     ax_array[0].set_ylabel(u_labelstr(lightcurve))
     ax_array[0].text(.025, .95,
                      "Telescope generates the flares (each marker represents a flare), "
@@ -187,8 +187,8 @@ def render_telescope_lightcurve(telescope: Telescope,
     ax_array[1].scatter(flare_times, telescope._all_earth_flare_angles[time_mask],
                         color=flare_color, marker='^', s=12, label="earth_flare_angles")
     ax_array[1].set_xlim(time_domain[0].value, time_domain[-1].value)
-    ax_array[1].set_ylim(0, np.pi*1.2)
-    ax_array[1].set_ylabel("Angle ("+u_labelstr(telescope._all_earth_flare_angles)+")")
+    ax_array[1].set_ylim(0, np.pi * 1.2)
+    ax_array[1].set_ylabel("Angle (" + u_labelstr(telescope._all_earth_flare_angles) + ")")
     ax_array[1].text(.025, .95,
                      "Flare angle relative to Earth depends on star rotation and where it spawns",
                      transform=ax_array[1].transAxes, verticalalignment='top', horizontalalignment='left')
@@ -209,7 +209,7 @@ def render_telescope_lightcurve(telescope: Telescope,
         ar = telescope.observation_target._active_region_list[0]
         long_, lat_ = ar.center_of_region
 
-        angle_array = np.abs(long_-telescope.observation_target.get_rotation(time_domain))
+        angle_array = np.abs(long_ - telescope.observation_target.get_rotation(time_domain))
         ax_array[1].plot(time_domain, angle_array,
                          color='wheat', zorder=0, ls='--', lw=1)
         limb_exact = [telescope.observation_target.star_limb(ai)
@@ -225,6 +225,7 @@ def render_telescope_lightcurve(telescope: Telescope,
         plt.savefig(savefile)
         plt.close()
 
+
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 
@@ -232,10 +233,10 @@ def plot_flare_array(lightcurve: np.ndarray,
                      flare_indices: np.ndarray,
                      back_pad: int,
                      forward_pad: int,
-                     savefile: str=None,
-                     display_index: bool=False,
-                     display_flare_loc: bool=True,
-                     title: str=None):
+                     savefile: str = None,
+                     display_index: bool = False,
+                     display_flare_loc: bool = True,
+                     title: str = None):
     """Plot an array of flares extracted from a lightcurve
 
     Parameters
@@ -270,7 +271,7 @@ def plot_flare_array(lightcurve: np.ndarray,
             lightcurve[flare_index - back_pad:flare_index + forward_pad],
             color='k', lw=1, drawstyle='steps-post')
         if display_index:
-            all_axes[r_i, c_i].text(.95, .95, "i="+str(flare_index),
+            all_axes[r_i, c_i].text(.95, .95, "i=" + str(flare_index),
                                     transform=all_axes[r_i, c_i].transAxes,
                                     verticalalignment='top', horizontalalignment='right',
                                     color='b')
@@ -282,10 +283,10 @@ def plot_flare_array(lightcurve: np.ndarray,
             all_axes[r_i, c_i].set_yticklabels([])
     fig.subplots_adjust(hspace=0, wspace=0)
     if title is None:
-        plt.suptitle(str(num_flares)+" normalized flare examples from lightcurve")
+        plt.suptitle(str(num_flares) + " normalized flare examples from lightcurve")
     else:
         plt.suptitle(title)
-        plt.show()
+        # plt.show()
 
     if savefile is None:
         plt.show()
