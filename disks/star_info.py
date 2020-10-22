@@ -8,6 +8,20 @@ from astropy.timeseries import LombScargle
 import os
 
 # Workaround until I sort out importing from echopy on the server
+def row_col_grid(num_pts: int) -> (int, int):
+    """Generate a number of rows and columns for displaying a grid of num_pts objects
+    Parameters
+    ----------
+    num_pts
+        Number of values to break into rows and columns
+    Returns
+    -------
+    tuple
+        rows, columns
+    """
+    return int(np.sqrt(num_pts)), int(np.ceil(num_pts/int(np.sqrt(num_pts))))
+
+# Workaround pt 2
 def plot_flare_array(lightcurve: np.ndarray,
                      flare_indices: np.ndarray,
                      back_pad: int,
@@ -72,7 +86,7 @@ def plot_flare_array(lightcurve: np.ndarray,
         plt.savefig(savefile)
         plt.close()
 
-# Workaround pt 2
+# Workaround pt 3
 def autocorrelate_array(data_array,
                         max_lag: int,
                         min_lag: int=0) -> np.ndarray:
