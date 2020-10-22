@@ -3,11 +3,76 @@ import matplotlib.pyplot as plt
 from astropy.io import fits
 import lightkurve as lk
 from scipy.signal import find_peaks
-from exoechopy.visualize import plot_flare_array
+# from exoechopy.visualize import plot_flare_array
 from astropy.timeseries import LombScargle
 import os
 
+# Workaround until I sort out importing from echopy on the server
+def plot_flare_array(lightcurve: np.ndarray,
+                     flare_indices: np.ndarray,
+                     back_pad: int,
+                     forward_pad: int,
+                     savefile: str=None,
+                     display_index: bool=False,
+                     display_flare_loc: bool=True,
+                     title: str=None):
+    """Plot an array of flares extracted from a lightcurve
+    Parameters
+    ----------
+    lightcurve
+        Raw data to extract flare curve profiles from
+    flare_indices
+        Indices to plot around
+    back_pad
+        Indices before each flare index to include in plot
+    forward_pad
+        Indices after each flare index to include in plot
+    savefile
+        If None, runs plt.show()
+        If filepath str, saves to savefile location (must include file extension)
+    display_index
+        If True, display the flare index number from the lightcurve on each flare
+    display_flare_loc
+        If True, plots a red dot on top of the perceived flare peak
+    title
+        If provided, overrides the default title
+    """
 
+    num_flares = len(flare_indices)
+
+    num_row, num_col = row_col_grid(num_flares)
+    fig, all_axes = plt.subplots(num_row, num_col, figsize=(10, 6))
+    for f_i, flare_index in enumerate(flare_indices):
+        c_i = f_i // num_row
+        r_i = f_i - num_row * c_i
+        all_axes[r_i, c_i].plot(
+            lightcurve[flare_index - back_pad:flare_index + forward_pad],
+            color='k', lw=1, drawstyle='steps-post')
+        if display_index:
+            all_axes[r_i, c_i].text(.95, .95, "i="+str(flare_index),
+                                    transform=all_axes[r_i, c_i].transAxes,
+                                    verticalalignment='top', horizontalalignment='right',
+                                    color='b')
+        if display_flare_loc:
+            all_axes[r_i, c_i].scatter(back_pad, lightcurve[flare_index], color='r')
+    for r_i in range(num_row):
+        for c_i in range(num_col):
+            all_axes[r_i, c_i].set_xticklabels([])
+            all_axes[r_i, c_i].set_yticklabels([])
+    fig.subplots_adjust(hspace=0, wspace=0)
+    if title is None:
+        plt.suptitle(str(num_flares)+" normalized flare examples from lightcurve")
+    else:
+        plt.suptitle(title)
+        plt.show()
+
+    if savefile is None:
+        plt.show()
+    else:
+        plt.savefig(savefile)
+        plt.close()
+
+# Workaround pt 2
 def autocorrelate_array(data_array,
                         max_lag: int,
                         min_lag: int=0) -> np.ndarray:
@@ -33,11 +98,13 @@ def autocorrelate_array(data_array,
     # Need to center the data before returning:
     return corr_vals[len(corr_vals)//2+min_lag:len(corr_vals)//2+max_lag+1]/corr_vals[len(corr_vals)//2]
 
+# ------------------------------------------------------------------------------------------------------- # 
 
-def view_flares(path, hist=False, plot_ac=True, plot_ind_flares=True, lombscarg=True):
+# My code
+def star_info(path, hist=False, plot_ac=True, plot_ind_flares=True, lombscarg=True):
     """
     Plots a de-trended Kepler light curve, with peaks marked at different thresholds according to the
-    find_peaks() function.
+    find_peaks() function. Optional parameters provide more detailed star information.
 
     :param path: Path to the desired file. Must be a fits file
     :param hist: if True, plots and saves a histogram of flare magnitude
@@ -53,6 +120,7 @@ def view_flares(path, hist=False, plot_ac=True, plot_ind_flares=True, lombscarg=
     if not os.path.exists("detailed_star_info/{}/Q{}".format(header.get("OBJECT"), header.get("QUARTER"))):
         os.makedirs("detailed_star_info/{}/Q{}".format(header.get("OBJECT"), header.get("QUARTER")))
 
+    # Store flares based on sigma thresholds
     total_flares = []
     flares_six_sigma = []
 
@@ -61,7 +129,8 @@ def view_flares(path, hist=False, plot_ac=True, plot_ind_flares=True, lombscarg=
     raw_flux = lc_raw[1].data["PDCSAP_FLUX"]
 
     time = lc_raw[1].data["TIME"]
-
+    
+    # Lightkurve makes things easier
     lc = lk.LightCurve(time=time, flux=raw_flux)
     lc_detr = lc.remove_nans().flatten()
 
@@ -125,14 +194,9 @@ def view_flares(path, hist=False, plot_ac=True, plot_ind_flares=True, lombscarg=
     ax[1].axhline(6*np.std(lc.flux) + np.median(lc.flux), c="k", alpha=0.5, linestyle="dashed", label="6 sigma threshold")
     ax[1].axhline(1.01, c="k", alpha=0.5, linestyle="dashdot")
     ax[1].axhline(1.04, c="k", alpha=0.4)
-    # plt.xlabel("Index")
-    # plt.ylabel("Detrended Flux")
-    # plt.title("{} Quarter {} - {} Total Flares Detected, {} above 6sig".format(header.get("OBJECT"),
-    #                                                                           header.get("QUARTER"),
-    #                                                                           total_flares, flares_six_sigma))
-    # plt.legend()
     plt.savefig("detailed_star_info/{}/Q{}/lc_flares_marked.png".format(header.get("OBJECT"), header.get("QUARTER")))
 
+    # Histogram
     if hist:
         plt.figure(figsize=(12, 6))
         plt.hist(flare_heights, bins=50, density=True, color="g")
@@ -141,7 +205,7 @@ def view_flares(path, hist=False, plot_ac=True, plot_ind_flares=True, lombscarg=
         plt.ylabel("Count")
         plt.savefig("detailed_star_info/{}/Q{}/flare magnitude hist.png".format(header.get("OBJECT"),
                                                                                header.get("QUARTER")))
-
+    # Autocorrelation plot
     if plot_ac:
 
         lc = lk.LightCurve(time=time, flux=raw_flux)
@@ -166,7 +230,7 @@ def view_flares(path, hist=False, plot_ac=True, plot_ind_flares=True, lombscarg=
             plot_flare_array(lc.flux, peaks, 5, 10, display_index=True,
                              savefile="detailed_star_info/{}/Q{}/flare_arr.png".format(header.get("OBJECT"),
                                                                                    header.get("QUARTER")))
-
+    # Naive periodogram
     if lombscarg:
         freq, power = LombScargle(lc.time, lc.flux).autopower()
 
@@ -177,7 +241,7 @@ def view_flares(path, hist=False, plot_ac=True, plot_ind_flares=True, lombscarg=
         plt.title("Lomb-Scargle for {} Q{}".format(header.get("OBJECT"), header.get("QUARTER")))
         plt.savefig("detailed_star_info/{}/Q{}/LombScarg.png".format(header.get("OBJECT"), header.get("QUARTER")))
 
-
+# Run from command line
 if __name__ == "__main__":
     import sys
     star_info(str(sys.argv[1]))
