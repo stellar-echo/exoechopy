@@ -239,11 +239,11 @@ def star_info(path, hist=False, plot_ac=True, plot_ind_flares=True, lombscarg=Tr
         if header.get("OBSMODE") == "short cadence":
             plot_flare_array(lc.flux, peaks, 10, 30, display_index=True,
                              savefile="detailed_star_info/{}/Q{}/flare_arr.png".format(header.get("OBJECT"),
-                                                                                      header.get("QUARTER")))
+                                                                                       header.get("QUARTER")))
         else:
             plot_flare_array(lc.flux, peaks, 5, 10, display_index=True,
                              savefile="detailed_star_info/{}/Q{}/flare_arr.png".format(header.get("OBJECT"),
-                                                                                   header.get("QUARTER")))
+                                                                                       header.get("QUARTER")))
     # Naive periodogram
     if lombscarg:
         freq, power = LombScargle(lc.time, lc.flux).autopower()
