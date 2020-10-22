@@ -115,7 +115,7 @@ def autocorrelate_array(data_array,
 # ------------------------------------------------------------------------------------------------------- # 
 
 # My code
-def star_info(path, hist=False, plot_ac=True, plot_ind_flares=True, lombscarg=True):
+def star_info(path, hist=True, plot_ac=True, plot_ind_flares=True, lombscarg=True):
     """
     Plots a de-trended Kepler light curve, with peaks marked at different thresholds according to the
     find_peaks() function. Optional parameters provide more detailed star information.
