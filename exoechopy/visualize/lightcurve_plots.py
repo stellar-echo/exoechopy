@@ -261,14 +261,15 @@ def plot_flare_array(lightcurve: np.ndarray,
     """
 
     num_flares = len(flare_indices)
-
+    if num_flares == 0:
+        return None
     num_row, num_col = row_col_grid(num_flares)
     fig, all_axes = plt.subplots(num_row, num_col, figsize=(10, 6))
     for f_i, flare_index in enumerate(flare_indices):
         c_i = f_i // num_row
         r_i = f_i - num_row * c_i
         all_axes[r_i, c_i].plot(
-            lightcurve[flare_index - back_pad:flare_index + forward_pad],
+            lightcurve[max(0, flare_index - back_pad):min(flare_index + forward_pad, len(lightcurve))],
             color='k', lw=1, drawstyle='steps-post')
         if display_index:
             all_axes[r_i, c_i].text(.95, .95, "i=" + str(flare_index),
@@ -286,7 +287,6 @@ def plot_flare_array(lightcurve: np.ndarray,
         plt.suptitle(str(num_flares) + " normalized flare examples from lightcurve")
     else:
         plt.suptitle(title)
-        # plt.show()
 
     if savefile is None:
         plt.show()
