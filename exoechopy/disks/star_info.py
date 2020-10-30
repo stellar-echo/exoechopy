@@ -235,7 +235,7 @@ def star_info(path, hist=True, plot_ac=True, plot_ind_flares=True, lombscarg=Tru
     # Flare Array
     if plot_ind_flares:
         if header.get("OBSMODE") == "short cadence":
-            plot_flare_array(lc.flux, peaks, 10, 30, display_index=True,
+            plot_flare_array(lc.flux, peaks, 10, 30, display_index=False,
                              savefile="detailed_star_info/{}/Q{}/flare_arr.png".format(obj, q))
         else:
             plot_flare_array(lc.flux, peaks, 5, 10, display_index=True,
