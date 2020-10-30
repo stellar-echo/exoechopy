@@ -249,7 +249,7 @@ def star_info(path, hist=True, plot_ac=True, plot_ind_flares=True, lombscarg=Tru
         plt.plot(freq, power, c="k", drawstyle="steps-post")
         plt.xlabel("Frequency")
         plt.ylabel("Power")
-        plt.title("Lomb-Scargle of Flare Times for {} Q{}".format(obj, q)))
+        plt.title("Lomb-Scargle of Flare Times for {} Q{}".format(obj, q))
         plt.savefig("detailed_star_info/{}/Q{}/LombScarg.png".format(obj, q))
 
 # Run from command line
