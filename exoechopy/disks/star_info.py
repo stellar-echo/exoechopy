@@ -53,6 +53,8 @@ def plot_flare_array(lightcurve: np.ndarray,
     """
 
     num_flares = len(flare_indices)
+    if num_flares == 0:
+        return None
 
     num_row, num_col = row_col_grid(num_flares)
     fig, all_axes = plt.subplots(num_row, num_col, figsize=(10, 6))
