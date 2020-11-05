@@ -253,6 +253,19 @@ def star_info(path, hist=True, plot_ac=True, plot_ind_flares=True, lombscarg=Tru
         plt.ylabel("Power")
         plt.title("Lomb-Scargle of Flare Times for {} Q{}".format(obj, q))
         plt.savefig("detailed_star_info/{}/Q{}/LombScarg.png".format(obj, q))
+        
+    # Store relevant information: raw flux array, detrended flux array, time array, flare times, flare indices,
+    # flare peak values
+
+    flare_times = [lc.time[i] for i in peaks]
+
+    np.save("detailed_star_info/{}/Q{}/raw_flux".format(header.get("OBJECT"), header.get("QUARTER")), lc.flux)
+    np.save("detailed_star_info/{}/Q{}/detrended_flux".format(header.get("OBJECT"), header.get("QUARTER")), lc_detr.flux)
+    np.save("detailed_star_info/{}/Q{}/time".format(header.get("OBJECT"), header.get("QUARTER")), lc.time)
+    np.save("detailed_star_info/{}/Q{}/time_d".format(header.get("OBJECT"), header.get("QUARTER")), lc_detr.time)
+    np.save("detailed_star_info/{}/Q{}/flare_indices".format(header.get("OBJECT"), header.get("QUARTER")), peaks)
+    np.save("detailed_star_info/{}/Q{}/flare_times".format(header.get("OBJECT"), header.get("QUARTER")), flare_times)
+    np.save("detailed_star_info/{}/Q{}/flare_peaks".format(header.get("OBJECT"), header.get("QUARTER")), flare_heights)
 
 # Run from command line
 if __name__ == "__main__":
