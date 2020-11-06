@@ -32,6 +32,45 @@ print()
 print("Short cadence: ")
 print(sc_qtr_list)
 
+# Adding plots for short and long cadence - important to separate for stars that have both
+
+# SC
+for filename in sc_qtr_list:
+    print(filename)
+    file = fits.open(filename)
+    time = file[1].data["TIME"]
+    flux = file[1].data["PDCSAP_FLUX"]
+    rawflux = file[1].data["SAP_FLUX"]
+    myflux = flux/np.nanmedian(flux)
+    plt.plot(time, myflux, c="b")
+
+plt.xlabel("Time (Days)")
+plt.ylabel("Flux (e-/s)")
+plt.title("{} Short Cadence".format(file[1].header["OBJECT"]))
+plt.show()
+
+f = "{}_allqtr_short_cadence.png".format(file[1].header["OBJECT"])
+plt.savefig(f)
+
+# LC
+for filename in lc_qtr_list:
+    print(filename)
+    file = fits.open(filename)
+    time = file[1].data["TIME"]
+    flux = file[1].data["PDCSAP_FLUX"]
+    rawflux = file[1].data["SAP_FLUX"]
+    myflux = flux/np.nanmedian(flux)
+    plt.plot(time, myflux, c="b")
+
+plt.xlabel("Time (Days)")
+plt.ylabel("Flux (e-/s)")
+plt.title("{} Long Cadence".format(file[1].header["OBJECT"]))
+plt.show()
+
+g = "{}_allqtr_long_cadence.png".format(file[1].header["OBJECT"])
+plt.savefig(g)
+
+
 #for qd in os.listdir(kpath):
 #   if '_Q' in qd:
 #      print(qd)	     
