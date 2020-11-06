@@ -1,6 +1,9 @@
 import os
 import sys
 from pathlib import Path
+from astropy.io import fits
+import numpy as np
+import matplotlib.pyplot as plt
 
 if len(sys.argv) != 2:
    print(f'usage {argv[0]} star_id')
