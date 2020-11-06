@@ -40,7 +40,11 @@ plt.ylabel("Flux (e-/s)")
 plt.title("{}".format(file[1].header["OBJECT"]))
 plt.legend()
 plt.show()
-f = 'b.tmp.png'
+
+# f = 'b.tmp.png'
+
+# Adding this to help differentiate btwn different stars when playing w/this code
+f = "{}_allqtr_lc.png".format(file[1].header["OBJECT"])
 plt.savefig(f)
 
 
