@@ -37,6 +37,7 @@ print(sc_qtr_list)
 
 # Adding plots for short and long cadence - important to separate for stars that have both
 
+plt.figure(figsize=(12, 6))
 # SC
 for filename in sc_qtr_list:
     print(filename)
@@ -55,6 +56,7 @@ plt.show()
 f = "{}_allqtr_short_cadence.png".format(file[1].header["OBJECT"])
 plt.savefig(f)
 
+plt.figure(figsize=(12,6))
 # LC
 for filename in lc_qtr_list:
     print(filename)
@@ -63,7 +65,7 @@ for filename in lc_qtr_list:
     flux = file[1].data["PDCSAP_FLUX"]
     rawflux = file[1].data["SAP_FLUX"]
     myflux = flux/np.nanmedian(flux)
-    plt.plot(time, myflux, c="b")
+    plt.plot(time, myflux, c="k")
 
 plt.xlabel("Time (Days)")
 plt.ylabel("Flux (e-/s)")
