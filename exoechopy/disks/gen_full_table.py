@@ -27,8 +27,8 @@ def find_all_quarters(star):
 
     all_folders = os.listdir(kpath)
     quarter_folders = [x for x in all_folders if '_Q' in x]
-    print(quarter_folders)
-    print()
+    # print(quarter_folders)
+    # print()
 
     for qd in quarter_folders:
         for f in os.listdir(kpath/qd):
@@ -89,7 +89,7 @@ def plot_all_quarters(star):
     plt.savefig(g)
 """
 
-path = "home/echo/hdd6tb/02_kepler_time_series_scripts/21_Kepler_Q14"
+path = "/home/echo/hdd6tb/02_kepler_time_series_scripts/21_Kepler_Q14/"
 
 all_stars_all_quarters = []
 all_stars_long_cadence = []
