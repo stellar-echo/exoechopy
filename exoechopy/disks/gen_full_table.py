@@ -6,24 +6,6 @@ from scipy.signal import find_peaks
 import os
 from astropy.table import Table, Column
 
-"""
-So here's how this is gonna go. 
-
-Step 1: Choose a directory to start in. I think I'll use the Q14 directory, as stars in there are pretty much guaranteed
-to have at least 14 quarters of data. In principle, I think it shouldn't matter which directory you start in, but I'm 
-gonna use that one anyway. 
-
-Step 2: Loop through that directory and grab all quarters of data from every single star in it. That can be stored in 
-a big list of lists. This doesn't need to be separated by cadence or anything.
-
-Step 3: Loop through each star's data (the list of lists) and grab, from every quarter, the amount of flares and stuff.
-We can use the first file from each star to grab basic info like the star's name and header info. Will probably have to 
-break down the flare info by cadence, as detection requires different windows for different cadences.
-
-Step 4: Use the stored information from step 3 to make a big table of, theoretically, every single star on the Kepler
-server (roughly 150K). 
-
-"""
 
 path = "home/echo/hdd6tb/02_kepler_time_series_scripts/21_Kepler_Q14"
 
