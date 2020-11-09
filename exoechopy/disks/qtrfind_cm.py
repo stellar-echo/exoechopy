@@ -98,6 +98,6 @@ def plot_all_quarters(star):
 
 
 # Run from command line
-if __name__ == __main__:
+if __name__ == "__main__":
     find_all_quarters(sys.argv[1])
     plot_all_quarters(sys.argv[1])
