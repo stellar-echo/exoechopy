@@ -59,6 +59,8 @@ def plot_all_quarters(star):
     """
 
     lc, sc, full = find_all_quarters(star)
+    file0 = fits.open(full[0])
+    obj_name = file0[1].header["OBJECT"]
     
     plt.figure(figsize=(12, 6))
     # SC
@@ -73,10 +75,10 @@ def plot_all_quarters(star):
 
     plt.xlabel("Time (Days)")
     plt.ylabel("Flux (e-/s)")
-    plt.title("{} Short Cadence".format(file[1].header["OBJECT"]))
+    plt.title("{} Short Cadence".format(obj_name))
     plt.show()
 
-    f = "{}_allqtr_short_cadence.png".format(file[1].header["OBJECT"])
+    f = "{}_allqtr_short_cadence.png".format(obj_name)
     plt.savefig(f)
 
     plt.figure(figsize=(12,6))
@@ -92,10 +94,10 @@ def plot_all_quarters(star):
 
     plt.xlabel("Time (Days)")
     plt.ylabel("Flux (e-/s)")
-    plt.title("{} Long Cadence".format(file[1].header["OBJECT"]))
+    plt.title("{} Long Cadence".format(obj_name))
     plt.show()
 
-    g = "{}_allqtr_long_cadence.png".format(file[1].header["OBJECT"])
+    g = "{}_allqtr_long_cadence.png".format(obj_name)
     plt.savefig(g)
 
 
