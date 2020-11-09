@@ -41,14 +41,14 @@ def find_all_quarters(star):
                     sc_qtr_list.append(kpath/qd/f)
                 full_qtr_list.append(kpath/qd/f)
 
+    print("Long cadence: ")
+    print(lc_qtr_list)
+    print()
+    print("Short cadence: ")
+    print(sc_qtr_list)
+                
     return lc_qtr_list, sc_qtr_list, full_qtr_list
 
-
-print("Long cadence: ")
-print(lc_qtr_list)
-print()
-print("Short cadence: ")
-print(sc_qtr_list)
 
 # Adding plots for short and long cadence - important to separate for stars that have both
 
