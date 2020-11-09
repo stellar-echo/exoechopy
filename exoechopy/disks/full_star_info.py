@@ -46,47 +46,49 @@ sc_flares_four_percent = []
 sc_flares_six_sigma = []
 
 for filename in sc:
+    if len(sc) == 0:
+        print("No short cadence data.")
+    else:
+        lc_raw = fits.open(str(filename))
+        raw_flux = lc_raw[1].data["PDCSAP_FLUX"]
+        time = lc_raw[1].data["TIME"]
 
-    lc_raw = fits.open(str(filename))
-    raw_flux = lc_raw[1].data["PDCSAP_FLUX"]
-    time = lc_raw[1].data["TIME"]
+        lc = lk.LightCurve(time=time, flux=raw_flux)
+        lc = lc.remove_nans().flatten()
 
-    lc = lk.LightCurve(time=time, flux=raw_flux)
-    lc = lc.remove_nans().flatten()
+        x = lc.flux
+        median = np.median(x)
+        sigma = np.std(x)
+        flare_threshold = median + (3 * sigma)
+        peaks, peak_val = find_peaks(x, height=flare_threshold, distance=30)
+        num_sc_flares.append(len(peaks))
 
-    x = lc.flux
-    median = np.median(x)
-    sigma = np.std(x)
-    flare_threshold = median + (3 * sigma)
-    peaks, peak_val = find_peaks(x, height=flare_threshold, distance=30)
-    num_sc_flares.append(len(peaks))
+        # Get median flare intensity
+        flare_heights = []
+        for val in peak_val.values():
+            for num in val:
+                flare_heights.append(num)
 
-    # Get median flare intensity
-    flare_heights = []
-    for val in peak_val.values():
-        for num in val:
-            flare_heights.append(num)
+        # Calculate the percentage above background flux of each flare
+        peaks_one = []
+        peaks_four = []
+        for flare in flare_heights:
+            raw_val = 100 * (flare - 1)
+            if raw_val > 1:
+                peaks_one.append(raw_val)
 
-    # Calculate the percentage above background flux of each flare
-    peaks_one = []
-    peaks_four = []
-    for flare in flare_heights:
-        raw_val = 100 * (flare - 1)
-        if raw_val > 1:
-            peaks_one.append(raw_val)
+            if raw_val > 4:
+                peaks_four.append(raw_val)
 
-        if raw_val > 4:
-            peaks_four.append(raw_val)
+        sc_flares_one_percent.append(len(peaks_one))
+        sc_flares_four_percent.append(len(peaks_four))
 
-    sc_flares_one_percent.append(len(peaks_one))
-    sc_flares_four_percent.append(len(peaks_four))
+        median_sc_flare_intensity.append(np.median(flare_heights))
 
-    median_sc_flare_intensity.append(np.median(flare_heights))
-
-    # Get amount of flares above six sigma
-    flare_threshold_six_sigma = median + (6 * sigma)
-    peaks_six, peak_val_six = find_peaks(x, height=flare_threshold_six_sigma, distance=30)
-    sc_flares_six_sigma.append(len(peaks_six))
+        # Get amount of flares above six sigma
+        flare_threshold_six_sigma = median + (6 * sigma)
+        peaks_six, peak_val_six = find_peaks(x, height=flare_threshold_six_sigma, distance=30)
+        sc_flares_six_sigma.append(len(peaks_six))
 
 # Long Cadence
 num_lc_flares = []
@@ -96,47 +98,49 @@ lc_flares_four_percent = []
 lc_flares_six_sigma = []
 
 for filename in lc:
+    if len(lc) == 0:
+        print("No long cadence data.")
+    else:
+        lc_raw = fits.open(str(filename))
+        raw_flux = lc_raw[1].data["PDCSAP_FLUX"]
+        time = lc_raw[1].data["TIME"]
 
-    lc_raw = fits.open(str(filename))
-    raw_flux = lc_raw[1].data["PDCSAP_FLUX"]
-    time = lc_raw[1].data["TIME"]
+        lc_ = lk.LightCurve(time=time, flux=raw_flux)
+        lc_detr = lc.remove_nans().flatten()
 
-    lc_ = lk.LightCurve(time=time, flux=raw_flux)
-    lc_detr = lc.remove_nans().flatten()
+        x = lc_detr.flux
+        median = np.median(x)
+        sigma = np.std(x)
+        flare_threshold = median + (3 * sigma)
+        peaks, peak_val = find_peaks(x, height=flare_threshold, distance=4)
+        num_lc_flares.append(len(peaks))
 
-    x = lc_detr.flux
-    median = np.median(x)
-    sigma = np.std(x)
-    flare_threshold = median + (3 * sigma)
-    peaks, peak_val = find_peaks(x, height=flare_threshold, distance=4)
-    num_lc_flares.append(len(peaks))
+        # Get median flare intensity
+        flare_heights = []
+        for val in peak_val.values():
+            for num in val:
+                flare_heights.append(num)
 
-    # Get median flare intensity
-    flare_heights = []
-    for val in peak_val.values():
-        for num in val:
-            flare_heights.append(num)
+        # Calculate the percentage above background flux of each flare
+        peaks_one = []
+        peaks_four = []
+        for flare in flare_heights:
+            raw_val = 100 * (flare - 1)
+            if raw_val > 1:
+                peaks_one.append(raw_val)
 
-    # Calculate the percentage above background flux of each flare
-    peaks_one = []
-    peaks_four = []
-    for flare in flare_heights:
-        raw_val = 100 * (flare - 1)
-        if raw_val > 1:
-            peaks_one.append(raw_val)
+            if raw_val > 4:
+                peaks_four.append(raw_val)
 
-        if raw_val > 4:
-            peaks_four.append(raw_val)
+        lc_flares_one_percent.append(len(peaks_one))
+        lc_flares_four_percent.append(len(peaks_four))
 
-    lc_flares_one_percent.append(len(peaks_one))
-    lc_flares_four_percent.append(len(peaks_four))
+        median_lc_flare_intensity.append(np.median(flare_heights))
 
-    median_lc_flare_intensity.append(np.median(flare_heights))
-
-    # Get amount of flares above six sigma
-    flare_threshold_six_sigma = median + (6 * sigma)
-    peaks_six, peak_val_six = find_peaks(x, height=flare_threshold_six_sigma, distance=30)
-    lc_flares_six_sigma.append(len(peaks_six))
+        # Get amount of flares above six sigma
+        flare_threshold_six_sigma = median + (6 * sigma)
+        peaks_six, peak_val_six = find_peaks(x, height=flare_threshold_six_sigma, distance=30)
+        lc_flares_six_sigma.append(len(peaks_six))
 
 t = Table()
 
