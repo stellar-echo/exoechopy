@@ -150,6 +150,12 @@ print(num_sc_quarters)
 print(num_lc_quarters)
 print(num_sc_flares)
 print(num_lc_flares)
+t = Table()
+t["Object"] = obj_name
+t["# SC Quarters"] = num_sc_quarters
+t["# LC Quarters"] = num_lc_quarters
+t["# SC Flares"] = sum(num_sc_flares)
+t["# LC Flares"] = sum(num_lc_flares)
 
 #obj = Column(name="Object", data=obj_name)
 #t.add_column(obj)
