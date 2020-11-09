@@ -7,18 +7,21 @@ import os
 import sys
 from pathlib import Path
 from astropy.table import Table, Column
+import re
 
-
-def find_all_quarters(star):
+def find_all_quarters(file):
     """
     Given a star's kplr number, returns a list of all quarters of data for that star. Separates data by cadence.
 
-    :param star: kplr number of a star
+    :param file: fits file from the kepler server
     :return: list of paths to all quarters of data for that star
     """
-
-    star = sys.argv[1]
-
+   
+    # Extract the kplr number
+    # star = sys.argv[1]
+    m = re.search("kplr(.+?)-", file)
+    star = m.group(1)
+    
     kpath = Path('/home/echo/hdd6tb/02_kepler_time_series_scripts/')
 
     sc_qtr_list = []
