@@ -45,7 +45,7 @@ sc_flares_one_percent = []
 sc_flares_four_percent = []
 sc_flares_six_sigma = []
 
-for filename in sc:
+for filename in shortcad:
     if len(shortcad) == 0:
         print("No short cadence data.")
     else:
