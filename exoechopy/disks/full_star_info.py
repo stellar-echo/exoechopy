@@ -20,8 +20,8 @@ lc, sc, full = find_all_quarters(star)
 # Grab object name, teff, radius
 file0 = fits.open(str(full[0]))
 obj_name = file0[1].header["OBJECT"]
-teff = file0[1].header["TEFF"]
-radius = file0[1].header["RADIUS"]
+#teff = file0[1].header["TEFF"]
+#radius = file0[1].header["RADIUS"]
 
 # Create a new directory to store all of this information
 newdir = "allqtr_star_info/{}".format(obj_name)
