@@ -144,7 +144,12 @@ for filename in longcad:
 
         
 
-t = Table(data=[obj_name, num_sc_quarters, num_lc_quarters, num_sc_flares, num_lc_flares])
+#t = Table(data=[obj_name, num_sc_quarters, num_lc_quarters, num_sc_flares, num_lc_flares])
+print(obj_name)
+print(num_sc_quarters)
+print(num_lc_quarters)
+print(num_sc_flares)
+print(num_lc_flares)
 
 #obj = Column(name="Object", data=obj_name)
 #t.add_column(obj)
