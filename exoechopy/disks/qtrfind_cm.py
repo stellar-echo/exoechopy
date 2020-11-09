@@ -6,9 +6,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Check for correct number of command line arguments
-if len(sys.argv) != 2:
-    print(f'usage {argv[0]} star_id')
-    quit()
+# if len(sys.argv) != 2:
+#     print(f'usage {argv[0]} star_id')
+#    quit()
 
 
 def find_all_quarters(star):
