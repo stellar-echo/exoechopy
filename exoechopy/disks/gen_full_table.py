@@ -122,7 +122,7 @@ for ind, lc_quarter_list in enumerate(all_stars_long_cadence):
 
 for ind, sc_quarter_list in enumerate(all_stars_short_cadence):
     sc_qtr_counts.append(len(sc_quarter_list))
-    print("Counted, ind, "of", len(all_stars_short_cadence), "short cadence stars")
+    print("Counted", ind, "of", len(all_stars_short_cadence), "short cadence stars")
 
 
 keys = ["OBJECT", "TEFF", "RADIUS"]
