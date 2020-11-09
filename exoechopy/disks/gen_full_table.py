@@ -98,22 +98,31 @@ all_stars_all_quarters = []
 all_stars_long_cadence = []
 all_stars_short_cadence = []
 
+print("Grabbing all quarter files for every star....")
+
 # Grab all quarters of data from every star in the directory
 for star_ in os.listdir(path):
     lc, sc, full = find_all_quarters(star_)
     all_stars_all_quarters.append(full)
     all_stars_long_cadence.append(lc)
     all_stars_short_cadence.append(sc)
+    print("Grabbed all quarter data for", star_)
 
+print()
+print("Grabbed all quarter files for every star.")
+print("Now looping through the quarter files and grabbing flare info...")
+    
 # Now, loop through the data and grab all relevant information
 sc_qtr_counts = []
 lc_qtr_counts = []
 
-for lc_quarter_list in all_stars_long_cadence:
+for ind, lc_quarter_list in enumerate(all_stars_long_cadence):
     lc_qtr_counts.append(len(lc_quarter_list))
+    print("Counted", ind, "of", len(all_stars_long_cadence), "long cadence stars")
 
-for sc_quarter_list in all_stars_short_cadence:
+for ind, sc_quarter_list in enumerate(all_stars_short_cadence):
     sc_qtr_counts.append(len(sc_quarter_list))
+    print("Counted, ind, "of", len(all_stars_short_cadence), "short cadence stars")
 
 
 keys = ["OBJECT", "TEFF", "RADIUS"]
@@ -233,3 +242,5 @@ t.add_column(fls_sc)
 
 fls_lc = Column(name="Total Long Cadence Flares", data=total_flares_long_cadence)
 t.add_column(fls_lc)
+          
+t.write("full_table_test.html", format="ascii.html", overwrite=True)
