@@ -106,7 +106,7 @@ for filename in lc:
         time = lc_raw[1].data["TIME"]
 
         lc_ = lk.LightCurve(time=time, flux=raw_flux)
-        lc_detr = lc.remove_nans().flatten()
+        lc_detr = lc_.remove_nans().flatten()
 
         x = lc_detr.flux
         median = np.median(x)
