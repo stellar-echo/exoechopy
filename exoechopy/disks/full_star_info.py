@@ -15,7 +15,7 @@ from astropy.table import Table, Column
 star = sys.argv[1]
 
 # Grab all quarters, store in short cadence, long cadence, and full lists
-lc, sc, full = find_all_quarters(star)
+longcad, shortcad, full = find_all_quarters(star)
 
 # Grab object name, teff, radius
 file0 = fits.open(str(full[0]))
@@ -35,8 +35,8 @@ os.chdir(newdir)
 plot_all_quarters(star)
 
 # Count the number of quarters available
-num_sc_quarters = len(sc)
-num_lc_quarters = len(lc)
+num_sc_quarters = len(shortcad)
+num_lc_quarters = len(longcad)
 
 # Grab flare information from each quarter
 num_sc_flares = []
@@ -46,7 +46,7 @@ sc_flares_four_percent = []
 sc_flares_six_sigma = []
 
 for filename in sc:
-    if len(sc) == 0:
+    if len(shortcad) == 0:
         print("No short cadence data.")
     else:
         lc_raw = fits.open(str(filename))
@@ -97,16 +97,16 @@ lc_flares_one_percent = []
 lc_flares_four_percent = []
 lc_flares_six_sigma = []
 
-for filename in lc:
-    if len(lc) == 0:
+for filename in longcad:
+    if len(longcad) == 0:
         print("No long cadence data.")
     else:
         lc_raw = fits.open(str(filename))
         raw_flux = lc_raw[1].data["PDCSAP_FLUX"]
         time = lc_raw[1].data["TIME"]
 
-        lc_ = lk.LightCurve(time=time, flux=raw_flux)
-        lc_detr = lc_.remove_nans().flatten()
+        lc = lk.LightCurve(time=time, flux=raw_flux)
+        lc_detr = lc.remove_nans().flatten()
 
         x = lc_detr.flux
         median = np.median(x)
@@ -142,22 +142,25 @@ for filename in lc:
         peaks_six, peak_val_six = find_peaks(x, height=flare_threshold_six_sigma, distance=30)
         lc_flares_six_sigma.append(len(peaks_six))
 
-t = Table()
+        
 
-obj = Column(name="Object", data=obj_name)
-t.add_column(obj)
+t = Table(data=[obj_name, num_sc_quarters, num_lc_quarters, num_sc_flares, num_lc_flares],
+         names=["Object","Num SC Quarters", "Num LC Quarters", "Num SC Flares", "Num LC Flares"])
 
-scq = Column(name="Number of Short Cadence Quarters", data=num_sc_quarters)
-t.add_column(scq)
+#obj = Column(name="Object", data=obj_name)
+#t.add_column(obj)
 
-lcq = Column(name="Number of Long Cadence Quarters", data=num_lc_quarters)
-t.add_column(lcq)
+#scq = Column(name="Number of Short Cadence Quarters", data=num_sc_quarters)
+#t.add_column(scq)
 
-scf = Column(name="Short Cadence Flares", data=num_sc_flares)
-t.add_column(scf)
+#lcq = Column(name="Number of Long Cadence Quarters", data=num_lc_quarters)
+#t.add_column(lcq)
 
-lcf = Column(name="Long Cadence Flares", data=num_lc_flares)
-t.add_column(lcf)
+#scf = Column(name="Short Cadence Flares", data=num_sc_flares)
+#t.add_column(scf)
+
+#lcf = Column(name="Long Cadence Flares", data=num_lc_flares)
+#t.add_column(lcf)
 
 
 t.write("{}_full_info.html".format(star), format="ascii.html", overwrite=True)
