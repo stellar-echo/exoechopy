@@ -7,7 +7,7 @@ import os
 from astropy.table import Table, Column
 
 
-path = "home/echo/hdd6tb/02_kepler_time_series_scripts/21_Kepler_Q14"
+path = "/home/echo/hdd6tb/02_kepler_time_series_scripts/21_Kepler_Q14/"
 
 all_stars_all_quarters = []
 all_stars_long_cadence = []
