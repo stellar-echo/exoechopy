@@ -156,4 +156,4 @@ lcf = Column(name="Long Cadence Flares", data=num_lc_flares)
 t.add_column(lcf)
 
 
-
+t.write("{}_full_info.html".format(star), format="ascii.html", overwrite=True)
