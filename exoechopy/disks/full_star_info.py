@@ -9,6 +9,7 @@ from scipy.signal import find_peaks
 import os
 import sys
 from astropy.table import Table, Column
+import pandas as pd
 
 
 # Save command line input
@@ -145,17 +146,10 @@ for filename in longcad:
         
 
 #t = Table(data=[obj_name, num_sc_quarters, num_lc_quarters, num_sc_flares, num_lc_flares])
-print(obj_name)
-print(num_sc_quarters)
-print(num_lc_quarters)
-print(num_sc_flares)
-print(num_lc_flares)
-t = Table()
-t["Object"] = obj_name
-t["# SC Quarters"] = num_sc_quarters
-t["# LC Quarters"] = num_lc_quarters
-t["# SC Flares"] = sum(num_sc_flares)
-t["# LC Flares"] = sum(num_lc_flares)
+df = pd.DataFrame([[obj_name, num_sc_quarters, num_lc_quarters, sum(num_sc_flares), sum(num_lc_flares)]], 
+                  columns = ["Object", "# SC Quarters", "# LC Quarters", "# SC Flares", "# LC Flares"])
+
+t = Table.from_pandas(df)
 
 #obj = Column(name="Object", data=obj_name)
 #t.add_column(obj)
