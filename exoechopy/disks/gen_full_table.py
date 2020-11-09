@@ -101,12 +101,12 @@ all_stars_short_cadence = []
 print("Grabbing all quarter files for every star....")
 
 # Grab all quarters of data from every star in the directory
-for star_ in os.listdir(path):
+for ind, star_ in enumerate(os.listdir(path)):
     lc, sc, full = find_all_quarters(star_)
     all_stars_all_quarters.append(full)
     all_stars_long_cadence.append(lc)
     all_stars_short_cadence.append(sc)
-    print("Grabbed all quarter data for", star_)
+    print("Grabbed all quarter data for", star_, "({} of {})".format(ind, len(os.listdir(path))))
 
 print()
 print("Grabbed all quarter files for every star.")
