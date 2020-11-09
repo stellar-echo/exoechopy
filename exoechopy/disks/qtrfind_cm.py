@@ -58,9 +58,11 @@ def plot_all_quarters(star):
     Given a star's kplr number, saves plots of the long cadence and short cadence data for all quarters of the star
     """
 
+    lc, sc, full = find_all_quarters(star)
+    
     plt.figure(figsize=(12, 6))
     # SC
-    for filename in sc_qtr_list:
+    for filename in sc:
         print(filename)
         file = fits.open(filename)
         time = file[1].data["TIME"]
@@ -79,7 +81,7 @@ def plot_all_quarters(star):
 
     plt.figure(figsize=(12,6))
     # LC
-    for filename in lc_qtr_list:
+    for filename in lc:
         print(filename)
         file = fits.open(filename)
         time = file[1].data["TIME"]
