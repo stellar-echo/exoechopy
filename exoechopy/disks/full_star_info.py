@@ -10,7 +10,7 @@ import os
 import sys
 from astropy.table import Table, Column
 import pandas as pd
-
+from exoechopy.analyze.autocorrelation import autocorrelate_array
 
 # Save command line input
 star = sys.argv[1]
@@ -21,8 +21,8 @@ longcad, shortcad, full = find_all_quarters(star)
 # Grab object name, teff, radius
 file0 = fits.open(str(full[0]))
 obj_name = file0[1].header["OBJECT"]
-#teff = file0[1].header["TEFF"]
-#radius = file0[1].header["RADIUS"]
+# teff = file0[1].header["TEFF"]
+# radius = file0[1].header["RADIUS"]
 
 # Create a new directory to store all of this information
 newdir = "allqtr_star_info/{}".format(obj_name)
@@ -45,6 +45,7 @@ median_sc_flare_intensity = []
 sc_flares_one_percent = []
 sc_flares_four_percent = []
 sc_flares_six_sigma = []
+flare_heights = []
 
 for filename in shortcad:
     if len(shortcad) == 0:
@@ -65,7 +66,6 @@ for filename in shortcad:
         num_sc_flares.append(len(peaks))
 
         # Get median flare intensity
-        flare_heights = []
         for val in peak_val.values():
             for num in val:
                 flare_heights.append(num)
@@ -97,6 +97,7 @@ median_lc_flare_intensity = []
 lc_flares_one_percent = []
 lc_flares_four_percent = []
 lc_flares_six_sigma = []
+flare_heights_lc = []
 
 for filename in longcad:
     if len(longcad) == 0:
@@ -117,15 +118,14 @@ for filename in longcad:
         num_lc_flares.append(len(peaks))
 
         # Get median flare intensity
-        flare_heights = []
         for val in peak_val.values():
             for num in val:
-                flare_heights.append(num)
+                flare_heights_lc.append(num)
 
         # Calculate the percentage above background flux of each flare
         peaks_one = []
         peaks_four = []
-        for flare in flare_heights:
+        for flare in flare_heights_lc:
             raw_val = 100 * (flare - 1)
             if raw_val > 1:
                 peaks_one.append(raw_val)
@@ -136,35 +136,30 @@ for filename in longcad:
         lc_flares_one_percent.append(len(peaks_one))
         lc_flares_four_percent.append(len(peaks_four))
 
-        median_lc_flare_intensity.append(np.median(flare_heights))
+        median_lc_flare_intensity.append(np.median(flare_heights_lc))
 
         # Get amount of flares above six sigma
         flare_threshold_six_sigma = median + (6 * sigma)
         peaks_six, peak_val_six = find_peaks(x, height=flare_threshold_six_sigma, distance=30)
         lc_flares_six_sigma.append(len(peaks_six))
 
-        
 
-#t = Table(data=[obj_name, num_sc_quarters, num_lc_quarters, num_sc_flares, num_lc_flares])
-df = pd.DataFrame([[obj_name, num_sc_quarters, num_lc_quarters, sum(num_sc_flares), sum(num_lc_flares)]], 
-                  columns = ["Object", "# SC Quarters", "# LC Quarters", "# SC Flares", "# LC Flares"])
+total_flares = sum(num_sc_flares) + sum(num_lc_flares)
 
+data = [obj_name, num_sc_quarters, num_lc_quarters, sum(num_sc_flares), sum(num_lc_flares), total_flares,
+        median_sc_flare_intensity, median_lc_flare_intensity, sc_flares_six_sigma, lc_flares_six_sigma,
+        sc_flares_one_percent, sc_flares_four_percent, lc_flares_one_percent, lc_flares_four_percent]
+
+names = ["Object", "# SC Quarters", "# LC Quarters", "# SC Flares", "# LC Flares", "Total Flares",
+         "Median SC Flare Intensity", "Median LC Flare Intensity", "SC Flares Above 6 Sigma", "LC Flares Above 6 Sigma",
+         "SC Flares Above 1%", "SC Flares Above 4%", "LC Flares Above 1%", "LC Flares Above 4%"]
+
+df = pd.DataFrame([data], columns=names)
 t = Table.from_pandas(df)
-
-#obj = Column(name="Object", data=obj_name)
-#t.add_column(obj)
-
-#scq = Column(name="Number of Short Cadence Quarters", data=num_sc_quarters)
-#t.add_column(scq)
-
-#lcq = Column(name="Number of Long Cadence Quarters", data=num_lc_quarters)
-#t.add_column(lcq)
-
-#scf = Column(name="Short Cadence Flares", data=num_sc_flares)
-#t.add_column(scf)
-
-#lcf = Column(name="Long Cadence Flares", data=num_lc_flares)
-#t.add_column(lcf)
-
-
 t.write("{}_full_info.html".format(star), format="ascii.html", overwrite=True)
+
+# Generate Histogram of Flare Intensities
+plt.hist(flare_heights, bins=100, c="b", alpha=0.6, label="Short Cadence Flares")
+plt.hist(flare_heights_lc, bins=100, c="r", alpha=0.6, label="Long Cadence Flares")
+plt.savefig("Full Flare Histogram.png")
+
