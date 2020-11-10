@@ -159,7 +159,12 @@ t = Table.from_pandas(df)
 t.write("{}_full_info.html".format(star), format="ascii.html", overwrite=True)
 
 # Generate Histogram of Flare Intensities
+plt.figure(figsize=(12, 6))
 plt.hist(flare_heights, bins=100, alpha=0.6, label="Short Cadence Flares")
 plt.hist(flare_heights_lc, bins=100, alpha=0.6, label="Long Cadence Flares")
+plt.xlabel("Intensity")
+plt.ylabel("Count")
+plt.title("Full Flare Histogram")
+plt.legend()
 plt.savefig("Full Flare Histogram.png")
 
