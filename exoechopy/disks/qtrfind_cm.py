@@ -76,7 +76,6 @@ def plot_all_quarters(star):
     plt.xlabel("Time (Days)")
     plt.ylabel("Flux (e-/s)")
     plt.title("{} Short Cadence".format(obj_name))
-    plt.show()
 
     f = "{}_allqtr_short_cadence.png".format(obj_name)
     plt.savefig(f)
@@ -95,7 +94,6 @@ def plot_all_quarters(star):
     plt.xlabel("Time (Days)")
     plt.ylabel("Flux (e-/s)")
     plt.title("{} Long Cadence".format(obj_name))
-    plt.show()
 
     g = "{}_allqtr_long_cadence.png".format(obj_name)
     plt.savefig(g)
