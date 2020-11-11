@@ -230,7 +230,7 @@ plt.xlabel("Frequency")
 plt.ylabel("Power")
 plt.legend()
 plt.savefig("long-cadence-periodogram.png")
-"""
+
 # Make a table with all the quarters, sort of like a breakdown, to find the most active quarters
 keys = ["OBSMODE", "QUARTER", "TEFF", "RADIUS"]
 hdu = 0
