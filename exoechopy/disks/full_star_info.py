@@ -172,13 +172,15 @@ plt.savefig("Full Flare Histogram.png")
 
 # Full Simple AC
 full_sc_flux = []
-for f in shortcad:
-    flux = f[1].data["PDCSAP_FLUX"]
+for f in shortcad
+    ff = fits.open(str(f))
+    flux = ff[1].data["PDCSAP_FLUX"]
     full_sc_flux.append(flux)
 
 full_lc_flux = []
 for g in longcad:
-    flux = g[1].data["PDCSAP_FLUX"]
+    gg = fits.open(str(g))
+    flux = gg[1].data["PDCSAP_FLUX"]
     full_lc_flux.append(flux)
 
 sc_ac = autocorrelate_array(full_sc_flux, max_lag=100)
@@ -196,12 +198,14 @@ plt.savefig("full_autocorr.png")
 # Full Naive Periodogram
 full_sc_time = []
 for t in shortcad:
-    time = t[1].data["TIME"]
+    tt = fits.open(str(t))
+    time = tt[1].data["TIME"]
     full_sc_time.append(time)
 
 full_lc_time = []
 for t in longcad:
-    time = t[1].data["TIME"]
+    tt = fits.open(str(t))
+    time = tt[1].data["TIME"]
     full_lc_time.append(time)
 
 freq_sc, power_sc = LombScargle(full_sc_time, full_sc_flux)
