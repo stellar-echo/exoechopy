@@ -327,4 +327,8 @@ t2.add_column(fls4)
 
 t2.write("{}_qtr_breakdown.html".format(obj_name), format="ascii.html", overwrite=True)
 
+# Make directory for each quarter
+for starfile in full:
+    star_info.star_info(starfile, lombscarg = False, plot_ind_flares = False)
+
 
