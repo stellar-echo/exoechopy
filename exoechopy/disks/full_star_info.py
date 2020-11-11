@@ -147,8 +147,9 @@ for filename in longcad:
 total_flares = sum(num_sc_flares) + sum(num_lc_flares)
 
 data = [obj_name, num_sc_quarters, num_lc_quarters, sum(num_sc_flares), sum(num_lc_flares), total_flares,
-        median_sc_flare_intensity, median_lc_flare_intensity, sc_flares_six_sigma, lc_flares_six_sigma,
-        sc_flares_one_percent, sc_flares_four_percent, lc_flares_one_percent, lc_flares_four_percent]
+        np.median(median_sc_flare_intensity), np.median(median_lc_flare_intensity), sum(sc_flares_six_sigma),
+        sum(lc_flares_six_sigma), sum(sc_flares_one_percent), sum(sc_flares_four_percent), sum(lc_flares_one_percent),
+        sum(lc_flares_four_percent)]
 
 names = ["Object", "# SC Quarters", "# LC Quarters", "# SC Flares", "# LC Flares", "Total Flares",
          "Median SC Flare Intensity", "Median LC Flare Intensity", "SC Flares Above 6 Sigma", "LC Flares Above 6 Sigma",
