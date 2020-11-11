@@ -183,9 +183,12 @@ for g in longcad:
     flux = gg[1].data["PDCSAP_FLUX"]
     full_lc_flux.append(flux)
 
-sc_ac = autocorrelate_array(full_sc_flux, max_lag=100)
-lc_ac = autocorrelate_array(full_lc_flux, max_lag=100)
+# sc_ac = autocorrelate_array(full_sc_flux, max_lag=100)
+# lc_ac = autocorrelate_array(full_lc_flux, max_lag=100)
+print(sc_ac)
+print(lc_ac)
 
+"""
 plt.figure(figsize=(12, 6))
 plt.plot(sc_ac, c="b", drawstyle="steps-post", label="Short Cadence")
 plt.plot(lc_ac, c="k", drawstyle="steps-post", label="Long Cadence")
@@ -226,7 +229,7 @@ plt.xlabel("Frequency")
 plt.ylabel("Power")
 plt.legend()
 plt.savefig("long-cadence-periodogram.png")
-
+"""
 # Make a table with all the quarters, sort of like a breakdown, to find the most active quarters
 keys = ["OBSMODE", "QUARTER", "TEFF", "RADIUS"]
 hdu = 0
