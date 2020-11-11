@@ -212,8 +212,8 @@ for t in longcad:
     for num in time:
         full_lc_time.append(num)
 
-freq_sc, power_sc = LombScargle(full_sc_time, full_sc_flux)
-freq_lc, power_lc = LombScargle(full_lc_time, full_lc_flux)
+freq_sc, power_sc = LombScargle(full_sc_time, full_sc_flux).autopower()
+freq_lc, power_lc = LombScargle(full_lc_time, full_lc_flux).autopower()
 
 plt.figure(figsize=(12, 6))
 plt.plot(freq_sc, power_sc, c="b", drawstyle="steps-post")
