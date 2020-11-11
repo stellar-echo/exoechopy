@@ -211,9 +211,15 @@ for t in longcad:
     time = tt[1].data["TIME"]
     for num in time:
         full_lc_time.append(num)
+        
+quicklc = lk.LightCurve(time = full_sc_time, flux = full_sc_flux)
+quicklc_long = lk.LightCurve(time = full_lc_time, flux = full_lc_flux)
 
-freq_sc, power_sc = LombScargle(full_sc_time, full_sc_flux).autopower()
-freq_lc, power_lc = LombScargle(full_lc_time, full_lc_flux).autopower()
+quicklc = quicklc.remove_nans()
+quicklc_long = quicklc_long.remove_nans()
+
+freq_sc, power_sc = LombScargle(quicklc.time, quicklc.flux).autopower()
+freq_lc, power_lc = LombScargle(quicklc_long.time, quicklc_long.flux).autopower()
 
 plt.figure(figsize=(12, 6))
 plt.plot(freq_sc, power_sc, c="b", drawstyle="steps-post")
