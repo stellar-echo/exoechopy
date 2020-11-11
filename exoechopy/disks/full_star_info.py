@@ -172,7 +172,7 @@ plt.savefig("Full Flare Histogram.png")
 
 # Full Simple AC
 full_sc_flux = []
-for f in shortcad
+for f in shortcad:
     ff = fits.open(str(f))
     flux = ff[1].data["PDCSAP_FLUX"]
     full_sc_flux.append(flux)
