@@ -189,6 +189,8 @@ for g in longcad:
 print(full_sc_flux)
 print(full_lc_flux)
 
+print(stop here)
+
 """
 plt.figure(figsize=(12, 6))
 plt.plot(sc_ac, c="b", drawstyle="steps-post", label="Short Cadence")
@@ -390,4 +392,3 @@ t2.write("{}_qtr_breakdown.html".format(obj_name), format="ascii.html", overwrit
 # Make a breakdown folder for every quarter
 for starfile in full:
     star_info.star_info(starfile, lombscarg=False,plot_ind_flares=False)
-
