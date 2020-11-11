@@ -135,8 +135,8 @@ def star_info(path, hist=True, plot_ac=True, plot_ind_flares=True, lombscarg=Tru
     q = header.get("QUARTER")
 
     # Create a new directory to store images of the star
-    if not os.path.exists("detailed_star_info/{}/Q{}".format(obj, q)):
-        os.makedirs("detailed_star_info/{}/Q{}".format(obj, q))
+    if not os.path.exists("detailed_star_info/Q{} {}".format(q, header.get("OBSMODE"))):
+        os.makedirs("detailed_star_info/{}/Q{} {}".format(q, header.get("OBSMODE")))
 
     # Store flares based on sigma thresholds
     total_flares = []
