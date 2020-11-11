@@ -170,7 +170,7 @@ plt.title("Full Flare Histogram")
 plt.legend()
 plt.savefig("Full Flare Histogram.png")
 
-# Full Simple AC
+# Generate Periodogram and Autocorrelation
 full_sc_flux = []
 for f in shortcad:
     ff = fits.open(str(f))
@@ -184,21 +184,6 @@ for g in longcad:
     flux = gg[1].data["PDCSAP_FLUX"]
     for num in flux:
         full_lc_flux.append(num)
-
-sc_ac = autocorrelate_array(full_sc_flux, max_lag=100)
-lc_ac = autocorrelate_array(full_lc_flux, max_lag=100)
-
-print(sc_ac)
-print(lc_ac)
-
-plt.figure(figsize=(12, 6))
-plt.plot(sc_ac, c="b", drawstyle="steps-post", label="Short Cadence")
-plt.plot(lc_ac, c="k", drawstyle="steps-post", label="Long Cadence")
-plt.legend()
-plt.xlabel("Lag Index")
-plt.ylabel("Correlation")
-plt.title("Full Quarter Autocorrelation")
-plt.savefig("full_autocorr.png")
 
 # Full Naive Periodogram
 full_sc_time = []
@@ -239,6 +224,22 @@ plt.xlabel("Frequency")
 plt.ylabel("Power")
 plt.legend()
 plt.savefig("long-cadence-periodogram.png")
+
+# Full Simple Autocorelation
+sc_ac = autocorrelate_array(quicklc.flux, max_lag=100)
+lc_ac = autocorrelate_array(quicklc_long.flux, max_lag=100)
+
+print(sc_ac)
+print(lc_ac)
+
+plt.figure(figsize=(12, 6))
+plt.plot(sc_ac, c="b", drawstyle="steps-post", label="Short Cadence")
+plt.plot(lc_ac, c="k", drawstyle="steps-post", label="Long Cadence")
+plt.legend()
+plt.xlabel("Lag Index")
+plt.ylabel("Correlation")
+plt.title("Full Quarter Autocorrelation")
+plt.savefig("full_autocorr.png")
 
 # Make a table with all the quarters, sort of like a breakdown, to find the most active quarters
 keys = ["OBSMODE", "QUARTER", "TEFF", "RADIUS"]
