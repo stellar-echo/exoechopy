@@ -185,8 +185,8 @@ for g in longcad:
 
 # sc_ac = autocorrelate_array(full_sc_flux, max_lag=100)
 # lc_ac = autocorrelate_array(full_lc_flux, max_lag=100)
-print(sc_ac)
-print(lc_ac)
+print(full_sc_flux)
+print(full_lc_flux)
 
 """
 plt.figure(figsize=(12, 6))
