@@ -189,8 +189,6 @@ for g in longcad:
 print(full_sc_flux)
 print(full_lc_flux)
 
-print(stop here)
-
 """
 plt.figure(figsize=(12, 6))
 plt.plot(sc_ac, c="b", drawstyle="steps-post", label="Short Cadence")
