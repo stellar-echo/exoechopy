@@ -2,15 +2,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import fits
 import lightkurve as lk
-from exoechopy.visualize import plot_flare_array
 from exoechopy.disks.qtrfind_cm import find_all_quarters, plot_all_quarters
-from exoechopy.disks import star_info
 from scipy.signal import find_peaks
 import os
 import sys
 from astropy.table import Table, Column
 import pandas as pd
 from exoechopy.analyze.autocorrelation import autocorrelate_array
+from exoechopy.disks import star_info
+from astropy.timeseries import LombScargle
+
 
 # Save command line input
 star = sys.argv[1]
@@ -161,17 +162,68 @@ t.write("{}_full_info.html".format(star), format="ascii.html", overwrite=True)
 
 # Generate Histogram of Flare Intensities
 plt.figure(figsize=(12, 6))
-plt.hist(flare_heights, alpha=0.6, label="Short Cadence Flares")
-plt.hist(flare_heights_lc, alpha=0.6, label="Long Cadence Flares")
-plt.xlabel("Intensity")
+plt.hist(flare_heights, bins=100, alpha=0.6, label="Short Cadence Flares")
+plt.hist(flare_heights_lc, bins=100, alpha=0.6, label="Long Cadence Flares")
+plt.xlabel("Flare Intensity")
 plt.ylabel("Count")
 plt.title("Full Flare Histogram")
 plt.legend()
 plt.savefig("Full Flare Histogram.png")
 
+# Full Simple AC
+full_sc_flux = []
+for f in shortcad:
+    flux = f[1].data["PDCSAP_FLUX"]
+    full_sc_flux.append(flux)
 
-# Make a table with all the quarters, sort of like a breakdown, to find the most active quarters?
+full_lc_flux = []
+for g in longcad:
+    flux = g[1].data["PDCSAP_FLUX"]
+    full_lc_flux.append(flux)
 
+sc_ac = autocorrelate_array(full_sc_flux, max_lag=100)
+lc_ac = autocorrelate_array(full_lc_flux, max_lag=100)
+
+plt.figure(figsize=(12, 6))
+plt.plot(sc_ac, c="b", drawstyle="steps-post", label="Short Cadence")
+plt.plot(lc_ac, c="k", drawstyle="steps-post", label="Long Cadence")
+plt.legend()
+plt.xlabel("Lag Index")
+plt.ylabel("Correlation")
+plt.title("Full Quarter Autocorrelation")
+plt.savefig("full_autocorr.png")
+
+# Full Naive Periodogram
+full_sc_time = []
+for t in shortcad:
+    time = t[1].data["TIME"]
+    full_sc_time.append(time)
+
+full_lc_time = []
+for t in longcad:
+    time = t[1].data["TIME"]
+    full_lc_time.append(time)
+
+freq_sc, power_sc = LombScargle(full_sc_time, full_sc_flux)
+freq_lc, power_lc = LombScargle(full_lc_time, full_lc_flux)
+
+plt.figure(figsize=(12, 6))
+plt.plot(freq_sc, power_sc, c="b", drawstyle="steps-post")
+plt.title("Short Cadence Periodogram")
+plt.xlabel("Frequency")
+plt.ylabel("Power")
+plt.legend()
+plt.savefig("short-cadence-periodogram.png")
+
+plt.figure(figsize=(12, 6))
+plt.plot(freq_lc, power_lc, c="k", drawstyle="steps-post")
+plt.title("Long Cadence Periodogram")
+plt.xlabel("Frequency")
+plt.ylabel("Power")
+plt.legend()
+plt.savefig("long-cadence-periodogram.png")
+
+# Make a table with all the quarters, sort of like a breakdown, to find the most active quarters
 keys = ["OBSMODE", "QUARTER", "TEFF", "RADIUS"]
 hdu = 0
 
@@ -327,8 +379,7 @@ t2.add_column(fls4)
 
 t2.write("{}_qtr_breakdown.html".format(obj_name), format="ascii.html", overwrite=True)
 
-# Make directory for each quarter
+# Make a breakdown folder for every quarter
 for starfile in full:
-    star_info.star_info(starfile, lombscarg = False, plot_ind_flares = False)
-
+    star_info.star_info(starfile)
 
