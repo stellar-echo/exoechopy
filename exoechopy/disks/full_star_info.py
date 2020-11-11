@@ -175,7 +175,8 @@ full_sc_flux = []
 for f in shortcad:
     ff = fits.open(str(f))
     flux = ff[1].data["PDCSAP_FLUX"]
-    full_sc_flux.append(flux)
+    for num in flux:
+        full_sc_flux.append(num)
 
 full_lc_flux = []
 for g in longcad:
@@ -388,5 +389,5 @@ t2.write("{}_qtr_breakdown.html".format(obj_name), format="ascii.html", overwrit
 
 # Make a breakdown folder for every quarter
 for starfile in full:
-    star_info.star_info(starfile)
+    star_info.star_info(starfile, lombscarg=False,plot_ind_flares=False)
 
