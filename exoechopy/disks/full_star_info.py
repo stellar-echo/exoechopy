@@ -161,11 +161,170 @@ t.write("{}_full_info.html".format(star), format="ascii.html", overwrite=True)
 
 # Generate Histogram of Flare Intensities
 plt.figure(figsize=(12, 6))
-plt.hist(flare_heights, bins=100, alpha=0.6, label="Short Cadence Flares")
-plt.hist(flare_heights_lc, bins=100, alpha=0.6, label="Long Cadence Flares")
+plt.hist(flare_heights, alpha=0.6, label="Short Cadence Flares")
+plt.hist(flare_heights_lc, alpha=0.6, label="Long Cadence Flares")
 plt.xlabel("Intensity")
 plt.ylabel("Count")
 plt.title("Full Flare Histogram")
 plt.legend()
 plt.savefig("Full Flare Histogram.png")
+
+
+# Make a table with all the quarters, sort of like a breakdown, to find the most active quarters?
+
+keys = ["OBSMODE", "QUARTER", "TEFF", "RADIUS"]
+hdu = 0
+
+values = []
+files = []
+raw_variability = []
+flares = []
+flares_one = []
+flares_four = []
+median_flare_int = []
+flares_above_6_sigma = []
+
+for file_ in full:
+
+    # Get header contents
+    header = fits.getheader(file_, hdu)
+    values.append([header.get(key) for key in keys])
+    files.append(file_)
+
+    # Get Raw Target Variability
+    header2 = fits.getheader(file_, 1)
+    raw_variability.append(header2.get("PDCVAR"))
+
+    # Get B-V Color estimate
+    # gr = header.get("GRCOLOR")
+    # if type(gr) != "NoneType":
+    #    bv = 0.98 * gr + 0.22
+
+    # bv_color.append(bv)
+
+    # Get number of flares and flare times
+    lc_raw = fits.open(str(file_))
+    raw_flux = lc_raw[1].data["PDCSAP_FLUX"]
+    time = lc_raw[1].data["TIME"]
+
+    lc = lk.LightCurve(time=time, flux=raw_flux)
+    lc = lc.remove_nans().flatten()
+
+    # Get raw flux mean, detrended variance and standard deviation, along with 1/sigma sn quality score
+    # raw_mean = np.nanmean(raw_flux)
+    # raw_means.append(raw_mean)
+
+    # variance = np.var(lc.flux)
+    # det_vars.append(variance)
+
+    # sig = np.std(lc.flux)
+    # det_sig.append(sig)
+
+    # sn_qual = 1 / sig
+    # sn_quality.append(sn_qual)
+
+    # Just for fun, include Raw mean/ Raw sig as well
+    # raw_sig = np.nanstd(raw_flux)
+    # raw_sn_qual = raw_mean / raw_sig
+
+    # Different cadences require different flare detection windows
+    cadence = header.get("OBSMODE")
+    if cadence == "short cadence":
+        x = lc.flux
+        median = np.median(x)
+        sigma = np.std(x)
+        flare_threshold = median + (3 * sigma)
+        peaks, peak_val = find_peaks(x, height=flare_threshold, distance=30)
+        flares.append(len(peaks))
+
+        # Get median flare intensity
+        flare_heights = []
+        for val in peak_val.values():
+            for num in val:
+                flare_heights.append(num)
+
+        # Calculate the percentage above background flux of each flare
+        peaks_one = []
+        peaks_four = []
+        for flare in flare_heights:
+            raw_val = 100 * (flare - 1)
+            if raw_val > 1:
+                peaks_one.append(raw_val)
+
+            if raw_val > 4:
+                peaks_four.append(raw_val)
+
+        flares_one.append(len(peaks_one))
+        flares_four.append(len(peaks_four))
+
+        median_flare_int.append(np.median(flare_heights))
+
+        # Get amount of flares above six sigma
+        flare_threshold_six_sigma = median + (6 * sigma)
+        peaks_six, peak_val_six = find_peaks(x, height=flare_threshold_six_sigma, distance=30)
+        flares_above_6_sigma.append(len(peaks_six))
+
+        # Convert kep mag to U-band magnitude
+
+    else:
+        y = lc.flux
+        median = np.median(y)
+        sigma = np.std(y)
+        flare_threshold = median + (6 * sigma)
+        peaks, peak_val = find_peaks(y, height=flare_threshold, distance=4)
+        flares.append(len(peaks))
+
+        # Get median flare intensity
+        flare_heights = []
+        for val in peak_val.values():
+            for num in val:
+                flare_heights.append(num)
+
+        # Percentage
+        peaks_one = []
+        peaks_four = []
+        for flare in flare_heights:
+            raw_val = 100 * (flare - 1)
+            if raw_val > 1:
+                peaks_one.append(raw_val)
+
+            if raw_val > 4:
+                peaks_four.append(raw_val)
+
+        flares_one.append(len(peaks_one))
+        flares_four.append(len(peaks_four))
+
+        median_flare_int.append(np.median(flare_heights))
+
+        # Get amount of flares above six sigma
+        flare_threshold_six_sigma = median + (6 * sigma)
+        peaks_six, peak_val_six = find_peaks(y, height=flare_threshold_six_sigma, distance=4)
+        flares_above_6_sigma.append(len(peaks_six))
+
+row0 = [dict(zip(keys, values[0]))]
+t2 = Table(row0, names=keys)
+
+for i in range(1, len(values)):
+    t2.add_row(values[i])
+
+var = Column(name="Raw Variability", data=raw_variability)
+t2.add_column(var)
+
+med = Column(name="Median Flare Intensity", data=median_flare_int)
+t2.add_column(med)
+
+fls = Column(name="Number of Flares", data=flares)
+t2.add_column(fls)
+
+fls6 = Column(name="Number of Flares Above 6 Sigma", data=flares_above_6_sigma)
+t2.add_column(fls6)
+
+fls1 = Column(name="Number of Flares Abouve 1%", data=flares_one)
+t2.add_column(fls1)
+
+fls4 = Column(name="Number of Flares Above 4%", data=flares_four)
+t2.add_column(fls4)
+
+t2.write("{}_qtr_breakdown.html".format(obj_name), format="ascii.html", overwrite=True)
+
 
