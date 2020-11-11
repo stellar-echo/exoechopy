@@ -182,14 +182,12 @@ full_lc_flux = []
 for g in longcad:
     gg = fits.open(str(g))
     flux = gg[1].data["PDCSAP_FLUX"]
-    full_lc_flux.append(flux)
+    for num in flux:
+        full_lc_flux.append(num)
 
-# sc_ac = autocorrelate_array(full_sc_flux, max_lag=100)
-# lc_ac = autocorrelate_array(full_lc_flux, max_lag=100)
-print(full_sc_flux)
-print(full_lc_flux)
+sc_ac = autocorrelate_array(full_sc_flux, max_lag=100)
+lc_ac = autocorrelate_array(full_lc_flux, max_lag=100)
 
-"""
 plt.figure(figsize=(12, 6))
 plt.plot(sc_ac, c="b", drawstyle="steps-post", label="Short Cadence")
 plt.plot(lc_ac, c="k", drawstyle="steps-post", label="Long Cadence")
@@ -204,13 +202,15 @@ full_sc_time = []
 for t in shortcad:
     tt = fits.open(str(t))
     time = tt[1].data["TIME"]
-    full_sc_time.append(time)
+    for num in time:
+        full_sc_time.append(num)
 
 full_lc_time = []
 for t in longcad:
     tt = fits.open(str(t))
     time = tt[1].data["TIME"]
-    full_lc_time.append(time)
+    for num in time:
+        full_lc_time.append(num)
 
 freq_sc, power_sc = LombScargle(full_sc_time, full_sc_flux)
 freq_lc, power_lc = LombScargle(full_lc_time, full_lc_flux)
