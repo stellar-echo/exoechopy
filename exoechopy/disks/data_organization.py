@@ -15,7 +15,7 @@ keys = ["OBJECT", "OBSMODE", "QUARTER", "TEFF", "RADIUS", "KEPMAG"]
 hdu = 0
 
 # Eventually, this will loop through all top-level directories. For now, directory must be manually specified
-dir_ = "../02_kepler_time_series_scripts/21_Kepler_Q14/"
+dir_ = "../../../02_kepler_time_series_scripts/21_Kepler_Q14/"
 directories = glob.glob(dir_ + "*_Kepler_Q*/")
 
 # Store the relevant information
