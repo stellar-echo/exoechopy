@@ -221,9 +221,10 @@ def periodic_kde(raw_data, period, num_plot_pts, mode='gaussian', bandwidth=None
         _kde = TophatKDE
     else:
         raise AttributeError("Mode is not known: ", mode, ", must be 'gaussian' or 'tophat'")
+    cyclic_data = raw_data % period
     d_period = period / 2
     test_domain = np.linspace(-d_period, period + d_period, num_plot_pts)
-    kde = _kde(raw_data, bandwidth)
+    kde = _kde(cyclic_data, bandwidth)
     original_kde = kde(test_domain)
 
     low_wrap_bool = test_domain < 0
@@ -240,6 +241,7 @@ def periodic_kde(raw_data, period, num_plot_pts, mode='gaussian', bandwidth=None
         period_wrapped_kde[val] += original_kde[num_plot_pts - num_top + val]
 
     return display_domain, period_wrapped_kde
+
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
@@ -800,7 +802,3 @@ def curvefit_passable_wrapper(datapoints: np.ndarray,
     """
     opt_fit, pcov_fit = optimize.curve_fit(fit_func, xdata=xdata, ydata=datapoints, **curvefit_kwargs)
     return opt_fit
-
-
-
-
