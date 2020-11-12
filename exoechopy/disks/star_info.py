@@ -271,4 +271,4 @@ def star_info(path, hist=True, plot_ac=True, plot_ind_flares=True, lombscarg=Tru
 # Run from command line
 if __name__ == "__main__":
     import sys
-    star_info(str(sys.argv[1]))
+    star_info(str(sys.argv[1]), plot_ind_flares=False)
