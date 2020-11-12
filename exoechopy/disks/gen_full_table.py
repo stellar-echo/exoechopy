@@ -45,53 +45,6 @@ def find_all_quarters(file):
     return lc_qtr_list, sc_qtr_list, full_qtr_list
 
 
-# Adding plots for short and long cadence - important to separate for stars that have both
-
-"""
-def plot_all_quarters(star):
-"""
-# Given a star's kplr number, saves plots of the long cadence and short cadence data for all quarters of the star
-"""
-
-    plt.figure(figsize=(12, 6))
-    # SC
-    for filename in sc_qtr_list:
-        print(filename)
-        file = fits.open(filename)
-        time = file[1].data["TIME"]
-        flux = file[1].data["PDCSAP_FLUX"]
-        rawflux = file[1].data["SAP_FLUX"]
-        myflux = flux/np.nanmedian(flux)
-        plt.plot(time, myflux, c="b")
-
-    plt.xlabel("Time (Days)")
-    plt.ylabel("Flux (e-/s)")
-    plt.title("{} Short Cadence".format(file[1].header["OBJECT"]))
-    plt.show()
-
-    f = "{}_allqtr_short_cadence.png".format(file[1].header["OBJECT"])
-    plt.savefig(f)
-
-    plt.figure(figsize=(12,6))
-    # LC
-    for filename in lc_qtr_list:
-        print(filename)
-        file = fits.open(filename)
-        time = file[1].data["TIME"]
-        flux = file[1].data["PDCSAP_FLUX"]
-        rawflux = file[1].data["SAP_FLUX"]
-        myflux = flux/np.nanmedian(flux)
-        plt.plot(time, myflux, c="k")
-
-    plt.xlabel("Time (Days)")
-    plt.ylabel("Flux (e-/s)")
-    plt.title("{} Long Cadence".format(file[1].header["OBJECT"]))
-    plt.show()
-
-    g = "{}_allqtr_long_cadence.png".format(file[1].header["OBJECT"])
-    plt.savefig(g)
-"""
-
 path = "/home/echo/hdd6tb/02_kepler_time_series_scripts/21_Kepler_Q14/"
 
 all_stars_all_quarters = []
@@ -105,6 +58,8 @@ top3k = []
 with open("top3k.txt","r") as f:
     for line in f:
         top3k.append(line)
+        
+print(top3k[0:10])
 
 # Grab all quarters of data from every star in the directory
 for ind, star_ in enumerate(os.listdir(path)):
