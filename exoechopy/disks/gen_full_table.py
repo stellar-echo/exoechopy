@@ -57,7 +57,7 @@ print("Grabbing all quarter files for every star....")
 top3k = []
 with open("top3k.txt","r") as f:
     for line in f:
-        top3k.append(line)
+        top3k.append(line.strip())
         
 print(top3k[0:10])
 
