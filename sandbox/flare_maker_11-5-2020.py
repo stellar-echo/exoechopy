@@ -375,6 +375,7 @@ if __name__ == '__main__':
     print("The flare peak should occur at flare_onset seconds")
 
     integrated_flare = my_flare.evaluate_over_array(all_times)
+    # Note: the all_times will be one index shorter.  See docs.
     plt.plot(all_times[:-1], integrated_flare, lw=1, c='k', drawstyle='steps-post')
     plt.show()
 

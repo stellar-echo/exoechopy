@@ -1,4 +1,3 @@
-
 """
 This module provides different algorithms for resampling datasets to produce confidence intervals
 """
@@ -12,14 +11,17 @@ from scipy import optimize
 from ..utils.math_operations import PipePool
 from ..utils.math_operations import bi_erf_model
 
-__all__ = ['GaussianKDE', 'TophatKDE', 'ResampleAnalysis', 'ResampleKDEAnalysis',
+__all__ = ['GaussianKDE', 'TophatKDE', 'periodic_kde',
+           'ResampleAnalysis', 'ResampleKDEAnalysis',
            'bigaussian_fit_analysis_1', 'curvefit_passable_wrapper']
+
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 
 class BaseKDE:
     """Kernel density estimator base class"""
+
     def __init__(self,
                  dataset: np.ndarray,
                  bandwidth: (float, str)):
@@ -34,6 +36,7 @@ class BaseKDE:
         """
         self.dataset = dataset
         self._sigma = np.std(dataset)
+        self._bandwidth = None
         self.set_bandwidth(bandwidth)
 
     def __call__(self, x_vals: np.ndarray):
@@ -48,9 +51,11 @@ class BaseKDE:
 
 class GaussianKDE(gaussian_kde, BaseKDE):
     """Wrapper for the scipy.stats.gaussian_kde class, only designed for 1D arrays"""
+
     def __init__(self,
                  dataset: np.ndarray,
-                 bandwidth: (float, str)=None):
+                 bandwidth: (float, str) = None,
+                 weights=None):
         """
 
         Parameters
@@ -60,7 +65,7 @@ class GaussianKDE(gaussian_kde, BaseKDE):
         bandwidth
             String or float.  Typical strings include 'silverman' and 'scott'
         """
-        super().__init__(dataset=dataset, bw_method=bandwidth)
+        super().__init__(dataset=dataset, bw_method=bandwidth, weights=weights)
 
     def integrate_between(self, low_val: float, high_val: float) -> float:
         """Computes the integral between the two specified bounds
@@ -83,10 +88,11 @@ class GaussianKDE(gaussian_kde, BaseKDE):
 
 class TophatKDE(BaseKDE):
     """1D tophat Kernel density estimator"""
+
     def __init__(self,
                  dataset: np.ndarray,
-                 bandwidth: (float, str)=None,
-                 weights: np.ndarray=None):
+                 bandwidth: (float, str) = None,
+                 weights: np.ndarray = None):
         """
 
         Parameters
@@ -106,6 +112,10 @@ class TophatKDE(BaseKDE):
             self._weights = np.array(weights)
         self._total_weight = np.sum(self._weights)
 
+    @property
+    def bandwidth(self):
+        return self._bandwidth
+
     def __call__(self, xvals: np.ndarray) -> np.ndarray:
         """Returns the computed KDE at these points
 
@@ -122,17 +132,17 @@ class TophatKDE(BaseKDE):
         if not isinstance(xvals, np.ndarray):
             xvals = np.array(xvals)
         dx = xvals[1] - xvals[0]
-        bw2 = self._bandwidth/2.
-        lower_range = self.dataset-bw2
-        upper_range = self.dataset+bw2
+        bw2 = self._bandwidth / 2.
+        lower_range = self.dataset - bw2
+        upper_range = self.dataset + bw2
         x_0 = min(xvals)
-        lower_bins = np.floor((lower_range-x_0)/dx).astype(int)
-        upper_bins = np.ceil((upper_range-x_0)/dx).astype(int)
-        bin_width = np.array(upper_bins-lower_bins, dtype=float)
+        lower_bins = np.floor((lower_range - x_0) / dx).astype(int)
+        upper_bins = np.ceil((upper_range - x_0) / dx).astype(int)
+        bin_width = np.array(upper_bins - lower_bins, dtype=float)
         # If all data fits inside a single bin, make sure it doesn't get reduced to 0-width:
         bin_width[bin_width == 0] = 1.
         data_mask = (upper_bins >= 0) & (lower_bins < len(xvals))
-        summation_values = self._weights/(bin_width*dx)
+        summation_values = self._weights / (bin_width * dx)
         output_data = np.zeros(len(xvals))
         for l_i, u_i, s_val in zip(lower_bins[data_mask], upper_bins[data_mask], summation_values[data_mask]):
             output_data[l_i:u_i] += s_val
@@ -154,25 +164,25 @@ class TophatKDE(BaseKDE):
         float
             The computed integral
         """
-        bw2 = self._bandwidth/2.
-        lower_range = self.dataset-bw2
-        upper_range = self.dataset+bw2
+        bw2 = self._bandwidth / 2.
+        lower_range = self.dataset - bw2
+        upper_range = self.dataset + bw2
         multiplier = self._weights.copy()
         # Handle edge cases, crop them proportionately
         edge_cases_lower = (lower_range < low_val) & (upper_range >= low_val)
         edge_cases_upper = (lower_range < high_val) & (upper_range >= high_val)
-        multiplier[edge_cases_lower] *= (upper_range[edge_cases_lower]-low_val)/self._bandwidth
-        multiplier[edge_cases_upper] *= (high_val-lower_range[edge_cases_upper])/self._bandwidth
+        multiplier[edge_cases_lower] *= (upper_range[edge_cases_lower] - low_val) / self._bandwidth
+        multiplier[edge_cases_upper] *= (high_val - lower_range[edge_cases_upper]) / self._bandwidth
         data_mask = (upper_range >= low_val) * (lower_range < high_val)
-        return np.sum(multiplier[data_mask])/self._total_weight
+        return np.sum(multiplier[data_mask]) / self._total_weight
 
     def set_bandwidth(self, bw_method):
         if bw_method is None:
             bw_method = 'scott'
         if bw_method == 'scott':
-            self._bandwidth = np.power(len(self.dataset), -1/5.)*self._sigma
+            self._bandwidth = np.power(len(self.dataset), -1 / 5.) * self._sigma
         elif bw_method == 'silverman':
-            self._bandwidth = np.power(len(self.dataset)*3/4, -1/5.)*self._sigma
+            self._bandwidth = np.power(len(self.dataset) * 3 / 4, -1 / 5.) * self._sigma
         elif callable(bw_method):
             self._bandwidth = bw_method(self.dataset)
         elif not isinstance(bw_method, str):
@@ -181,11 +191,62 @@ class TophatKDE(BaseKDE):
             msg = "`bw_method` should be 'scott', 'silverman', a scalar, or callable"
             raise ValueError(msg)
 
+
+def periodic_kde(raw_data, period, num_plot_pts, mode='gaussian', bandwidth=None):
+    """A quick way of turning a normal KDE into a periodic KDE.  Will have some rounding errors where the tail overlaps.
+
+    Parameters
+    ----------
+    raw_data
+        values to produce KDE from
+    period
+        value to fold the data over
+    num_plot_pts
+        approximate number of points desired in the time domain, typically a large number (>100)
+    mode
+        'gaussian' or 'tophat'
+    bandwidth
+
+    Returns
+    -------
+    time_domain, values
+    """
+    if mode == 'gaussian':
+        if bandwidth is None:
+            bandwidth = period / 100
+        _kde = GaussianKDE
+    elif mode == 'tophat':
+        if bandwidth is None:
+            bandwidth = period / 10
+        _kde = TophatKDE
+    else:
+        raise AttributeError("Mode is not known: ", mode, ", must be 'gaussian' or 'tophat'")
+    d_period = period / 2
+    test_domain = np.linspace(-d_period, period + d_period, num_plot_pts)
+    kde = _kde(raw_data, bandwidth)
+    original_kde = kde(test_domain)
+
+    low_wrap_bool = test_domain < 0
+    num_bot = np.sum(low_wrap_bool)
+    high_wrap_bool = test_domain >= period
+    num_top = np.sum(high_wrap_bool)
+    display_domain = test_domain[num_bot: num_plot_pts - num_top]
+
+    period_wrapped_kde = original_kde[num_bot: num_plot_pts - num_top].copy()
+
+    for val in range(num_bot):
+        period_wrapped_kde[len(period_wrapped_kde) + val - num_bot] += original_kde[val]
+    for val in range(num_top):
+        period_wrapped_kde[val] += original_kde[num_plot_pts - num_top + val]
+
+    return display_domain, period_wrapped_kde
+
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 
 class ResampleAnalysis:
     """Class for performing various resampling methods on a dataset"""
+
     def __init__(self, dataset: np.ndarray):
         self._dataset = dataset
         self._num_pts = len(dataset)
@@ -217,7 +278,7 @@ class ResampleAnalysis:
                 (jackknifed_data, analysis_func(jackknifed_data), lower interval, upper interval
             These are replaced by None when not called
         """
-        subsample_size = self.num_pts-1
+        subsample_size = self.num_pts - 1
 
         if analysis_func is None:
             jackknifed_data = np.zeros((self.num_pts, subsample_size))
@@ -236,7 +297,7 @@ class ResampleAnalysis:
 
         if analysis_func is not None:
             diff = jackknifed_data - analysis_func(self._dataset)
-            distance = np.sqrt(diff**2)
+            distance = np.sqrt(diff ** 2)
         else:
             distance = None
 
@@ -247,8 +308,8 @@ class ResampleAnalysis:
                 return jackknifed_data, distance, None, None
         else:
             if 0 < conf_lvl < 1:
-                upper_interval = 100*(1 - (1 - conf_lvl)/2)
-                lower_interval = 100*((1 - conf_lvl)/2)
+                upper_interval = 100 * (1 - (1 - conf_lvl) / 2)
+                lower_interval = 100 * ((1 - conf_lvl) / 2)
                 return jackknifed_data, distance, \
                        np.percentile(jackknifed_data, lower_interval, axis=-1), \
                        np.percentile(jackknifed_data, upper_interval, axis=-1)
@@ -258,9 +319,9 @@ class ResampleAnalysis:
     # ------------------------------------------------------------------------------------------------------------ #
     def bootstrap(self,
                   num_resamples: int,
-                  subsample_size: int=None,
+                  subsample_size: int = None,
                   analysis_func: FunctionType = None,
-                  conf_lvl: float=None,
+                  conf_lvl: float = None,
                   **analysis_func_kwargs):
         """Perform bootstrap analysis on the dataset provided, including some various analysis methods
 
@@ -297,7 +358,8 @@ class ResampleAnalysis:
         else:
             try:
                 bootstrapped_data = np.zeros((num_resamples,
-                                              len(analysis_func(self._dataset[:subsample_size], **analysis_func_kwargs))))
+                                              len(analysis_func(self._dataset[:subsample_size],
+                                                                **analysis_func_kwargs))))
             except TypeError:
                 bootstrapped_data = np.zeros(num_resamples)
         for b_i in range(num_resamples):
@@ -311,8 +373,8 @@ class ResampleAnalysis:
             return bootstrapped_data
         else:
             if 0 < conf_lvl < 1:
-                upper_interval = 100*(1 - (1 - conf_lvl)/2)
-                lower_interval = 100*((1 - conf_lvl)/2)
+                upper_interval = 100 * (1 - (1 - conf_lvl) / 2)
+                lower_interval = 100 * ((1 - conf_lvl) / 2)
                 return bootstrapped_data, \
                        np.percentile(bootstrapped_data, lower_interval, axis=-1), \
                        np.percentile(bootstrapped_data, upper_interval, axis=-1)
@@ -377,6 +439,7 @@ class ResampleAnalysis:
         """
         return analysis_func(self._dataset.copy(), **analysis_func_kwargs)
 
+
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 
@@ -413,7 +476,7 @@ class ResampleKDEAnalysis(ResampleAnalysis):
 
     # ------------------------------------------------------------------------------------------------------------ #
     def compute_kde(self,
-                    use_weights: bool=False):
+                    use_weights: bool = False):
         """Computes the current KDE based
 
         Parameters
@@ -438,12 +501,12 @@ class ResampleKDEAnalysis(ResampleAnalysis):
     # ------------------------------------------------------------------------------------------------------------ #
     def bootstrap_with_kde(self,
                            num_resamples: int,
-                           subsample_size: int=None,
-                           analysis_func: FunctionType=None,
-                           conf_lvl: float=None,
-                           use_weights: bool=False,
-                           num_cores: int=1,
-                           chunksize: int=1,
+                           subsample_size: int = None,
+                           analysis_func: FunctionType = None,
+                           conf_lvl: float = None,
+                           use_weights: bool = False,
+                           num_cores: int = 1,
+                           chunksize: int = 1,
                            **analysis_func_kwargs):
         """Resamples a sample with replacement, applies the KDE, then performs analysis and repeats
 
@@ -641,7 +704,7 @@ def bigaussian_fit_analysis_1(all_resamples, x_vals, num_cores=1, chunksize=1,
                               fixed_mean=0., init_mean=0., init_std_dev=None, ratio=.5):
     fit_vals = np.zeros((len(all_resamples), 2))
     if init_std_dev is None:
-        init_std_dev = np.std(x_vals)/2
+        init_std_dev = np.std(x_vals) / 2
     if num_cores == 1:
         for r_i, resample in enumerate(all_resamples):
             cdf = approximate_cdf(resample)
@@ -710,12 +773,13 @@ def _bigaussian_pipe_func(pipe_access, xdomain, fixed_mean, init_mean, init_std_
                     result.append((new_input['index'], output_data))
                 pipe_access.send(result)
 
+
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 
 def curvefit_passable_wrapper(datapoints: np.ndarray,
-                              fit_func: FunctionType=None,
-                              xdata: np.ndarray=None,
+                              fit_func: FunctionType = None,
+                              xdata: np.ndarray = None,
                               **curvefit_kwargs):
     """Provides a wrapper around the scipy.optimize.curve_fit function to make it easier to use in bootstrapping
 
@@ -736,4 +800,7 @@ def curvefit_passable_wrapper(datapoints: np.ndarray,
     """
     opt_fit, pcov_fit = optimize.curve_fit(fit_func, xdata=xdata, ydata=datapoints, **curvefit_kwargs)
     return opt_fit
+
+
+
 
