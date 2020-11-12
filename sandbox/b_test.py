@@ -53,8 +53,6 @@ def plot_flare_array(lightcurve: np.ndarray,
     """
 
     num_flares = len(flare_indices)
-    if num_flares == 0:
-        return None
 
     num_row, num_col = row_col_grid(num_flares)
     fig, all_axes = plt.subplots(num_row, num_col, figsize=(10, 6))
@@ -131,13 +129,10 @@ def star_info(path, hist=True, plot_ac=True, plot_ind_flares=True, lombscarg=Tru
 
     hdu = 0
     header = fits.getheader(path, hdu)
-    obj = header.get("OBJECT")
-    q = header.get("QUARTER")
 
     # Create a new directory to store images of the star
-
-    if not os.path.exists("detailed_star_info/{}/Q{}".format(obj, q)):
-        os.makedirs("detailed_star_info/{}/Q{}".format(obj, q))
+    if not os.path.exists("detailed_star_info/{}/Q{}".format(header.get("OBJECT"), header.get("QUARTER"))):
+        os.makedirs("detailed_star_info/{}/Q{}".format(header.get("OBJECT"), header.get("QUARTER")))
 
     # Store flares based on sigma thresholds
     total_flares = []
@@ -199,7 +194,9 @@ def star_info(path, hist=True, plot_ac=True, plot_ind_flares=True, lombscarg=Tru
 
     # Visualize
     fig, ax = plt.subplots(2, figsize=(12, 6))
-    plt.suptitle("{} Quarter {}- {} Total Flares Detected, {} above 6sig".format(obj, q, total_flares, flares_six_sigma))
+    plt.suptitle("{} Quarter {}- {} Total Flares Detected, {} above 6sig".format(header.get("OBJECT"),
+                                                                                 header.get("QUARTER"), total_flares,
+                                                                                 flares_six_sigma))
     ax[0].plot(lc.flux, label="Raw Flux", drawstyle="steps-post")
     ax[1].plot(lc_detr.flux, label="Detrended Flux", drawstyle="steps-post")
     ax[1].plot(peaks, flare_heights, "x", label="Detected Flares at 3 Sigma")
@@ -208,17 +205,17 @@ def star_info(path, hist=True, plot_ac=True, plot_ind_flares=True, lombscarg=Tru
     ax[1].axhline(6*np.std(lc.flux) + np.median(lc.flux), c="k", alpha=0.5, linestyle="dashed", label="6 sigma threshold")
     ax[1].axhline(1.01, c="k", alpha=0.5, linestyle="dashdot")
     ax[1].axhline(1.04, c="k", alpha=0.4)
-    plt.savefig("detailed_star_info/{}/Q{}/lc_flares_marked.png".format(obj, q))
+    plt.savefig("detailed_star_info/{}/Q{}/lc_flares_marked.png".format(header.get("OBJECT"), header.get("QUARTER")))
 
     # Histogram
     if hist:
         plt.figure(figsize=(12, 6))
         plt.hist(flare_heights, bins=50, color="k")
-        plt.title("Flare Magnitude Histogram for {} Quarter {}".format(obj, q))
+        plt.title("Flare Magnitude Histogram for {} Quarter {}".format(header.get("OBJECT"), header.get("QUARTER")))
         plt.xlabel("Detrended Flare Magnitude")
         plt.ylabel("Count")
-        plt.savefig("detailed_star_info/{}/Q{}/flare magnitude hist.png".format(obj, q))
-    
+        plt.savefig("detailed_star_info/{}/Q{}/flare magnitude hist.png".format(header.get("OBJECT"),
+                                                                               header.get("QUARTER")))
     # Autocorrelation plot
     if plot_ac:
 
@@ -235,40 +232,27 @@ def star_info(path, hist=True, plot_ac=True, plot_ind_flares=True, lombscarg=Tru
         plt.ylabel("Correlation")
         plt.savefig("detailed_star_info/{}/Q{}/autocorr.png".format(header.get("OBJECT"), header.get("QUARTER")))
 
-    # Flare Array
     if plot_ind_flares:
         if header.get("OBSMODE") == "short cadence":
-            plot_flare_array(lc.flux, peaks, 10, 30, display_index=False,
-                             savefile="detailed_star_info/{}/Q{}/flare_arr.png".format(obj, q))
+            plot_flare_array(lc.flux, peaks, 10, 30, display_index=True,
+                             savefile="detailed_star_info/{}/Q{}/flare_arr.png".format(header.get("OBJECT"),
+                                                                                       header.get("QUARTER")))
         else:
             plot_flare_array(lc.flux, peaks, 5, 10, display_index=True,
-                             savefile="detailed_star_info/{}/Q{}/flare_arr.png".format(obj, q))
-    
+                             savefile="detailed_star_info/{}/Q{}/flare_arr.png".format(header.get("OBJECT"),
+                                                                                       header.get("QUARTER")))
     # Naive periodogram
     if lombscarg:
-        freq, power = LombScargle(peaks, flare_heights).autopower()
+        freq, power = LombScargle(lc.time, lc.flux).autopower()
 
         plt.figure(figsize=(12, 6))
         plt.plot(freq, power, c="k", drawstyle="steps-post")
         plt.xlabel("Frequency")
         plt.ylabel("Power")
-        plt.title("Lomb-Scargle of Flare Times for {} Q{}".format(obj, q))
-        plt.savefig("detailed_star_info/{}/Q{}/LombScarg.png".format(obj, q))
-        
-    # Store relevant information: raw flux array, detrended flux array, time array, flare times, flare indices,
-    # flare peak values
-
-    flare_times = [lc.time[i] for i in peaks]
-
-    np.save("detailed_star_info/{}/Q{}/raw_flux".format(header.get("OBJECT"), header.get("QUARTER")), lc.flux)
-    np.save("detailed_star_info/{}/Q{}/detrended_flux".format(header.get("OBJECT"), header.get("QUARTER")), lc_detr.flux)
-    np.save("detailed_star_info/{}/Q{}/time".format(header.get("OBJECT"), header.get("QUARTER")), lc.time)
-    np.save("detailed_star_info/{}/Q{}/time_d".format(header.get("OBJECT"), header.get("QUARTER")), lc_detr.time)
-    np.save("detailed_star_info/{}/Q{}/flare_indices".format(header.get("OBJECT"), header.get("QUARTER")), peaks)
-    np.save("detailed_star_info/{}/Q{}/flare_times".format(header.get("OBJECT"), header.get("QUARTER")), flare_times)
-    np.save("detailed_star_info/{}/Q{}/flare_peaks".format(header.get("OBJECT"), header.get("QUARTER")), flare_heights)
+        plt.title("Lomb-Scargle for {} Q{}".format(header.get("OBJECT"), header.get("QUARTER")))
+        plt.savefig("detailed_star_info/{}/Q{}/LombScarg.png".format(header.get("OBJECT"), header.get("QUARTER")))
 
 # Run from command line
 if __name__ == "__main__":
     import sys
-    star_info(str(sys.argv[1]), plot_ind_flares=False)
+    star_info(str(sys.argv[1]))
