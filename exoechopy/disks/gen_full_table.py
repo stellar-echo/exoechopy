@@ -100,16 +100,24 @@ all_stars_short_cadence = []
 
 print("Grabbing all quarter files for every star....")
 
+
+top3k = []
+with open("top3k.txt","r") as f:
+    for line in f:
+        top3k.append(line)
+
 # Grab all quarters of data from every star in the directory
 for ind, star_ in enumerate(os.listdir(path)):
-    lc, sc, full = find_all_quarters(star_)
-    all_stars_all_quarters.append(full)
-    all_stars_long_cadence.append(lc)
-    all_stars_short_cadence.append(sc)
-    print("Grabbed all quarter data for", star_, "({} of {})".format(ind, len(os.listdir(path))))
+    if star_ in top3k:
+        lc, sc, full = find_all_quarters(star_)
+        all_stars_all_quarters.append(full)
+        all_stars_long_cadence.append(lc)
+        all_stars_short_cadence.append(sc)
+        print("Grabbed all quarter data for", star_, "({} of {})".format(ind, len(top3k)))
 
 print()
 print("Grabbed all quarter files for every star.")
+print()
 print("Now looping through the quarter files and grabbing flare info...")
     
 # Now, loop through the data and grab all relevant information
@@ -132,102 +140,96 @@ values = []
 total_flares_short_cadence = []
 total_flares_long_cadence = []
 
-top3k = []
-with open("top3k.txt","r") as f:
-    for line in f:
-        top3k.append(line)
-
 # Loop through each individual quarter of data and extract flare information
 for star_quarter_list in all_stars_all_quarters:
     for ind, quarter_file in enumerate(star_quarter_list):
-        if quarter_file in top3k:
-            # Get header contents from first file in list
-            header = fits.getheader(quarter_file[0], hdu)
-            values.append([header.get(key) for key in keys])
+        # Get header contents from first file in list
+        header = fits.getheader(quarter_file[0], hdu)
+        values.append([header.get(key) for key in keys])
 
-            # Get number of flares and flare times
-            lc_raw = fits.open(str(quarter_file))
-            raw_flux = lc_raw[1].data["PDCSAP_FLUX"]
-            time = lc_raw[1].data["TIME"]
+        # Get number of flares and flare times
+        lc_raw = fits.open(str(quarter_file))
+        raw_flux = lc_raw[1].data["PDCSAP_FLUX"]
+        time = lc_raw[1].data["TIME"]
 
-            lc = lk.LightCurve(time=time, flux=raw_flux)
-            lc = lc.remove_nans().flatten()
+        lc = lk.LightCurve(time=time, flux=raw_flux)
+        lc = lc.remove_nans().flatten()
 
-            # Different cadences require different flare detection windows
-            if "slc" in quarter_file:
-                x = lc.flux
-                median = np.median(x)
-                sigma = np.std(x)
-                flare_threshold = median + (3 * sigma)
-                peaks, peak_val = find_peaks(x, height=flare_threshold, distance=30)
-                total_flares_short_cadence.append(len(peaks))
+        # Different cadences require different flare detection windows
+        if "slc" in quarter_file:
+            x = lc.flux
+            median = np.median(x)
+            sigma = np.std(x)
+            flare_threshold = median + (3 * sigma)
+            peaks, peak_val = find_peaks(x, height=flare_threshold, distance=30)
+            total_flares_short_cadence.append(len(peaks))
 
-                """
-                # Get median flare intensity
-                flare_heights = []
-                for val in peak_val.values():
-                    for num in val:
-                        flare_heights.append(num)
+            """
+            # Get median flare intensity
+            flare_heights = []
+            for val in peak_val.values():
+                for num in val:
+                    flare_heights.append(num)
 
-                # Calculate the percentage above background flux of each flare
-                peaks_one = []
-                peaks_four = []
-                for flare in flare_heights:
-                    raw_val = 100 * (flare - 1)
-                    if raw_val > 1:
-                        peaks_one.append(raw_val)
+            # Calculate the percentage above background flux of each flare
+            peaks_one = []
+            peaks_four = []
+            for flare in flare_heights:
+                raw_val = 100 * (flare - 1)
+                if raw_val > 1:
+                    peaks_one.append(raw_val)
 
-                    if raw_val > 4:
-                        peaks_four.append(raw_val)
+                if raw_val > 4:
+                    peaks_four.append(raw_val)
 
-                flares_one_percent.append(len(peaks_one))
-                flares_four_percent.append(len(peaks_four))
+            flares_one_percent.append(len(peaks_one))
+            flares_four_percent.append(len(peaks_four))
 
-                median_flare_int.append(np.median(flare_heights))
+            median_flare_int.append(np.median(flare_heights))
 
-                # Get amount of flares above six sigma
-                flare_threshold_six_sigma = median + (6 * sigma)
-                peaks_six, peak_val_six = find_peaks(x, height=flare_threshold_six_sigma, distance=30)
-                flares_above_6_sigma.append(len(peaks_six))
-                """
+            # Get amount of flares above six sigma
+            flare_threshold_six_sigma = median + (6 * sigma)
+            peaks_six, peak_val_six = find_peaks(x, height=flare_threshold_six_sigma, distance=30)
+            flares_above_6_sigma.append(len(peaks_six))
+            """
 
-            else:
-                y = lc.flux
-                median = np.median(y)
-                sigma = np.std(y)
-                flare_threshold = median + (6 * sigma)
-                peaks, peak_val = find_peaks(y, height=flare_threshold, distance=4)
-                total_flares_long_cadence.append(len(peaks))
+        else:
+            y = lc.flux
+            median = np.median(y)
+            sigma = np.std(y)
+            flare_threshold = median + (6 * sigma)
+            peaks, peak_val = find_peaks(y, height=flare_threshold, distance=4)
+            total_flares_long_cadence.append(len(peaks))
 
-                """
-                # Get median flare intensity
-                flare_heights = []
-                for val in peak_val.values():
-                    for num in val:
-                        flare_heights.append(num)
+            """
+            # Get median flare intensity
+            flare_heights = []
+            for val in peak_val.values():
+                for num in val:
+                    flare_heights.append(num)
 
-                # Percentage
-                peaks_one = []
-                peaks_four = []
-                for flare in flare_heights:
-                    raw_val = 100 * (flare - 1)
-                    if raw_val > 1:
-                        peaks_one.append(raw_val)
+            # Percentage
+            peaks_one = []
+            peaks_four = []
+            for flare in flare_heights:
+                raw_val = 100 * (flare - 1)
+                if raw_val > 1:
+                    peaks_one.append(raw_val)
 
-                    if raw_val > 4:
-                        peaks_four.append(raw_val)
+                 if raw_val > 4:
+                    peaks_four.append(raw_val)
 
-                flares_one_percent.append(len(peaks_one))
-                flares_four_percent.append(len(peaks_four))
+            flares_one_percent.append(len(peaks_one))
+            flares_four_percent.append(len(peaks_four))
 
-                median_flare_int.append(np.median(flare_heights))
+            median_flare_int.append(np.median(flare_heights))
     
-                # Get amount of flares above six sigma
-                flare_threshold_six_sigma = median + (6 * sigma)
-                peaks_six, peak_val_six = find_peaks(y, height=flare_threshold_six_sigma, distance=4)
-                flares_above_6_sigma.append(len(peaks_six))
-                """
-            print("Finished", ind, "of", len(star_quarter_list))
+            # Get amount of flares above six sigma
+            flare_threshold_six_sigma = median + (6 * sigma)
+            peaks_six, peak_val_six = find_peaks(y, height=flare_threshold_six_sigma, distance=4)
+            flares_above_6_sigma.append(len(peaks_six))
+            """
+        print("Finished", ind, "of", len(star_quarter_list))
 
 
 # Construct Table
