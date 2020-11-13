@@ -59,16 +59,20 @@ with open("top3k.txt","r") as f:
     for line in f:
         top3k.append(line.strip())
         
-print(top3k[0:10])
+top_kplr = []
+for file in top3k:
+    s = re.search("kplr(.+?)-", file)
+    top_kplr.append(s.group(1))
+        
+print(top_kplr[0:10])
 
 # Grab all quarters of data from every star in the directory
-for ind, star_ in enumerate(os.listdir(path)):
-    if star_ in top3k:
-        lc, sc, full = find_all_quarters(star_)
-        all_stars_all_quarters.append(full)
-        all_stars_long_cadence.append(lc)
-        all_stars_short_cadence.append(sc)
-        print("Grabbed all quarter data for", star_, "({} of {})".format(ind, len(top3k)))
+for ind, star_ in enumarate(top_kplr):
+    lc, sc, full = find_all_quarters(star_)
+    all_stars_all_quarters.append(full)
+    all_stars_long_cadence.append(lc)
+    all_stars_short_cadence.append(sc)
+    print("Grabbed all quarter data for", star_, "({} of {})".format(ind, len(top_kplr)))
 
 print()
 print("Grabbed all quarter files for every star.")
@@ -82,11 +86,12 @@ lc_qtr_counts = []
 for ind, lc_quarter_list in enumerate(all_stars_long_cadence):
     lc_qtr_counts.append(len(lc_quarter_list))
     print("Counted", ind, "of", len(all_stars_long_cadence), "long cadence stars")
-
+    print("{} LC Quarters Available".format(len(lc_quarter_list)))
+.
 for ind, sc_quarter_list in enumerate(all_stars_short_cadence):
     sc_qtr_counts.append(len(sc_quarter_list))
     print("Counted", ind, "of", len(all_stars_short_cadence), "short cadence stars")
-
+    print("{} SC Quarters Available".format(len(sc_quarter_list)))
 
 keys = ["OBJECT", "TEFF", "RADIUS"]
 hdu = 0
