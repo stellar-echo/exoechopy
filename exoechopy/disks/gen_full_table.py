@@ -9,7 +9,7 @@ from pathlib import Path
 from astropy.table import Table, Column
 import re
 
-def find_all_quarters(file):
+def find_all_quarters(star):
     """
     Given a star's kplr number, returns a list of all quarters of data for that star. Separates data by cadence.
 
@@ -18,7 +18,7 @@ def find_all_quarters(file):
     """
    
     # Extract the kplr number
-    star = sys.argv[1]
+    # star = sys.argv[1]
     
     kpath = Path('/home/echo/hdd6tb/02_kepler_time_series_scripts/')
 
