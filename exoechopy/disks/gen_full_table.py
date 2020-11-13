@@ -67,7 +67,7 @@ for file in top3k:
 print(top_kplr[0:10])
 
 # Grab all quarters of data from every star in the directory
-for ind, star_ in enumarate(top_kplr):
+for ind, star_ in enumerate(top_kplr):
     lc, sc, full = find_all_quarters(star_)
     all_stars_all_quarters.append(full)
     all_stars_long_cadence.append(lc)
