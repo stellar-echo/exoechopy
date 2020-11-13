@@ -71,7 +71,7 @@ for ind, kplr in enumerate(top_kplr):
     all_stars_all_quarters.append(full)
     all_stars_long_cadence.append(lc)
     all_stars_short_cadence.append(sc)
-    print("Grabbed all quarter data for", star_, "({} of {})".format(ind, len(top_kplr)))
+    print("Grabbed all quarter data for", kplr, "({} of {})".format(ind, len(top_kplr)))
 
 print()
 print("Grabbed all quarter files for every star.")
@@ -82,6 +82,7 @@ print("Now looping through the quarter files and grabbing flare info...")
 sc_qtr_counts = []
 lc_qtr_counts = []
 
+# Count the number of quarters for each star
 for ind, lc_quarter_list in enumerate(all_stars_long_cadence):
     lc_qtr_counts.append(len(lc_quarter_list))
     print("Counted", ind, "of", len(all_stars_long_cadence), "long cadence stars")
@@ -107,8 +108,8 @@ print(lc_qtr_counts[0])
 for star_quarter_list in all_stars_all_quarters:
     for ind, quarter_file in enumerate(star_quarter_list):
         # Get header contents from first file in list
-        lc_raw = fits.open(str(quarter_file))
-        header = fits.getheader(lc_raw[0], hdu)
+        lc_raw = fits.open(quarter_file)
+        header = fits.getheader(lc_raw, hdu)
         values.append([header.get(key) for key in keys])
 
         # Get number of flares and flare times
