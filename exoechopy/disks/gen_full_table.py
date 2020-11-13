@@ -18,9 +18,7 @@ def find_all_quarters(file):
     """
    
     # Extract the kplr number
-    # star = sys.argv[1]
-    m = re.search("kplr(.+?)-", file)
-    star = m.group(1)
+    star = sys.argv[1]
     
     kpath = Path('/home/echo/hdd6tb/02_kepler_time_series_scripts/')
 
