@@ -102,11 +102,11 @@ total_flares_long_cadence = []
 for star_quarter_list in all_stars_all_quarters:
     for ind, quarter_file in enumerate(star_quarter_list):
         # Get header contents from first file in list
-        header = fits.getheader(quarter_file[0], hdu)
+        lc_raw = fits.open(str(quarter_file))
+        header = fits.getheader(lc_raw[0], hdu)
         values.append([header.get(key) for key in keys])
 
         # Get number of flares and flare times
-        lc_raw = fits.open(str(quarter_file))
         raw_flux = lc_raw[1].data["PDCSAP_FLUX"]
         time = lc_raw[1].data["TIME"]
 
