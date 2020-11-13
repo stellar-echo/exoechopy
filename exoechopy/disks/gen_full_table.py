@@ -98,6 +98,8 @@ values = []
 total_flares_short_cadence = []
 total_flares_long_cadence = []
 
+print(all_stars_all_quarters[0:10])
+
 # Loop through each individual quarter of data and extract flare information
 for star_quarter_list in all_stars_all_quarters:
     for ind, quarter_file in enumerate(star_quarter_list):
