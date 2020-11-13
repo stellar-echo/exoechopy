@@ -43,8 +43,9 @@ def find_all_quarters(star):
     return lc_qtr_list, sc_qtr_list, full_qtr_list
 
 
-path = "/home/echo/hdd6tb/02_kepler_time_series_scripts/21_Kepler_Q14/"
+# path = "/home/echo/hdd6tb/02_kepler_time_series_scripts/21_Kepler_Q14/"
 
+# These should be lists of lists of paths
 all_stars_all_quarters = []
 all_stars_long_cadence = []
 all_stars_short_cadence = []
@@ -65,8 +66,8 @@ for file in top3k:
 print(top_kplr[0:10])
 
 # Grab all quarters of data from every star in the directory
-for ind, star_ in enumerate(top_kplr):
-    lc, sc, full = find_all_quarters(star_)
+for ind, kplr in enumerate(top_kplr):
+    lc, sc, full = find_all_quarters(kplr)
     all_stars_all_quarters.append(full)
     all_stars_long_cadence.append(lc)
     all_stars_short_cadence.append(sc)
@@ -99,6 +100,8 @@ total_flares_short_cadence = []
 total_flares_long_cadence = []
 
 print(all_stars_all_quarters[0:10])
+print(sc_qtr_counts[0])
+print(lc_qtr_counts[0])
 
 # Loop through each individual quarter of data and extract flare information
 for star_quarter_list in all_stars_all_quarters:
