@@ -207,12 +207,12 @@ quicklc_long = lk.LightCurve(time = full_lc_time, flux = full_lc_flux)
 
 # If there's any available quarters, save the full flux and time arrays as numpy arrays
 if num_sc_quarters != 0:
-    np.save("full_sc_flux.npy", quicklc.flux)
-    np.save("full_sc_time.npy", quicklc.time)
+    np.save("full_sc_flux.npy", full_sc_flux)
+    np.save("full_sc_time.npy", full_sc_time)
     
 if num_lc_quarters != 0:
-    np.save("full_long_cadence_flux.npy", quicklc_long.flux)
-    np.save("full_long_cadence_time.npy", quicklc_long.time)
+    np.save("full_long_cadence_flux.npy", full_lc_flux)
+    np.save("full_long_cadence_time.npy", full_lc_time)
     
 quicklc = quicklc.remove_nans()
 quicklc_long = quicklc_long.remove_nans()   
