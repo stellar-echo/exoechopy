@@ -236,15 +236,17 @@ plt.legend()
 plt.savefig("long-cadence-periodogram.png")
 """
 # Full Simple Autocorelation
-sc_ac = autocorrelate_array(quicklc.flux, max_lag=100)
-lc_ac = autocorrelate_array(quicklc_long.flux, max_lag=100)
-
-print(sc_ac)
-print(lc_ac)
 
 plt.figure(figsize=(12, 6))
-plt.plot(sc_ac, c="b", drawstyle="steps-post", label="Short Cadence")
-plt.plot(lc_ac, c="k", drawstyle="steps-post", label="Long Cadence")
+
+if num_sc_quarters != 0:
+    sc_ac = autocorrelate_array(quicklc.flux, max_lag=100)
+    plt.plot(sc_ac, c="b", drawstyle="steps-post", label="Short Cadence")
+
+if num_lc_quarters != 0:
+    lc_ac = autocorrelate_array(quicklc_long.flux, max_lag=100)
+    plt.plot(lc_ac, c="k", drawstyle="steps-post", label="Long Cadence")
+
 plt.legend()
 plt.xlabel("Lag Index")
 plt.ylabel("Correlation")
