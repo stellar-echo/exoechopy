@@ -29,10 +29,11 @@ def find_all_quarters(star):
 
     all_folders = os.listdir(kpath)
     quarter_folders = [x for x in all_folders if '_Q' in x]
+    
     # print(quarter_folders)
     # print()
 
-    for qd in quarter_folders:
+    for qd in sorted(quarter_folders):
         for f in os.listdir(kpath/qd):
             if star in f:
                 if 'llc' in f:
