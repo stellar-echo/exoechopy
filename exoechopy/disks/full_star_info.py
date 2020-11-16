@@ -205,9 +205,6 @@ for t in longcad:
 quicklc = lk.LightCurve(time = full_sc_time, flux = full_sc_flux)
 quicklc_long = lk.LightCurve(time = full_lc_time, flux = full_lc_flux)
 
-quicklc = quicklc.remove_nans()
-quicklc_long = quicklc_long.remove_nans()
-
 # If there's any available quarters, save the full flux and time arrays as numpy arrays
 if num_sc_quarters != 0:
     np.save("full_sc_flux.npy", quicklc.flux)
@@ -217,6 +214,8 @@ if num_lc_quarters != 0:
     np.save("full_long_cadence_flux.npy", quicklc_long.flux)
     np.save("full_long_cadence_time.npy", quicklc_long.time)
     
+quicklc = quicklc.remove_nans()
+quicklc_long = quicklc_long.remove_nans()   
     
 # freq_sc, power_sc = LombScargle(quicklc.time, quicklc.flux).autopower()
 # freq_lc, power_lc = LombScargle(quicklc_long.time, quicklc_long.flux).autopower()
