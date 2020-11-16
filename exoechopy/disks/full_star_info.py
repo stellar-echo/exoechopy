@@ -175,14 +175,16 @@ full_sc_flux = []
 for f in shortcad:
     ff = fits.open(str(f))
     flux = ff[1].data["PDCSAP_FLUX"]
-    for num in flux:
+    myflux = flux/np.nanmedian(flux)
+    for num in myflux:
         full_sc_flux.append(num)
 
 full_lc_flux = []
 for g in longcad:
     gg = fits.open(str(g))
     flux = gg[1].data["PDCSAP_FLUX"]
-    for num in flux:
+    myflux = flux/np.nanmedian(flux)
+    for num in myflux:
         full_lc_flux.append(num)
 
 # Full Naive Periodogram
