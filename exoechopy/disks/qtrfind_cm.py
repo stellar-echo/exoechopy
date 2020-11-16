@@ -30,8 +30,8 @@ def find_all_quarters(star):
     all_folders = os.listdir(kpath)
     quarter_folders = [x for x in all_folders if '_Q' in x]
     
-    # print(quarter_folders)
-    # print()
+    print(sorted(quarter_folders))
+    print()
 
     for qd in sorted(quarter_folders):
         for f in os.listdir(kpath/qd):
@@ -42,11 +42,11 @@ def find_all_quarters(star):
                     sc_qtr_list.append(kpath/qd/f)
                 full_qtr_list.append(kpath/qd/f)
 
-    # print("Long cadence: ")
-    # print(lc_qtr_list)
-    # print()
-    # print("Short cadence: ")
-    # print(sc_qtr_list)
+    print("Long cadence: ")
+    print(lc_qtr_list)
+    print()
+    print("Short cadence: ")
+    print(sc_qtr_list)
                 
     return lc_qtr_list, sc_qtr_list, full_qtr_list
 
