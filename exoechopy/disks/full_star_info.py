@@ -48,10 +48,10 @@ sc_flares_four_percent = []
 sc_flares_six_sigma = []
 flare_heights = []
 
-for filename in shortcad:
-    if len(shortcad) == 0:
-        print("No short cadence data.")
-    else:
+if len(num_sc_quarters) == 0:
+    print("No short cadence data available.")
+else:
+    for filename in shortcad:
         lc_raw = fits.open(str(filename))
         raw_flux = lc_raw[1].data["PDCSAP_FLUX"]
         time = lc_raw[1].data["TIME"]
@@ -100,10 +100,10 @@ lc_flares_four_percent = []
 lc_flares_six_sigma = []
 flare_heights_lc = []
 
-for filename in longcad:
-    if len(longcad) == 0:
-        print("No long cadence data.")
-    else:
+if len(num_lc_quarters) == 0:
+    print("No long cadence data available.")
+else:
+    for filename in longcad:
         lc_raw = fits.open(str(filename))
         raw_flux = lc_raw[1].data["PDCSAP_FLUX"]
         time = lc_raw[1].data["TIME"]
@@ -206,9 +206,19 @@ quicklc_long = lk.LightCurve(time = full_lc_time, flux = full_lc_flux)
 quicklc = quicklc.remove_nans()
 quicklc_long = quicklc_long.remove_nans()
 
-freq_sc, power_sc = LombScargle(quicklc.time, quicklc.flux).autopower()
-freq_lc, power_lc = LombScargle(quicklc_long.time, quicklc_long.flux).autopower()
+# If there's any available quarters, save the full flux and time arrays as numpy arrays
+if len(num_sc_quarters) != 0:
+    np.save("full_sc_flux.npy", quicklc.flux)
+    np.save("full_sc_time.npy", quicklc.time)
 
+if len(num_lc_quarters) != 0:
+    np.save("full_long_cadence_flux.npy", quicklc_long.flux)
+    np.save("full_long_cadence_time.npy", quicklc_long.time)
+    
+    
+# freq_sc, power_sc = LombScargle(quicklc.time, quicklc.flux).autopower()
+# freq_lc, power_lc = LombScargle(quicklc_long.time, quicklc_long.flux).autopower()
+"""
 plt.figure(figsize=(12, 6))
 plt.plot(freq_sc, power_sc, c="b", drawstyle="steps-post")
 plt.title("Short Cadence Periodogram")
@@ -224,7 +234,7 @@ plt.xlabel("Frequency")
 plt.ylabel("Power")
 plt.legend()
 plt.savefig("long-cadence-periodogram.png")
-
+"""
 # Full Simple Autocorelation
 sc_ac = autocorrelate_array(quicklc.flux, max_lag=100)
 lc_ac = autocorrelate_array(quicklc_long.flux, max_lag=100)
