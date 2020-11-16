@@ -48,7 +48,7 @@ sc_flares_four_percent = []
 sc_flares_six_sigma = []
 flare_heights = []
 
-if len(num_sc_quarters) == 0:
+if num_sc_quarters == 0:
     print("No short cadence data available.")
 else:
     for filename in shortcad:
@@ -100,7 +100,7 @@ lc_flares_four_percent = []
 lc_flares_six_sigma = []
 flare_heights_lc = []
 
-if len(num_lc_quarters) == 0:
+if num_lc_quarters == 0:
     print("No long cadence data available.")
 else:
     for filename in longcad:
@@ -207,11 +207,11 @@ quicklc = quicklc.remove_nans()
 quicklc_long = quicklc_long.remove_nans()
 
 # If there's any available quarters, save the full flux and time arrays as numpy arrays
-if len(num_sc_quarters) != 0:
+if num_sc_quarters != 0:
     np.save("full_sc_flux.npy", quicklc.flux)
     np.save("full_sc_time.npy", quicklc.time)
-
-if len(num_lc_quarters) != 0:
+    
+if num_lc_quarters != 0:
     np.save("full_long_cadence_flux.npy", quicklc_long.flux)
     np.save("full_long_cadence_time.npy", quicklc_long.time)
     
