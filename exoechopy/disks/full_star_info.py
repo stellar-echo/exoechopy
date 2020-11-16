@@ -173,6 +173,7 @@ plt.savefig("Full Flare Histogram.png")
 # Generate Periodogram and Autocorrelation
 full_sc_flux = []
 for f in shortcad:
+    print(f)
     ff = fits.open(f)
     flux = ff[1].data["PDCSAP_FLUX"]
     myflux = flux/np.nanmedian(flux)
@@ -181,6 +182,7 @@ for f in shortcad:
 
 full_lc_flux = []
 for g in longcad:
+    print(g)
     gg = fits.open(g)
     flux = gg[1].data["PDCSAP_FLUX"]
     myflux = flux/np.nanmedian(flux)
