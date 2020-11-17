@@ -47,6 +47,7 @@ sc_flares_one_percent = []
 sc_flares_four_percent = []
 sc_flares_six_sigma = []
 flare_heights = []
+flare_indices_sc = []
 
 if num_sc_quarters == 0:
     print("No short cadence data available.")
@@ -65,7 +66,8 @@ else:
         flare_threshold = median + (3 * sigma)
         peaks, peak_val = find_peaks(x, height=flare_threshold, distance=30)
         num_sc_flares.append(len(peaks))
-
+        flare_indices_sc.append(peaks)
+            
         # Get median flare intensity
         for val in peak_val.values():
             for num in val:
@@ -99,6 +101,7 @@ lc_flares_one_percent = []
 lc_flares_four_percent = []
 lc_flares_six_sigma = []
 flare_heights_lc = []
+flare_indices_lc = []
 
 if num_lc_quarters == 0:
     print("No long cadence data available.")
@@ -117,6 +120,7 @@ else:
         flare_threshold = median + (3 * sigma)
         peaks, peak_val = find_peaks(x, height=flare_threshold, distance=4)
         num_lc_flares.append(len(peaks))
+        flare_indices_lc.append(peaks)
 
         # Get median flare intensity
         for val in peak_val.values():
@@ -147,6 +151,14 @@ else:
 
 total_flares = sum(num_sc_flares) + sum(num_lc_flares)
 
+# Save flare indices
+if num_sc_quarters != 0:
+    np.save("short_cadence_flare_indices.npy", flare_indices_sc)
+    
+if num_lc_quarters != 0:
+    np.save("long_cadence_flare_indices.npy", flare_indices_lc)
+
+# Make full info table
 data = [obj_name, num_sc_quarters, num_lc_quarters, sum(num_sc_flares), sum(num_lc_flares), total_flares,
         np.median(median_sc_flare_intensity), np.median(median_lc_flare_intensity), sum(sc_flares_six_sigma),
         sum(lc_flares_six_sigma), sum(sc_flares_one_percent), sum(sc_flares_four_percent), sum(lc_flares_one_percent),
