@@ -225,6 +225,10 @@ sigma_lc = np.std(f_lc)
 flare_threshold_lc = median_lc + (3 * sigma_lc)
 peaks_lc, peak_val_lc = find_peaks(f_lc, height=flare_threshold_lc, distance=4)
 
+print(f_lc)
+print()
+print(peaks_lc)
+
 if num_lc_quarters != 0:
     np.save("long_cadence_flare_indices.npy", peaks_lc)
 
