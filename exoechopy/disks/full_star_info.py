@@ -47,7 +47,6 @@ sc_flares_one_percent = []
 sc_flares_four_percent = []
 sc_flares_six_sigma = []
 flare_heights = []
-flare_indices_sc = []
 
 if num_sc_quarters == 0:
     print("No short cadence data available.")
@@ -66,7 +65,6 @@ else:
         flare_threshold = median + (3 * sigma)
         peaks, peak_val = find_peaks(x, height=flare_threshold, distance=30)
         num_sc_flares.append(len(peaks))
-        flare_indices_sc.append(peaks)
             
         # Get median flare intensity
         for val in peak_val.values():
@@ -101,7 +99,6 @@ lc_flares_one_percent = []
 lc_flares_four_percent = []
 lc_flares_six_sigma = []
 flare_heights_lc = []
-flare_indices_lc = []
 
 if num_lc_quarters == 0:
     print("No long cadence data available.")
@@ -120,7 +117,6 @@ else:
         flare_threshold = median + (3 * sigma)
         peaks, peak_val = find_peaks(x, height=flare_threshold, distance=4)
         num_lc_flares.append(len(peaks))
-        flare_indices_lc.append(peaks)
 
         # Get median flare intensity
         for val in peak_val.values():
@@ -150,13 +146,6 @@ else:
 
 
 total_flares = sum(num_sc_flares) + sum(num_lc_flares)
-
-# Save flare indices
-if num_sc_quarters != 0:
-    np.save("short_cadence_flare_indices.npy", flare_indices_sc)
-    
-if num_lc_quarters != 0:
-    np.save("long_cadence_flare_indices.npy", flare_indices_lc)
 
 # Make full info table
 data = [obj_name, num_sc_quarters, num_lc_quarters, sum(num_sc_flares), sum(num_lc_flares), total_flares,
@@ -218,6 +207,26 @@ for t in longcad:
         
 quicklc = lk.LightCurve(time = full_sc_time, flux = full_sc_flux)
 quicklc_long = lk.LightCurve(time = full_lc_time, flux = full_lc_flux)
+
+# Save short cadence flare indices
+f_sc = quicklc.flux
+median_sc = np.median(f)
+sigma_sc = np.std(f)
+flare_threshold_sc = median + (3 * sigma)
+peaks_sc, peak_val_sc = find_peaks(x, height=flare_threshold, distance=30)
+
+if num_sc_quarters != 0:
+    np.save("short_cadence_flare_indices.npy", peaks_sc)
+    
+# Save long cadence flare indices
+f_lc = quicklc_long.flux
+median_lc = np.median(f)
+sigma_lc = np.std(f)
+flare_threshold_lc = median + (3 * sigma)
+peaks_lc, peak_val_lc = find_peaks(x, height=flare_threshold, distance=4)
+
+if num_lc_quarters != 0:
+    np.save("long_cadence_flare_indices.npy", peaks_lc)
 
 # If there's any available quarters, save the full flux and time arrays as numpy arrays
 if num_sc_quarters != 0:
