@@ -210,20 +210,20 @@ quicklc_long = lk.LightCurve(time = full_lc_time, flux = full_lc_flux)
 
 # Save short cadence flare indices
 f_sc = quicklc.flux
-median_sc = np.median(f)
-sigma_sc = np.std(f)
-flare_threshold_sc = median + (3 * sigma)
-peaks_sc, peak_val_sc = find_peaks(x, height=flare_threshold, distance=30)
+median_sc = np.median(f_sc)
+sigma_sc = np.std(f_sc)
+flare_threshold_sc = median_sc + (3 * sigma_sc)
+peaks_sc, peak_val_sc = find_peaks(f_sc, height=flare_threshold_sc, distance=30)
 
 if num_sc_quarters != 0:
     np.save("short_cadence_flare_indices.npy", peaks_sc)
     
 # Save long cadence flare indices
 f_lc = quicklc_long.flux
-median_lc = np.median(f)
-sigma_lc = np.std(f)
-flare_threshold_lc = median + (3 * sigma)
-peaks_lc, peak_val_lc = find_peaks(x, height=flare_threshold, distance=4)
+median_lc = np.median(f_lc)
+sigma_lc = np.std(f_lc)
+flare_threshold_lc = median_lc + (3 * sigma_lc)
+peaks_lc, peak_val_lc = find_peaks(f_lc, height=flare_threshold_lc, distance=4)
 
 if num_lc_quarters != 0:
     np.save("long_cadence_flare_indices.npy", peaks_lc)
