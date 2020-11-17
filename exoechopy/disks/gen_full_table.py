@@ -103,12 +103,16 @@ total_flares_long_cadence = []
 print(all_stars_all_quarters[0:10])
 print(sc_qtr_counts[0])
 print(lc_qtr_counts[0])
+print(all_stars_all_quarters[0][0])
 
 # Loop through each individual quarter of data and extract flare information
 for star_quarter_list in all_stars_all_quarters:
     for ind, quarter_file in enumerate(star_quarter_list):
+        
+        print(quarter_file)
+        
         # Get header contents from first file in list
-        lc_raw = fits.open(quarter_file)
+        lc_raw = fits.open(str(quarter_file))
         header = fits.getheader(lc_raw, hdu)
         values.append([header.get(key) for key in keys])
 
