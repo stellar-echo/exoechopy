@@ -116,7 +116,7 @@ for initial_star in first_stars:
     header = fits.getheader(initial_star, hdu)
     values.append([header.get(key) for key in keys])
     
-for star_quarter_list in all_stars_all_quarters:
+for index, star_quarter_list in enumerate(all_stars_all_quarters):
     for ind, quarter_file in enumerate(star_quarter_list):
         # Get number of flares and flare times
         lc_raw = fits.open(str(quarter_file))
@@ -202,6 +202,7 @@ for star_quarter_list in all_stars_all_quarters:
             flares_above_6_sigma.append(len(peaks_six))
             """
         print("Finished", ind, "of", len(star_quarter_list))
+    print("Finished", index, "of", len(all_stars_all_quarters))
 
 
 # Construct Table
