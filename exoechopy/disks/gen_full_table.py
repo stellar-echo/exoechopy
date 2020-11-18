@@ -219,9 +219,11 @@ lc_quarters = Column(name="Number of Long Cadence Quarters", data=lc_qtr_counts)
 t.add_column(lc_quarters)
 
 fls_sc = Column(name="Total Short Cadence Flares", data=total_flares_short_cadence)
-t.add_column(fls_sc)
+# t.add_column(fls_sc)
 
 fls_lc = Column(name="Total Long Cadence Flares", data=total_flares_long_cadence)
-t.add_column(fls_lc)
-          
+# t.add_column(fls_lc)
+  
+print(total_flares_short_cadence[0:10])
+print(total_flares_long_cadence[0:10])
 t.write("full_table_test.html", format="ascii.html", overwrite=True)
