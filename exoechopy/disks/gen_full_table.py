@@ -113,7 +113,7 @@ for sql in all_stars_all_quarters:
 
 for initial_star in first_stars:
     # Get header contents from first file in list
-    header = fits.getheader(quarter_file, hdu)
+    header = fits.getheader(initial_star, hdu)
     values.append([header.get(key) for key in keys])
     
 for star_quarter_list in all_stars_all_quarters:
