@@ -105,18 +105,21 @@ print(sc_qtr_counts[0])
 print(lc_qtr_counts[0])
 print(all_stars_all_quarters[0][0])
 
+first_stars = []
+
 # Loop through each individual quarter of data and extract flare information
+for sql in all_stars_all_quarters:
+    first_stars.append(sql[0])
+
+for initial_star in first_stars:
+    # Get header contents from first file in list
+    header = fits.getheader(quarter_file, hdu)
+    values.append([header.get(key) for key in keys])
+    
 for star_quarter_list in all_stars_all_quarters:
     for ind, quarter_file in enumerate(star_quarter_list):
-        
-        print(quarter_file)
-        
-        # Get header contents from first file in list
-        lc_raw = fits.open(str(quarter_file))
-        header = fits.getheader(lc_raw, hdu)
-        values.append([header.get(key) for key in keys])
-
         # Get number of flares and flare times
+        lc_raw = fits.open(str(quarter_file))
         raw_flux = lc_raw[1].data["PDCSAP_FLUX"]
         time = lc_raw[1].data["TIME"]
 
