@@ -120,6 +120,7 @@ for star_quarter_list in all_stars_all_quarters:
     for ind, quarter_file in enumerate(star_quarter_list):
         # Get number of flares and flare times
         lc_raw = fits.open(str(quarter_file))
+        hdr = fits.getheader(quarter_file, hdu)
         raw_flux = lc_raw[1].data["PDCSAP_FLUX"]
         time = lc_raw[1].data["TIME"]
 
@@ -127,7 +128,7 @@ for star_quarter_list in all_stars_all_quarters:
         lc = lc.remove_nans().flatten()
 
         # Different cadences require different flare detection windows
-        if "slc" in quarter_file:
+        if header.get("OBSMODE") == "short cadence":
             x = lc.flux
             median = np.median(x)
             sigma = np.std(x)
