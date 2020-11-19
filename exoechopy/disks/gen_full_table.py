@@ -71,6 +71,7 @@ for ind, kplr in enumerate(top_kplr):
     all_stars_all_quarters.append(full)
     all_stars_long_cadence.append(lc)
     all_stars_short_cadence.append(sc)
+    print(ind)
     print("Grabbed all quarter data for", kplr, "({} of {})".format(ind, len(top_kplr)))
 
 print()
