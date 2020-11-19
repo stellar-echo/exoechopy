@@ -130,12 +130,15 @@ for index, star_quarter_list in enumerate(all_stars_all_quarters):
 
         # Different cadences require different flare detection windows
         if header.get("OBSMODE") == "short cadence":
+            # Store the amount of flares from each quarter in a list for every star - this way we can easily get the sum for each star
+            sc_flare_list = []
+            
             x = lc.flux
             median = np.median(x)
             sigma = np.std(x)
             flare_threshold = median + (3 * sigma)
             peaks, peak_val = find_peaks(x, height=flare_threshold, distance=30)
-            total_flares_short_cadence.append(len(peaks))
+            sc_flare_list.append(len(peaks))
 
             """
             # Get median flare intensity
@@ -167,12 +170,14 @@ for index, star_quarter_list in enumerate(all_stars_all_quarters):
             """
 
         else:
+            lc_flare_list = []
+            
             y = lc.flux
             median = np.median(y)
             sigma = np.std(y)
             flare_threshold = median + (6 * sigma)
             peaks, peak_val = find_peaks(y, height=flare_threshold, distance=4)
-            total_flares_long_cadence.append(len(peaks))
+            lc_flare_list.append(len(peaks))
 
             """
             # Get median flare intensity
@@ -204,8 +209,29 @@ for index, star_quarter_list in enumerate(all_stars_all_quarters):
             """
         print("Finished", ind, "of", len(star_quarter_list))
     print("Finished", index, "of", len(all_stars_all_quarters))
+    total_flares_short_cadence.append(sc_flare_list)
+    total_flares_long_cadence.append(lc_flare_list)
 
+flare_totals_sc_final = []
+for starlist in total_flares_short_cadence:
+    flare_totals_sc_final.append(sum(starlist))
 
+flare_totals_lc_final = []
+for starlist in total_flares_long_cadence:
+    flare_totals_lc_final.append(sum(starlist))
+    
+# active_sc_quarters = []
+# for starlist in total_flares_short_cadence:
+#     active = 0
+#    for qtr in starlist:
+#        if qtr > 10:
+#            active += 1
+#    active_sc_quarters.append(active)
+
+#active_lc_quarters = []
+#for starlist in total_flares_long_cadence:
+#    active = 0
+    
 # Construct Table
 row0 = [dict(zip(keys, values[0]))]
 t = Table(row0, names=keys)
@@ -219,10 +245,10 @@ t.add_column(sc_quarters)
 lc_quarters = Column(name="Number of Long Cadence Quarters", data=lc_qtr_counts)
 t.add_column(lc_quarters)
 
-fls_sc = Column(name="Total Short Cadence Flares", data=sum(total_flares_short_cadence))
+fls_sc = Column(name="Total Short Cadence Flares", data=flare_totals_sc_final)
 t.add_column(fls_sc)
 
-fls_lc = Column(name="Total Long Cadence Flares", data=sum(total_flares_long_cadence))
+fls_lc = Column(name="Total Long Cadence Flares", data=flare_totals_lc_final)
 t.add_column(fls_lc)
   
 print(total_flares_short_cadence[0:10])
