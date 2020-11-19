@@ -65,14 +65,13 @@ def combine_fluxes(quarterlist):
         return []
 
     else:
-        print(quarterlist)
         combined_flux = []
         for quarter in quarterlist:
             fl = fits.open(quarter)
             flux = fl[1].data["PDCSAP_FLUX"]
             myflux = flux/np.nanmedian(flux)
-            print(myflux)
-            combined_flux.append(myflux)
+            for value in myflux:
+                combined_flux.append(value)
         print(combined_flux)
         return np.asarray(combined_flux)
 
