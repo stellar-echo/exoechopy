@@ -180,6 +180,20 @@ for f in shortcad:
     myflux = flux/np.nanmedian(flux)
     for num in myflux:
         full_sc_flux.append(num)
+        
+raw_sc_flux = []
+for h in shortcad:
+    hh = fits.open(f)
+    flux = hh[1].data["PDCSAP_FLUX"]
+    for num in flux:
+        raw_sc_flux.append(num)
+ 
+raw_lc_flux = []
+for i in longcad:
+    ii = fits.open(i)
+    flux = ii[1].data["PDCSAP_FLUX"]
+    for num in flux:
+        raw_lc_flux.append(flux)
 
 full_lc_flux = []
 for g in longcad:
@@ -236,10 +250,12 @@ if num_lc_quarters != 0:
 if num_sc_quarters != 0:
     np.save("full_sc_flux.npy", full_sc_flux)
     np.save("full_sc_time.npy", full_sc_time)
+    np.save("raw_sc_flux.npy", raw_sc_flux)
     
 if num_lc_quarters != 0:
     np.save("full_long_cadence_flux.npy", full_lc_flux)
     np.save("full_long_cadence_time.npy", full_lc_time)
+    np.save("raw_lc_flux.npy", raw_lc_flux)
     
 quicklc = quicklc.remove_nans()
 quicklc_long = quicklc_long.remove_nans()   
