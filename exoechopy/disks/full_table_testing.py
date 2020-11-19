@@ -70,7 +70,8 @@ def combine_fluxes(quarterlist):
             fl = fits.open(quarter)
             flux = fl[1].data["PDCSAP_FLUX"]
             myflux = flux/np.nanmedian(flux)
-            combined_flux.append(myflux)
+            for value in quarter:
+                combined_flux.append(myflux)
         print(combined_flux)
         return np.asarray(combined_flux)
 
