@@ -72,7 +72,6 @@ def combine_fluxes(quarterlist):
             myflux = flux/np.nanmedian(flux)
             for value in myflux:
                 combined_flux.append(value)
-        print(combined_flux)
         return np.asarray(combined_flux)
 
 
