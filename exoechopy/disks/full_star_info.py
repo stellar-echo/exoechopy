@@ -192,8 +192,7 @@ raw_lc_flux = []
 for i in longcad:
     ii = fits.open(i)
     flux = ii[1].data["PDCSAP_FLUX"]
-    for num in flux:
-        raw_lc_flux.append(flux)
+    raw_lc_flux.append(flux)
 
 full_lc_flux = []
 for g in longcad:
