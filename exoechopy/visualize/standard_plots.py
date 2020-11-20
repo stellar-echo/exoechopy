@@ -1,4 +1,3 @@
-
 """
 A handful of useful plot types.
 """
@@ -12,6 +11,7 @@ __all__ = ['plot_simple',
            'plot_lines_and_points', 'plot_time_series_w_fft', 'plot_two_signals_different_y_axis',
            'plot_signal_w_uncertainty', 'plot_signal_w_threshold', 'pseudo_waterfall',
            'step_plot_w_confidence_intervals', 'step_plot_with_zoom_subplot']
+
 
 # TODO: use the style sheets instead of manually defining everything
 
@@ -57,6 +57,7 @@ def plot_lines_and_points(line_x, line_y, pts_x, pts_y,
     else:
         plt.show()
 
+
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 
@@ -84,18 +85,19 @@ def plot_time_series_w_fft(x_data, y_data, cadence=1, save=None,
     if x_min is not None and x_max is not None:
         plt.xlim(left=x_min, right=x_max)
     plt.subplot(2, 1, 2)
-    fft = np.fft.rfft((y_data-np.mean(y_data))*np.blackman(len(y_data)))
+    fft = np.fft.rfft((y_data - np.mean(y_data)) * np.blackman(len(y_data)))
     fft_freq = np.fft.rfftfreq(len(x_data), cadence)
     plt.plot(fft_freq, np.abs(fft), color='b')
     plt.ylabel("FFT magnitude")
     plt.xlabel("Frequency (Hz)")
-    plt.title(plt_title+" FFT (Blackman window)")
+    plt.title(plt_title + " FFT (Blackman window)")
     plt.tight_layout()
     if save is not None:
         plt.savefig(save)
         plt.close()
     else:
         plt.show()
+
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
@@ -122,16 +124,17 @@ def plot_two_signals_different_y_axis(x_data, y_data1, y_data2, save=None,
     else:
         plt.show()
 
+
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 
 def plot_signal_w_uncertainty(x_data: np.ndarray, y_data: np.ndarray, y_plus_interval: np.ndarray,
-                              y_minus_interval: np.ndarray=None, y_data_2: np.ndarray=None,
-                              save: str=None, x_axis_label: str= "", y_axis_label: str= "",
-                              y_label_1: str= "", y_label_2: str= "", plt_title: str= "",
-                              color_1: str='k', color_2: str='r',
-                              uncertainty_color: (str, list)='.85', uncertainty_label: (str, list)="",
-                              axes_object: plt.Axes=None):
+                              y_minus_interval: np.ndarray = None, y_data_2: np.ndarray = None,
+                              save: str = None, x_axis_label: str = "", y_axis_label: str = "",
+                              y_label_1: str = "", y_label_2: str = "", plt_title: str = "",
+                              color_1: str = 'k', color_2: str = 'r',
+                              uncertainty_color: (str, list) = '.85', uncertainty_label: (str, list) = "",
+                              axes_object: plt.Axes = None):
     """Generates a standardized plot for a signal and its associated errors
 
     Parameters
@@ -206,14 +209,14 @@ def plot_signal_w_uncertainty(x_data: np.ndarray, y_data: np.ndarray, y_plus_int
             uncertainty_label = [uncertainty_label for c_i in range(len(y_plus_interval))]
         for y_plus, y_minus, unc_col, unc_label in zip(y_plus_interval, y_minus_interval,
                                                        uncertainty_color, uncertainty_label):
-            fill_col = [(1-(1-c_i)*.5) for c_i in mpl_colors.to_rgb(unc_col)]
+            fill_col = [(1 - (1 - c_i) * .5) for c_i in mpl_colors.to_rgb(unc_col)]
             max_z -= 1
             ax.plot(x_data, y_plus, color=unc_col, lw=1, zorder=max_z, drawstyle='steps-post')
             ax.plot(x_data, y_minus, color=unc_col, lw=1, zorder=max_z, drawstyle='steps-post')
             max_z -= 1
             ax.fill_between(x_data, y_plus, y_minus, facecolor=fill_col, label=unc_label, zorder=max_z, step='post')
     else:
-        fill_col = [(1-(1-c_i)*.5) for c_i in mpl_colors.to_rgba(uncertainty_color)]
+        fill_col = [(1 - (1 - c_i) * .5) for c_i in mpl_colors.to_rgba(uncertainty_color)]
         max_z -= 1
         ax.plot(x_data, y_plus_interval, color=uncertainty_color, lw=1, zorder=max_z, drawstyle='steps-post')
         ax.plot(x_data, y_minus_interval, color=uncertainty_color, lw=1, zorder=max_z, drawstyle='steps-post')
@@ -227,7 +230,7 @@ def plot_signal_w_uncertainty(x_data: np.ndarray, y_data: np.ndarray, y_plus_int
     if save is None:
         ax.legend(loc='best')
         plt.tight_layout()
-        plt.show()
+        plt.show(block=True)
     elif save == 'ax' or save == 'hold':
         return ax
     else:
@@ -244,7 +247,7 @@ def plot_signal_w_threshold(x_data, y_data, y_threshold,
                             save=None, x_label="", y_label="", plt_title="",
                             color_1="k", color_threshold="r", threshold_label=""):
     plt.plot(x_data, y_data, color=color_1, label=y_label, zorder=0, linewidth=1)
-    plt.scatter(x_data[np.where(y_data>y_threshold)], y_data[np.where(y_data>y_threshold)],
+    plt.scatter(x_data[np.where(y_data > y_threshold)], y_data[np.where(y_data > y_threshold)],
                 color=color_threshold, zorder=1, label=threshold_label)
     plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
                ncol=3, mode="expand", borderaxespad=0.)
@@ -258,6 +261,7 @@ def plot_signal_w_threshold(x_data, y_data, y_threshold,
         plt.savefig(save)
         plt.close()
 
+
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 
@@ -267,8 +271,8 @@ def pseudo_waterfall(domain, depth, data_array,
     verts = []
     if plot_style == 'step':
         step_indexer = [int(x) for x in np.floor(np.arange(len(domain), step=.5))]
-        dt = (domain[2]-domain[1])/2
-        step_domain_offset = dt*(2*(np.arange(2*len(domain))%2)-1)
+        dt = (domain[2] - domain[1]) / 2
+        step_domain_offset = dt * (2 * (np.arange(2 * len(domain)) % 2) - 1)
         xvals = domain[step_indexer] + step_domain_offset
         xvals = np.pad(xvals, 1, mode='edge')
         for i_z in range(len(depth)):
@@ -300,6 +304,7 @@ def pseudo_waterfall(domain, depth, data_array,
         plt.savefig(save)
         plt.close()
 
+
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 
@@ -318,7 +323,7 @@ def step_plot_w_confidence_intervals(x_data, y_data_1, y_data_2=None, y_data_3=N
         ax = f.add_subplot(111)
     if y_data_2 is None or y_data_3 is not None:
         dt = (x_data[1] - x_data[0]) / 2
-        segments = np.linspace(x_data[0] - dt, x_data[-1] + dt, len(x_data)+1)
+        segments = np.linspace(x_data[0] - dt, x_data[-1] + dt, len(x_data) + 1)
         delta = dt / 10
         old_seg = segments[0] + delta
         for si, seg in enumerate(segments[1:]):
@@ -378,6 +383,7 @@ def step_plot_w_confidence_intervals(x_data, y_data_1, y_data_2=None, y_data_3=N
         plt.savefig(save)
         plt.close()
 
+
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 
 
@@ -408,5 +414,3 @@ def step_plot_with_zoom_subplot(x_data, y_data, ylabel="", xlabel="", data_label
     else:
         plt.savefig(save)
         plt.close()
-
-

@@ -289,7 +289,7 @@ def plot_flare_array(lightcurve: np.ndarray,
         plt.suptitle(title)
 
     if savefile is None:
-        plt.show()
+        plt.show(block=True)
     else:
         plt.savefig(savefile)
         plt.close()

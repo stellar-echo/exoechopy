@@ -24,6 +24,7 @@ class BaseFlareCatalog:
         # Distance before and after flare peak to extract:
         self._look_back = None
         self._look_forward = None
+        self._relative_indices = None
         if extract_range is not None:
             self.set_extraction_range(extract_range)
 
@@ -40,6 +41,7 @@ class BaseFlareCatalog:
     def set_extraction_range(self, extract_range):
         self._look_back = extract_range[0]
         self._look_forward = extract_range[1]
+        self._relative_indices = np.arange(-self._look_back, self._look_forward)
 
     # ------------------------------------------------------------------------------------------------------------ #
     def generate_correlator_matrix(self, *args):
@@ -162,12 +164,12 @@ class BaseFlareCatalog:
             weights = self._flare_weights[np.array(self._index_order_tuple)]
             if phase_weights is not None:
                 weights *= phase_weights
-            weights /= np.mean(weights)
+            weights /= np.nanmean(weights)
             return_array = weights * self._correlator_lag_matrix[self._index_order_tuple, lag_array]
         else:
             if phase_weights is not None:
                 weights = phase_weights
-                weights /= np.mean(weights)
+                weights /= np.nanmean(weights)
                 return_array = weights * self._correlator_lag_matrix[self._index_order_tuple, lag_array]
             else:
                 return_array = self._correlator_lag_matrix[self._index_order_tuple, lag_array]
@@ -193,6 +195,9 @@ class BaseFlareCatalog:
 
     def get_flare_times(self):
         return self._flare_times.copy()
+
+    def get_relative_indices(self):
+        return self._relative_indices
 
     @property
     def cadence(self):
@@ -256,18 +261,19 @@ class LightcurveFlareCatalog(BaseFlareCatalog):
         time_domain
             Time domain associated with the lightcurve (since the cadence may not be pre-determined)
         """
+        self._flare_indices = []
         if time_domain is None:
             super().__init__(all_flares=None, extract_range=extract_range, cadence=cadence)
         else:
             super().__init__(all_flares=None, extract_range=extract_range, cadence=time_domain[1] - time_domain[0])
         self._lightcurve = lightcurve
         self._time_domain = time_domain
-        self._flare_indices = []
 
     # ------------------------------------------------------------------------------------------------------------ #
     def set_extraction_range(self, extract_range):
         self._look_back = extract_range[0]
         self._look_forward = extract_range[1]
+        self._relative_indices = np.arange(-self._look_back, self._look_forward)
         self._generate_slices()
 
     # ------------------------------------------------------------------------------------------------------------ #
@@ -369,7 +375,7 @@ def find_peaks_stddev_thresh(lightcurve_data: np.ndarray,
     num_smoothing_rad
         How many points to include in filter window, based on smoothing_radius
     single_flare_gap
-        If two flares occur within this gap, remove both from the list
+        If two flares occur within this gap, remove first one from the list
 
     Returns
     -------
@@ -411,18 +417,18 @@ def find_peaks_stddev_thresh(lightcurve_data: np.ndarray,
     min_search_ind = excess_region_mask[0]
     for region_i in range(len(distinct_regions)):
         max_search_ind = excess_region_mask[distinct_regions[region_i] - 1]
-        return_array[region_i] = np.argmax(
+        return_array[region_i] = np.nanargmax(
             lightcurve_data[min_search_ind - extra_search_pad:max_search_ind + extra_search_pad]) + \
                                  min_search_ind - extra_search_pad
         min_search_ind = excess_region_mask[distinct_regions[region_i]]
     last_region = excess_region_mask[-1]
-    return_array[region_i + 1] = np.argmax(
+    return_array[region_i + 1] = np.nanargmax(
         lightcurve_data[min_search_ind - extra_search_pad:last_region + extra_search_pad]) + \
                                  min_search_ind - extra_search_pad
 
     if single_flare_gap is not None:
         nearby_flares = np.where(np.diff(return_array) < single_flare_gap)[0]
-        return_array = np.delete(return_array, np.concatenate((nearby_flares, nearby_flares + 1)))
+        return_array = np.delete(return_array, nearby_flares)
 
     return return_array
 
