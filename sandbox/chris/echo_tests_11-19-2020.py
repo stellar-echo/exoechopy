@@ -3,12 +3,35 @@ import numpy as np
 from pathlib import Path
 from matplotlib import pyplot as plt
 import exoechopy as eep
-from scipy.integrate import simps
+from astropy.utils import NumpyRNGContext
+
+# How far before the flare to plot when producing the overview data product:
+back_pad = 5
+# How far after the flare to include in the analysis:
+forward_pad = 80
+# Threshold for detecting flares:
+peak_find_std_dev_thresh = 4.5
+# Threshold for rejecting flare based on a jackknife resample:
+jk_std_dev_thresh = 4
+# Number of bootstrap resamples for developing confidence intervals
+num_bootstrap = 10000
+# Range to use for confidence intervals
+conf_range = 97.7
+# Seed to make results reproducible:
+random_seed = 0
+# Where we are getting raw data from:
+file_folder = "11-19-2020 flux"
+
+#  ------------------------------------------  #
+
+np.random.seed(random_seed)
 
 cwd = Path(os.getcwd())
-fp = cwd.parent.parent / "disks" / "11-19-2020 flux"
+fp = cwd.parent.parent / "disks" / file_folder
 
 all_files = os.listdir(fp)
+conf_min = (100 - conf_range) / 2
+conf_max = 100 - conf_min
 
 star_data_dict = {}
 
@@ -23,12 +46,6 @@ for f in all_files:
     if star_id not in star_data_dict:
         star_data_dict[star_id] = {}
     star_data_dict[star_id][data_type] = np.load(fp / f)
-
-back_pad = 5
-forward_pad = 80
-peak_find_std_dev_thresh = 4.5
-jk_std_dev_thresh = 4
-
 
 # Skip the flare itself when just looking at echo:
 echo_slice = slice(back_pad + 1, None)
@@ -110,9 +127,9 @@ def generate_kde_plots(flare_array, weight_array=None, plot_title=None, savefile
     normal_approx = gaussian(xvals, np.nanmean(flare_tail_histo), np.nanstd(flare_tail_histo))
 
     f, ax = plt.subplots(ncols=2, figsize=(12, 6))
-    ax[0].plot(xvals, flare_tail_kde_gauss / simps(flare_tail_kde_gauss, dx=dx), color='gray', zorder=0,
+    ax[0].plot(xvals, flare_tail_kde_gauss, color='gray', zorder=0,
                label="Scott's rule Gaussian KDE")
-    ax[0].plot(xvals, flare_tail_kde / simps(flare_tail_kde, dx=dx), color='k', zorder=1, label='5-bin Tophat KDE')
+    ax[0].plot(xvals, flare_tail_kde, color='k', zorder=1, label='5-bin Tophat KDE')
     ax[0].plot(xvals, normal_approx, color='b', ls='--', zorder=-1, label='Gaussian fit to distribution')
     ax[0].set_xlabel("Values")
     ax[0].set_ylabel("Relative frequency")
@@ -272,7 +289,20 @@ for star_name in star_data_dict:
 
     final_normed_flares, final_normed_flare_weight, final_normed_std_dev = \
         echo_analysis_do_it_all(final_flare_list, back_pad + 1)
+
     final_normed_mean = np.nansum(final_normed_flares * final_normed_flare_weight[:, np.newaxis], axis=0)
+
+    # Build alternative threshold by bootstrap confidence intervals
+    all_boot_samples = np.zeros((num_bootstrap, len(final_normed_flares), len(final_normed_flares[0])))
+    with NumpyRNGContext(random_seed):
+        num_samples = len(final_flare_list)
+        for b_i in range(num_bootstrap):
+            new_indices = np.random.choice(num_samples, num_samples, replace=True)
+            all_boot_samples[b_i] = np.nansum(final_normed_flares[new_indices]
+                                              * final_normed_flare_weight[new_indices][:, np.newaxis], axis=0)
+    boot_mean = np.mean(all_boot_samples, axis=(0, 1))
+    boot_conf = np.percentile(all_boot_samples, q=(conf_min, conf_max), axis=(0, 1))
+    print("boot_conf.shape: ", boot_conf.shape)
 
     f, ax = plt.subplots(figsize=(12, 5))
     eep.visualize.plot_signal_w_uncertainty(
@@ -280,9 +310,11 @@ for star_name in star_data_dict:
         final_normed_mean[echo_slice],
         (final_normed_mean + 2 * final_normed_std_dev)[echo_slice],
         (final_normed_mean - 2 * final_normed_std_dev)[echo_slice],
+        y_data_2=boot_mean[echo_slice],
         x_axis_label="Time since flare (min)",
         y_axis_label="Relative, weighted normed mean intensity",
         y_label_1="Weighted mean of inlier flares",
+        y_label_2="Mean of bootstrap-resampled values",
         plt_title="Flare-peak normalized, variance-weighted mean lag intensity w/o outliers for " + star_name,
         uncertainty_label="±2sigma of mean",
         uncertainty_color='salmon',
@@ -290,9 +322,19 @@ for star_name in star_data_dict:
         axes_object=ax)
     ax.plot((time_domain_min[back_pad + 1], time_domain_min[-1]), (0, 0),
             color='gray', ls='--', zorder=30)
-    ax.legend()
+    ax.plot(time_domain_min[echo_slice], boot_conf[0][echo_slice],
+            color='darkred', drawstyle='steps-post', zorder=0, lw=1,
+            label='Boostrap ' + str(conf_range) + "% conf. range")
+    ax.plot(time_domain_min[echo_slice], boot_conf[1][echo_slice],
+            color='darkred', drawstyle='steps-post', zorder=0, lw=1)
+    ax.fill_between(time_domain_min[echo_slice],
+                    boot_conf[0][echo_slice],
+                    boot_conf[1][echo_slice],
+                    facecolor='indianred', zorder=-1, step='post')
+    ax.legend().set_zorder(100)
     plt.show(block=True)
 
+    # Some summary statistics:
     flare_tail_array = final_normed_flares[:, back_pad + 1:]
     flare_weights_array = np.ones_like(flare_tail_array) * final_normed_flare_weight[:, np.newaxis]
     generate_kde_plots(flare_tail_array, flare_weights_array,
