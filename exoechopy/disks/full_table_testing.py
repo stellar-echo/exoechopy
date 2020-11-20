@@ -124,6 +124,6 @@ for ind, star in enumerate(top_kplr):
 data = [objects, sc_quarters, lc_quarters, sc_flares, lc_flares]
 names = ["Object", "Short Cadence Quarters", "Long Cadence Quarters", "Short cadence Flares", "Long Cadence Flares"]
 
-df = pd.DataFrame([data], columns=names)
+df = pd.DataFrame(data, index=names).T
 t = Table.from_pandas(df)
 t.write("full_table.html", format="ascii.html", overwrite=True)
