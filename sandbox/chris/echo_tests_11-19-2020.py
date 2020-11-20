@@ -3,6 +3,7 @@ import numpy as np
 from pathlib import Path
 from matplotlib import pyplot as plt
 import exoechopy as eep
+from scipy.integrate import simps
 
 cwd = Path(os.getcwd())
 fp = cwd.parent.parent / "disks" / "11-19-2020 flux"
@@ -12,27 +13,30 @@ all_files = os.listdir(fp)
 star_data_dict = {}
 
 for f in all_files:
-    star_name = f.split('_')[0]
+    star_id = f.split('_')[0]
     if 'flux' in f:
         data_type = 'flux'
     elif 'time' in f:
         data_type = 'time'
     else:
         data_type = None
-    if star_name not in star_data_dict:
-        star_data_dict[star_name] = {}
-    star_data_dict[star_name][data_type] = np.load(fp / f)
+    if star_id not in star_data_dict:
+        star_data_dict[star_id] = {}
+    star_data_dict[star_id][data_type] = np.load(fp / f)
 
 back_pad = 5
 forward_pad = 80
-std_dev_thresh = 4.5
+peak_find_std_dev_thresh = 4.5
 jk_std_dev_thresh = 4
 
-min_lag = 2
-max_lag = 40
 
 # Skip the flare itself when just looking at echo:
 echo_slice = slice(back_pad + 1, None)
+
+
+def gaussian(x, mu, sigma):
+    denom = np.sqrt(np.pi * 2) * sigma
+    return np.exp(-(x - mu) ** 2 / (2 * sigma ** 2)) / denom
 
 
 def weighted_avg_and_std(values, weights):
@@ -67,6 +71,7 @@ def echo_analysis_do_it_all(all_flare_arr: np.ndarray, flare_peak_index=0):
     for f_i, flare in enumerate(all_flare_arr):
         _norm_flare = (flare - 1) / (np.nanmax(flare) - 1)
         _normed_flares[f_i] = _norm_flare
+        # Weight is defined here:
         _normed_flare_weight[f_i] = 1 / np.nanstd(flare[flare_peak_index + 1:])
 
     total_weight = np.sum(_normed_flare_weight)
@@ -82,25 +87,78 @@ def echo_analysis_do_it_all(all_flare_arr: np.ndarray, flare_peak_index=0):
     return _normed_flares, _normed_flare_weight, _normed_std_dev
 
 
-for star_title in star_data_dict:
-    flux = star_data_dict[star_title]['flux']
-    time = star_data_dict[star_title]['time']
-    plt.plot(time, flux)
+def generate_kde_plots(flare_array, weight_array=None, plot_title=None, savefile=None):
+    flare_tail_histo = flare_array.flatten()
+    flare_tail_weights = weight_array.flatten()
+    all_nans = np.isnan(flare_tail_histo)
+    flare_tail_histo = flare_tail_histo[~all_nans]
+    flare_tail_weights = flare_tail_weights[~all_nans]
+
+    xvals = np.linspace(np.nanmin(flare_tail_histo), np.nanmax(flare_tail_histo), 500)
+    dx = xvals[1] - xvals[0]
+
+    final_normed_flare_histo = eep.analyze.TophatKDE(flare_tail_histo,
+                                                     bandwidth=5 * dx,
+                                                     weights=flare_tail_weights)
+
+    final_normed_flare_histo_gauss = eep.analyze.GaussianKDE(flare_tail_histo,
+                                                             bandwidth='scott',
+                                                             weights=flare_tail_weights)
+
+    flare_tail_kde = final_normed_flare_histo(xvals)
+    flare_tail_kde_gauss = final_normed_flare_histo_gauss(xvals)
+    normal_approx = gaussian(xvals, np.nanmean(flare_tail_histo), np.nanstd(flare_tail_histo))
+
+    f, ax = plt.subplots(ncols=2, figsize=(12, 6))
+    ax[0].plot(xvals, flare_tail_kde_gauss / simps(flare_tail_kde_gauss, dx=dx), color='gray', zorder=0,
+               label="Scott's rule Gaussian KDE")
+    ax[0].plot(xvals, flare_tail_kde / simps(flare_tail_kde, dx=dx), color='k', zorder=1, label='5-bin Tophat KDE')
+    ax[0].plot(xvals, normal_approx, color='b', ls='--', zorder=-1, label='Gaussian fit to distribution')
+    ax[0].set_xlabel("Values")
+    ax[0].set_ylabel("Relative frequency")
+    ax[0].set_title("Distribution of values")
+    ax[0].legend()
+
+    cumulative_distribution = np.cumsum(flare_tail_kde)
+    cumulative_distribution /= np.max(cumulative_distribution)
+    ax[1].plot(xvals, cumulative_distribution, color='k')
+    ax[1].set_xlabel("Values")
+    ax[1].set_ylabel("Cumulative frequency")
+    ax[1].set_title("Cumulative values")
+    if plot_title is not None:
+        plt.suptitle(plot_title)
+    plt.tight_layout()
+    if savefile is not None:
+        plt.savefig(savefile)
+        plt.close()
+    else:
+        plt.show(block=True)
+
+
+for star_name in star_data_dict:
+    flux = star_data_dict[star_name]['flux']
+    time = star_data_dict[star_name]['time']
+    f, ax = plt.subplots(figsize=(12, 4))
+    plt.plot(time, flux, color='k', drawstyle='steps-mid')
+    plt.title("Flux from " + star_name)
+    plt.xlabel("Time (d)")
+    plt.ylabel("Background-normalized flux")
     plt.show(block=True)
 
     flare_cat = eep.analyze.LightcurveFlareCatalog(flux,
                                                    extract_range=(back_pad, forward_pad),
                                                    time_domain=time)
     flare_cat.identify_flares_with_protocol(eep.analyze.find_peaks_stddev_thresh,
-                                            std_dev_threshold=std_dev_thresh,
-                                            single_flare_gap=max_lag)
+                                            std_dev_threshold=peak_find_std_dev_thresh,
+                                            single_flare_gap=forward_pad)
     print("Number of flares identified: ", flare_cat.num_flares)
 
     eep.visualize.plot_flare_array(flux, flare_cat.get_flare_indices(),
                                    back_pad=back_pad, forward_pad=forward_pad,
-                                   title="Flare catalog from "+star_title)
+                                   title="Flare catalog from " + star_name + ", "
+                                         + str(flare_cat.num_flares) + " flares found for peak>"
+                                         + str(peak_find_std_dev_thresh) + "σ")
 
-    flare_cat.generate_correlator_matrix((eep.analyze.autocorrelate_array, {'min_lag': min_lag, 'max_lag': max_lag}))
     all_flares = flare_cat.get_flare_curves()
 
     time_domain_min = flare_cat.get_relative_indices() * flare_cat.cadence * 24 * 60
@@ -110,21 +168,21 @@ for star_title in star_data_dict:
     f, ax = plt.subplots(ncols=4, figsize=(16, 4))
     for f_i in range(len(all_flares)):
         ax[0].plot(time_domain_min, all_flares[f_i], drawstyle='steps-mid')
-        ax[1].plot(time_domain_min, normed_flares[f_i], drawstyle='steps-mid')
+        ax[2].plot(time_domain_min, normed_flares[f_i], drawstyle='steps-mid')
 
-    ax[0].set_title("All flares from " + star_title)
-    ax[1].set_title("All peak-normalized flares")
+    ax[0].set_title("All flares from " + star_name)
+    ax[2].set_title("All peak-normalized flares")
 
     # Standard deviation of the mean, https://en.wikipedia.org/wiki/Standard_error#Standard_error_of_the_mean
     std_dev_plot = np.nanstd(all_flares, axis=0) / np.sqrt(len(all_flares))
     mean_plot = np.nanmean(all_flares, axis=0)
     normed_mean = np.nansum(normed_flares * normed_flare_weight[:, np.newaxis], axis=0)
 
-    ax[2].plot(time_domain_min, mean_plot + std_dev_plot, drawstyle='steps-mid', color='r')
-    ax[2].plot(time_domain_min, mean_plot - std_dev_plot, drawstyle='steps-mid', color='r')
-    ax[2].plot(time_domain_min, mean_plot, drawstyle='steps-mid', color='k')
+    ax[1].plot(time_domain_min, mean_plot + std_dev_plot, drawstyle='steps-mid', color='r')
+    ax[1].plot(time_domain_min, mean_plot - std_dev_plot, drawstyle='steps-mid', color='r')
+    ax[1].plot(time_domain_min, mean_plot, drawstyle='steps-mid', color='k')
+    ax[1].set_title("Mean flare magnitude")
 
-    ax[2].set_title("Mean flare magnitude")
     ax[3].plot(time_domain_min, normed_mean + normed_std_dev, drawstyle='steps-mid', color='r')
     ax[3].plot(time_domain_min, normed_mean - normed_std_dev, drawstyle='steps-mid', color='r')
     ax[3].plot(time_domain_min, normed_mean, drawstyle='steps-mid', color='k')
@@ -140,7 +198,7 @@ for star_title in star_data_dict:
         x_axis_label="Time since flare (min)",
         y_axis_label="Relative, weighted normed mean intensity",
         y_label_1="Weighted mean of all flares",
-        plt_title="Normed, weighted mean lag intensity for " + star_title,
+        plt_title="Normed, weighted mean lag intensity for " + star_name,
         uncertainty_label="±2 SE of Mean",
         uncertainty_color='salmon')
 
@@ -177,7 +235,7 @@ for star_title in star_data_dict:
     ax[0].plot(time_domain_min[echo_slice], (normed_mean - normed_std_dev)[echo_slice], drawstyle='steps-mid',
                color='r')
     ax[0].plot(time_domain_min[echo_slice], normed_mean[echo_slice], drawstyle='steps-mid', color='k')
-    ax[0].set_title("Weighted, normalized flare mean from " + star_title)
+    ax[0].set_title("Weighted, normalized flare mean from " + star_name)
 
     for ind in all_ind_list:
         ax[1].scatter(time_domain_min[echo_slice], (all_jk_normed_means[ind] + all_jk_normed_stds[ind])[echo_slice],
@@ -225,10 +283,20 @@ for star_title in star_data_dict:
         x_axis_label="Time since flare (min)",
         y_axis_label="Relative, weighted normed mean intensity",
         y_label_1="Weighted mean of inlier flares",
-        plt_title="Flare-peak normalized, variance-weighted mean lag intensity w/o outliers for " + star_title,
-        uncertainty_label="±2 SE of Mean",
+        plt_title="Flare-peak normalized, variance-weighted mean lag intensity w/o outliers for " + star_name,
+        uncertainty_label="±2sigma of mean",
         uncertainty_color='salmon',
         save='hold',
         axes_object=ax)
-    ax.plot((time_domain_min[back_pad + 1], time_domain_min[-1]), (0, 0), color='gray', ls='--', zorder=30)
+    ax.plot((time_domain_min[back_pad + 1], time_domain_min[-1]), (0, 0),
+            color='gray', ls='--', zorder=30)
+    ax.legend()
     plt.show(block=True)
+
+    flare_tail_array = final_normed_flares[:, back_pad + 1:]
+    flare_weights_array = np.ones_like(flare_tail_array) * final_normed_flare_weight[:, np.newaxis]
+    generate_kde_plots(flare_tail_array, flare_weights_array,
+                       "Normalized inlier post-flare lightcurve distribution")
+    raw_flare_tail_array = final_flare_list[:, back_pad + 1:]
+    generate_kde_plots(raw_flare_tail_array, np.ones_like(raw_flare_tail_array),
+                       "Raw (unnormalized) inlier post-flare lightcurve distribution")
