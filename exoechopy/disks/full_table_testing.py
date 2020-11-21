@@ -49,7 +49,7 @@ def find_all_quarters(star):
 
 
 top3k = []
-with open("top3k.txt", "r") as g:
+with open("top3k_unique.txt", "r") as g:
     for line in g:
         top3k.append(line)
 
