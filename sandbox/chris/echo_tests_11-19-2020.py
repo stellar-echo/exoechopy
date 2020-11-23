@@ -1,38 +1,67 @@
 import os
 import numpy as np
 from pathlib import Path
+import matplotlib
+
+matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 import exoechopy as eep
 from astropy.utils import NumpyRNGContext
+from scipy.ndimage import morphology
 
+#  ------------------------------------------------------------------------------------------------------------------  #
+#  User inputs:
+
+# Where we are getting raw data from:
+file_folder = "11-19-2020 flux"
 # How far before the flare to plot when producing the overview data product:
 back_pad = 5
 # How far after the flare to include in the analysis:
 forward_pad = 80
 # Threshold for detecting flares:
-peak_find_std_dev_thresh = 4.5
+peak_find_std_dev_thresh = 6
 # Threshold for rejecting flare based on a jackknife resample:
 jk_std_dev_thresh = 4
 # Number of bootstrap resamples for developing confidence intervals
 num_bootstrap = 10000
 # Range to use for confidence intervals
 conf_range = 97.7
+
+# Number of flare re-injection tests to perform to develop false-hit-rate values:
+num_false_positive_tests = 5
+# Threshold for microflares, used to mask them out for re-injection studies:
+microflare_find_std_dev_thresh = 4.5
+# pre and post-flare indices for flare injection, only weakly used currently:
+pre_flare_brightening = 1
+post_flare_decay = 1
+
 # Seed to make results reproducible:
 random_seed = 0
-# Where we are getting raw data from:
-file_folder = "11-19-2020 flux"
 
-#  ------------------------------------------  #
+#  ------------------------------------------------------------------------------------------------------------------  #
+#  Automated section
 
 np.random.seed(random_seed)
 
+# Where we store results:
+output_folder = file_folder + "_results"
+
 cwd = Path(os.getcwd())
 fp = cwd.parent.parent / "disks" / file_folder
+results_fp = cwd.parent.parent / "disks" / output_folder
+
+if not results_fp.exists():
+    os.mkdir(results_fp)
 
 all_files = os.listdir(fp)
 conf_min = (100 - conf_range) / 2
 conf_max = 100 - conf_min
 
+# Skip the flare itself when just looking at echo:
+echo_slice = slice(back_pad + 1, None)
+
+# This is just to import the data as provided in the email, this should be rewritten for the server version:
+#  +++++++++++++++++++++++++++++++++++++++++++  #
 star_data_dict = {}
 
 for f in all_files:
@@ -47,22 +76,12 @@ for f in all_files:
         star_data_dict[star_id] = {}
     star_data_dict[star_id][data_type] = np.load(fp / f)
 
-# Skip the flare itself when just looking at echo:
-echo_slice = slice(back_pad + 1, None)
+
+#  +++++++++++++++++++++++++++++++++++++++++++  #
 
 
-def gaussian(x, mu, sigma):
-    denom = np.sqrt(np.pi * 2) * sigma
-    return np.exp(-(x - mu) ** 2 / (2 * sigma ** 2)) / denom
-
-
-def weighted_avg_and_std(values, weights):
-    total_weight = np.sum(weights)
-    weights /= total_weight
-    normed_mean = np.nansum(values * weights)
-    variance = np.nansum((values - normed_mean) ** 2 * weights)
-    return (normed_mean, np.sqrt(variance))
-
+#  ------------------------------------------------------------------------------------------------------------------  #
+#  These functions should be moved to another utility package
 
 def echo_analysis_do_it_all(all_flare_arr: np.ndarray, flare_peak_index=0):
     """
@@ -124,7 +143,7 @@ def generate_kde_plots(flare_array, weight_array=None, plot_title=None, savefile
 
     flare_tail_kde = final_normed_flare_histo(xvals)
     flare_tail_kde_gauss = final_normed_flare_histo_gauss(xvals)
-    normal_approx = gaussian(xvals, np.nanmean(flare_tail_histo), np.nanstd(flare_tail_histo))
+    normal_approx = eep.utils.gaussian(xvals, np.nanmean(flare_tail_histo), np.nanstd(flare_tail_histo))
 
     f, ax = plt.subplots(ncols=2, figsize=(12, 6))
     ax[0].plot(xvals, flare_tail_kde_gauss, color='gray', zorder=0,
@@ -152,33 +171,164 @@ def generate_kde_plots(flare_array, weight_array=None, plot_title=None, savefile
         plt.show(block=True)
 
 
+def find_nonflaring_regions(lightcurve, known_flares, forwardpad, backpad=2, dilation_iter=1):
+    """Identify non-flaring regions for false-alarm testing
+
+    If you plan to search for echoes with 6-sigma flares, say,
+     then you may want to use a list of 4-sigma flares to seed this function
+     to avoid picking up minor, though still significant, flares
+
+    Parameters
+    ----------
+    lightcurve
+        Flux value array
+    known_flares
+        Indices of known flares, these will be masked out
+    forwardpad
+        Indices before known flares to mask out
+    backpad
+        Indices after known flares to mask out
+    dilation_iter
+        Number of dilation iterations to perform on the nan's from the base lightcurve
+
+    Returns
+    -------
+    indices of nonflaring regions
+    """
+    # Rejected regions are areas where we do not allow a flare to be injected
+    # Reject nans:
+    rejected_regions = np.isnan(lightcurve)
+    rejected_regions = morphology.binary_dilation(rejected_regions, iterations=dilation_iter)
+    # Reject regions already covered by our lightcurve:
+    for flare in known_flares:
+        # Make sure existing flaring regions will not end up in the tails, either:
+        start_ind = max(0, flare - backpad - forwardpad)
+        end_ind = min(flare + forwardpad + backpad, len(lightcurve))
+        rejected_regions[start_ind:end_ind] = True
+    return np.nonzero(~rejected_regions)[0]
+
+
+def select_flare_injection_sites(lightcurve, candidate_indices,
+                                 num_flares, forwardpad, backpad=2, num_reselections=1,
+                                 trial_timeout=100):
+    """
+
+    Parameters
+    ----------
+    lightcurve
+        Original lightcurve
+    candidate_indices
+        List of available indices to select from
+    num_flares
+        Number of flares to select
+    forwardpad
+        Number of indices after a flare to mask out
+    backpad
+        Number of indices before a flare to mask out
+    num_reselections
+        Number of collections to produce (does not currently check if collections are different from each other!)
+    trial_timeout
+        If no collection of flares is found after this many iterations, break
+        This can happen if, for example, there are 40 available indices, but they are all adjacent so
+        the forwardpad term will mask them all from a single flare selection.
+        Typically failure will be more subtle than that, so we just use a timeout.
+
+    TODO - update to allow comparison of nans between original flare collection and remix collection
+
+    Returns
+    -------
+    List of np.ndarray of selected indices that can be used for flare injection studies
+    """
+    injection_remixes = []
+    if len(candidate_indices) < num_flares:
+        raise AttributeError("More flares requested than available indices to select from")
+    for _i in range(num_reselections):
+        reset_ct = 0
+        while reset_ct < trial_timeout:
+            available_lc = np.zeros_like(lightcurve, dtype=bool)
+            available_lc[candidate_indices] = True
+            remaining_candidates = np.copy(candidate_indices)
+            index_selections = []
+            success = True
+            for f_i in range(num_flares):
+                # If no remaining locations, try again:
+                if not np.any(available_lc):
+                    success = False
+                    break
+                new_index = np.random.choice(remaining_candidates)
+                index_selections.append(new_index)
+                start_ind = max(0, new_index - backpad)
+                end_ind = min(new_index + forwardpad, len(lightcurve))
+                available_lc[start_ind:end_ind] = False
+                remaining_candidates = np.nonzero(available_lc)[0]
+            if not success:
+                reset_ct += 1
+                continue
+            else:
+                break
+        if reset_ct >= trial_timeout:
+            raise ValueError("Unable to identify a solution")
+        injection_remixes.append(np.array(index_selections))
+    return injection_remixes
+
+
+#  ------------------------------------------------------------------------------------------------------------------  #
+#  Actual calculations
+
+
+# Loop through all stars:
 for star_name in star_data_dict:
+    # This is just to import the data as provided in the email, this should be rewritten for the server version:
+    #  +++++++++++++++++++++++++++++++++++++++++++  #
     flux = star_data_dict[star_name]['flux']
     time = star_data_dict[star_name]['time']
+    #  +++++++++++++++++++++++++++++++++++++++++++  #
+
+    save_fp = results_fp / star_name
+
+    if not save_fp.exists():
+        os.mkdir(save_fp)
+
     f, ax = plt.subplots(figsize=(12, 4))
     plt.plot(time, flux, color='k', drawstyle='steps-mid')
     plt.title("Flux from " + star_name)
     plt.xlabel("Time (d)")
     plt.ylabel("Background-normalized flux")
-    plt.show(block=True)
+    plt.savefig((save_fp / "lc_overview.png"))
+    plt.close()
 
-    flare_cat = eep.analyze.LightcurveFlareCatalog(flux,
-                                                   extract_range=(back_pad, forward_pad),
-                                                   time_domain=time)
-    flare_cat.identify_flares_with_protocol(eep.analyze.find_peaks_stddev_thresh,
-                                            std_dev_threshold=peak_find_std_dev_thresh,
-                                            single_flare_gap=forward_pad)
-    print("Number of flares identified: ", flare_cat.num_flares)
+    base_flare_cat = eep.analyze.LightcurveFlareCatalog(flux,
+                                                        extract_range=(back_pad, forward_pad),
+                                                        time_domain=time)
+    base_flare_cat.identify_flares_with_protocol(eep.analyze.find_peaks_stddev_thresh,
+                                                 std_dev_threshold=peak_find_std_dev_thresh,
+                                                 single_flare_gap=forward_pad)
+    print("Number of flares identified: ", base_flare_cat.num_flares)
+    flare_indices = base_flare_cat.get_flare_indices()
+    time_domain_min = base_flare_cat.get_relative_indices() * base_flare_cat.cadence * 24 * 60
 
-    eep.visualize.plot_flare_array(flux, flare_cat.get_flare_indices(),
+    # More inclusive list of flares for later injection tests:
+    list_of_microflares = eep.analyze.find_peaks_stddev_thresh(flux, microflare_find_std_dev_thresh,
+                                                               single_flare_gap=forward_pad)
+    nonflaring_indices = find_nonflaring_regions(flux, list_of_microflares, forwardpad=forward_pad, backpad=back_pad)
+
+    # False-positive test list:
+    test_nonflare = select_flare_injection_sites(flux, nonflaring_indices, base_flare_cat.num_flares,
+                                                 forwardpad=forward_pad, num_reselections=num_false_positive_tests)
+
+    # for test_region_list in test_nonflare:
+    #     eep.visualize.plot_flare_array(flux, test_region_list,
+    #                                    back_pad=back_pad, forward_pad=forward_pad,
+    #                                    title="Nonflaring test")
+
+    eep.visualize.plot_flare_array(flux, flare_indices,
                                    back_pad=back_pad, forward_pad=forward_pad,
                                    title="Flare catalog from " + star_name + ", "
-                                         + str(flare_cat.num_flares) + " flares found for peak>"
-                                         + str(peak_find_std_dev_thresh) + "σ")
+                                         + str(base_flare_cat.num_flares) + " flares found for peak>"
+                                         + str(peak_find_std_dev_thresh) + "σ",
+                                   savefile=save_fp / "flare_overview.png")
 
-    all_flares = flare_cat.get_flare_curves()
-
-    time_domain_min = flare_cat.get_relative_indices() * flare_cat.cadence * 24 * 60
+    all_flares = base_flare_cat.get_flare_curves()
 
     normed_flares, normed_flare_weight, normed_std_dev = echo_analysis_do_it_all(all_flares, back_pad + 1)
 
@@ -205,8 +355,10 @@ for star_name in star_data_dict:
     ax[3].plot(time_domain_min, normed_mean, drawstyle='steps-mid', color='k')
     ax[3].set_title("Weighted, normalized flare mean")
 
-    plt.show(block=True)
-    print("cadence: ", flare_cat.cadence)
+    # plt.show(block=True)
+    plt.savefig((save_fp / "flare_stats_overview.png"))
+    plt.close()
+
     eep.visualize.plot_signal_w_uncertainty(
         time_domain_min[echo_slice],
         normed_mean[echo_slice],
@@ -217,7 +369,8 @@ for star_name in star_data_dict:
         y_label_1="Weighted mean of all flares",
         plt_title="Normed, weighted mean lag intensity for " + star_name,
         uncertainty_label="±2 SE of Mean",
-        uncertainty_color='salmon')
+        uncertainty_color='salmon',
+        save=save_fp / "naive_flare_analysis_overview.png")
 
     # todo - histogram along lag axis
     # Jackknife analysis:
@@ -239,12 +392,17 @@ for star_name in star_data_dict:
     outlier_mask = sigma_dev > jk_std_dev_thresh
     flares_with_outliers = all_ind_list[np.any(outlier_mask, axis=1)]
     print("flares_with_outliers: ", flares_with_outliers)
+
+    rejected_outlier_fp = save_fp / "outliers"
+    if not rejected_outlier_fp.exists():
+        os.mkdir(rejected_outlier_fp)
     for outlier_ind in flares_with_outliers:
         plt.plot(time_domain_min, all_flares[outlier_ind], color='k', drawstyle='steps-mid', zorder=1)
         plt.scatter(time_domain_min[outlier_mask[outlier_ind]], all_flares[outlier_ind][outlier_mask[outlier_ind]],
                     zorder=0, color='r', marker='x')
-        plt.title("Outlier(s) detected in flare: " + str(outlier_ind))
-        plt.show(block=True)
+        plt.title("Outlier(s) detected in flare " + str(outlier_ind))
+        plt.savefig((rejected_outlier_fp / ("outliers_in_flare_" + str(outlier_ind) + ".png")))
+        plt.close()
 
     f, ax = plt.subplots(nrows=3, figsize=(16, 10))
     ax[0].plot(time_domain_min[echo_slice], (normed_mean + normed_std_dev)[echo_slice], drawstyle='steps-mid',
@@ -281,7 +439,8 @@ for star_name in star_data_dict:
                drawstyle='steps-mid', color='k', zorder=6)
     ax[2].set_title("Max and min ranges from JK resample")
     plt.tight_layout()
-    plt.show(block=True)
+    plt.savefig((save_fp / "jk_stats_overview.png"))
+    plt.close()
 
     outlier_culled_flare_list = np.delete(all_ind_list, flares_with_outliers)
     final_flare_list = all_flares[outlier_culled_flare_list]
@@ -332,13 +491,18 @@ for star_name in star_data_dict:
                     boot_conf[1][echo_slice],
                     facecolor='indianred', zorder=-1, step='post')
     ax.legend().set_zorder(100)
-    plt.show(block=True)
+    plt.savefig((save_fp / "echo_detection_overview.png"))
+    plt.close()
 
     # Some summary statistics:
     flare_tail_array = final_normed_flares[:, back_pad + 1:]
     flare_weights_array = np.ones_like(flare_tail_array) * final_normed_flare_weight[:, np.newaxis]
     generate_kde_plots(flare_tail_array, flare_weights_array,
-                       "Normalized inlier post-flare lightcurve distribution")
+                       "Normalized inlier post-flare lightcurve distribution",
+                       savefile=save_fp / "post-flare_echo-normed_histogram.png")
     raw_flare_tail_array = final_flare_list[:, back_pad + 1:]
     generate_kde_plots(raw_flare_tail_array, np.ones_like(raw_flare_tail_array),
-                       "Raw (unnormalized) inlier post-flare lightcurve distribution")
+                       "Raw (unnormalized) inlier post-flare lightcurve distribution",
+                       savefile=save_fp / "post-flare_raw_histogram.png")
+
+print("All done!")

@@ -11,12 +11,22 @@ from scipy import optimize
 from ..utils.math_operations import PipePool
 from ..utils.math_operations import bi_erf_model
 
-__all__ = ['GaussianKDE', 'TophatKDE', 'periodic_kde',
+__all__ = ['weighted_avg_and_std',
+           'GaussianKDE', 'TophatKDE', 'periodic_kde',
            'ResampleAnalysis', 'ResampleKDEAnalysis',
            'bigaussian_fit_analysis_1', 'curvefit_passable_wrapper']
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
+
+
+def weighted_avg_and_std(values, weights):
+    """From a series of values and associated weights, produce a weighted average and associated weighted std dev"""
+    total_weight = np.sum(weights)
+    weights /= total_weight
+    normed_mean = np.nansum(values * weights)
+    variance = np.nansum((values - normed_mean) ** 2 * weights)
+    return normed_mean, np.sqrt(variance)
 
 
 class BaseKDE:

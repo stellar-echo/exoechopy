@@ -291,6 +291,10 @@ class LightcurveFlareCatalog(BaseFlareCatalog):
         self._flare_indices = func(self._lightcurve, **kwargs)
         self._generate_slices()
 
+    def manually_set_flare_indices(self, list_of_indices):
+        self._flare_indices = np.array(list_of_indices)
+        self._generate_slices()
+
     # ------------------------------------------------------------------------------------------------------------ #
     def get_flare_indices(self):
         return self._flare_indices.copy()

@@ -15,7 +15,8 @@ from .constants import FunctionType
 
 __all__ = ['angle_between_vectors', 'vect_from_spherical_coords', 'angle_between_vector_array',
            'compute_lag', 'compute_lag_simple',
-           'SphericalLatitudeGen', 'stochastic_flare_process', 'bi_erf_model', 'bigaussian_model',
+           'SphericalLatitudeGen', 'stochastic_flare_process',
+           'gaussian', 'bi_erf_model', 'bigaussian_model',
            'window_range',
            'take_noisy_derivative', 'take_noisy_2nd_derivative', 'linear_detrend', 'gaussian_fft_filter',
            'asymmetric_filter_1',
@@ -165,6 +166,12 @@ def stochastic_flare_process(stop_value,
         else:
             break
     return all_values
+
+
+def gaussian(x, mu, sigma):
+    """Simple Gaussian distribution"""
+    denom = np.sqrt(np.pi * 2) * sigma
+    return np.exp(-(x - mu) ** 2 / (2 * sigma ** 2)) / denom
 
 
 def bigaussian_model(data: np.ndarray,
