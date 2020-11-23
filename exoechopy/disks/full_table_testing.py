@@ -49,7 +49,7 @@ def find_all_quarters(star):
 
 
 top3k = []
-with open("top3k.txt", "r") as g:
+with open("top3k_unique.txt", "r") as g:
     for line in g:
         top3k.append(line)
 
@@ -95,34 +95,30 @@ for ind, star in enumerate(top_kplr):
     sc_quarters.append(num_sc_quarters)
     lc_quarters.append(num_lc_quarters)
 
-    if num_lc_quarters == 0:
-        print("No long cadence data.")
-        lc_flares.append(0)
+    longflux = combine_fluxes(longcad)
+    shortflux = combine_fluxes(shortcad)
 
-    if num_sc_quarters == 0:
-        print("No short cadence data.")
-        sc_flares.append(0)
+    lc_median = np.nanmedian(longflux)
+    lc_std = np.nanstd(longflux)
+    flare_threshold_lc = lc_median + (3 * lc_std)
+    peaks_lc, peak_val_lc = find_peaks(longflux, height=flare_threshold_lc, distance=4)
+    lc_flares.append(len(peaks_lc))
 
-    else:
-        longflux = combine_fluxes(longcad)
-        shortflux = combine_fluxes(shortcad)
-
-        lc_median = np.nanmedian(longflux)
-        lc_std = np.nanstd(longflux)
-        flare_threshold_lc = lc_median + (3 * lc_std)
-        peaks_lc, peak_val_lc = find_peaks(longflux, height=flare_threshold_lc, distance=4)
-        lc_flares.append(len(peaks_lc))
-
-        sc_median = np.nanmedian(shortflux)
-        sc_std = np.nanstd(shortflux)
-        flare_threshold_sc = sc_median + (3 * sc_std)
-        peaks_sc, peak_val_sc = find_peaks(shortflux, height=flare_threshold_sc, distance=30)
-        sc_flares.append(len(peaks_sc))
-
-    print("Finished star", ind, "of 3000")
+    sc_median = np.nanmedian(shortflux)
+    sc_std = np.nanstd(shortflux)
+    flare_threshold_sc = sc_median + (3 * sc_std)
+    peaks_sc, peak_val_sc = find_peaks(shortflux, height=flare_threshold_sc, distance=30)
+    sc_flares.append(len(peaks_sc))
+    
+    print("Found", len(peaks_lc), "long cadence flares in ", obj_name)
+    print("Found", len(peaks_sc), "short cadence flares in ", obj_name)
+    print("Finished star", ind, "of ", len(top_kplr), "({})".format(obj_name))
 
 data = [objects, sc_quarters, lc_quarters, sc_flares, lc_flares]
 names = ["Object", "Short Cadence Quarters", "Long Cadence Quarters", "Short cadence Flares", "Long Cadence Flares"]
+
+print(len(objects), len(sc_quarters), len(lc_quarters), len(sc_flares), len(lc_flares))
+
 
 df = pd.DataFrame(data, index=names).T
 t = Table.from_pandas(df)
