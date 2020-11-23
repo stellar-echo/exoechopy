@@ -95,14 +95,6 @@ for ind, star in enumerate(top_kplr):
     sc_quarters.append(num_sc_quarters)
     lc_quarters.append(num_lc_quarters)
 
-    if num_lc_quarters == 0:
-        print("No long cadence data.")
-        lc_flares.append(0)
-
-    if num_sc_quarters == 0:
-        print("No short cadence data.")
-        sc_flares.append(0)
-
     longflux = combine_fluxes(longcad)
     shortflux = combine_fluxes(shortcad)
 
