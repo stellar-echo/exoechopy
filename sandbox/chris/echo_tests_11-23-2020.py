@@ -223,6 +223,7 @@ def find_nonflaring_regions(lightcurve, known_flares, forwardpad, backpad=2, dil
     # Rejected regions are areas where we do not allow a flare to be injected
     # Reject nans:
     rejected_regions = np.isnan(lightcurve)
+    # Pad the region around nans by dilation_iter:
     rejected_regions = morphology.binary_dilation(rejected_regions, iterations=dilation_iter)
     # Reject regions already covered by our lightcurve:
     for flare in known_flares:
@@ -257,8 +258,6 @@ def select_flare_injection_sites(lightcurve, candidate_indices,
         This can happen if, for example, there are 40 available indices, but they are all adjacent so
         the forwardpad term will mask them all from a single flare selection.
         Typically failure will be more subtle than that, so we just use a timeout.
-
-    TODO - update to allow comparison of nans between original flare collection and remix collection
 
     Returns
     -------
