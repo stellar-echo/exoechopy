@@ -6,6 +6,8 @@ import exoechopy as eep
 from astropy.utils import NumpyRNGContext
 from scipy.ndimage import morphology
 from astropy.stats import jackknife_stats
+import lightkurve as lk
+import pickle
 
 matplotlib.use('Agg')
 from matplotlib import pyplot as plt
@@ -14,7 +16,13 @@ from matplotlib import pyplot as plt
 #  User inputs:
 
 # Where we are getting raw data from:
-file_folder = "11-19-2020 flux"
+cache_folder = 'local_cache'
+# What directory are we working from:
+file_folder = 'disk_echo_search'
+
+# List of all targets to interrogate:
+all_stars_filename = 'top3k_final.txt'
+
 # How far before the flare to plot when producing the overview data product:
 back_pad = 5
 # How far after the flare to include in the analysis:
@@ -28,12 +36,12 @@ jk_std_dev_thresh = 4
 # Number of bootstrap resamples for developing confidence intervals
 num_bootstrap = 10000
 # Range to use for confidence intervals
-conf_range = 97.7
-
-# TODO - start to export measures as a function of input value for sensitivity and false-positive analysis
+conf_range = 99.7
+# Number of flares to warrant further investigation:
+min_flares = 10
 
 # Number of flare re-injection tests to perform to develop false-hit-rate values:
-num_false_positive_tests = 15
+num_false_positive_tests = 500
 # Threshold for microflares, used to mask them out for re-injection studies:
 microflare_find_std_dev_thresh = 4.5
 # pre and post-flare indices for flare injection, only weakly used currently:
@@ -45,20 +53,30 @@ num_reinjection_verbosity = 5
 # Seed to make results reproducible:
 random_seed = 0
 
+# Whether or not to overwrite previously cached results dictionaries
+cache_dict_overwrite = False
+
 #  ------------------------------------------------------------------------------------------------------------------  #
 #  Automated section
 
-np.random.seed(random_seed)
+cwd = Path(os.getcwd())
 
 # Where we store results:
-output_folder = file_folder + "_results"
-
-cwd = Path(os.getcwd())
 fp = cwd.parent.parent / "disks" / file_folder
-results_fp = cwd.parent.parent / "disks" / output_folder
 
-if not results_fp.exists():
-    results_fp.mkdir(results_fp)
+if not fp.exists():
+    fp.mkdir()
+
+cache_fp = cwd.parent.parent / "disks" / cache_folder
+
+if not cache_fp.exists():
+    cache_fp.mkdir()
+
+# Where we should save the results:
+summary_filename = "_results_summary.txt"
+summary_dict_filename = "_results_summary.dict"
+# What should we call the dictionary that locates all the cache files:
+cached_results_dict_name = "all_cached_stars.dict"
 
 all_files = os.listdir(fp)
 conf_min = (100 - conf_range) / 2
@@ -67,21 +85,21 @@ conf_max = 100 - conf_min
 # Skip the flare itself when just looking at echo:
 echo_slice = slice(back_pad + 1 + post_flare_mask, None)
 
+with open(fp/all_stars_filename, 'r') as tnames:
+    raw_target_names = tnames.readlines()
+
+target_names = [star_name.split('-')[0] for star_name in raw_target_names]
+print(len(target_names), "total targets identified for analysis")
+# Don't run on entire database yet:
+target_names = target_names[:10]
+
+
 # This is just to import the data as provided in the email, this should be rewritten for the server version:
 #  +++++++++++++++++++++++++++++++++++++++++++  #
-star_data_dict = {}
-
-for f in all_files:
-    star_id = f.split('_')[0]
-    if 'flux' in f:
-        data_type = 'flux'
-    elif 'time' in f:
-        data_type = 'time'
-    else:
-        data_type = None
-    if star_id not in star_data_dict:
-        star_data_dict[star_id] = {}
-    star_data_dict[star_id][data_type] = np.load(fp / f)
+try:
+    all_cached_stars = pickle.load(open(cache_fp / cached_results_dict_name, 'rb'))
+except FileNotFoundError:
+    all_cached_stars = {}
 
 
 #  +++++++++++++++++++++++++++++++++++++++++++  #
@@ -296,6 +314,14 @@ def select_flare_injection_sites(lightcurve, candidate_indices,
     return injection_remixes
 
 
+def dict_key_gen(dict_for_gen: dict):
+    """Converts a dictionary into a tuple to serve as a key for another dictionary"""
+    all_keys = [k for k in dict_for_gen.keys()]
+    all_keys.sort()
+    key_gen = [(k, dict_for_gen[k]) for k in all_keys]
+    return tuple(key_gen)
+
+
 #  ------------------------------------------------------------------------------------------------------------------  #
 #  Actual calculations
 
@@ -307,23 +333,84 @@ def select_flare_injection_sites(lightcurve, candidate_indices,
 #  What about lag-resampling?  If we assume an active tail, then lag resampling should flatten that out...
 
 # Loop through all stars:
-for star_name in star_data_dict:
+for star_name in target_names:
+    print("\nStarting analysis of", star_name)
+
+    np.random.seed(random_seed)
+
     # This is just to import the data as provided in the email, this should be rewritten for the server version:
     #  +++++++++++++++++++++++++++++++++++++++++++  #
-    flux = star_data_dict[star_name]['flux']
-    time = star_data_dict[star_name]['time']
+    load_success = False
+    if star_name in all_cached_stars:
+        star_dict = all_cached_stars[star_name]
+        try:
+            time = np.load(star_dict['time_fp'])
+            print("star_dict['time_fp']: ", star_dict['time_fp'])
+            flux = np.load(star_dict['flux_fp'])
+            flux_raw = np.load(star_dict['flux_raw_fp'])
+            flux_norm = np.load(star_dict['flux_norm_fp'])
+            flux_err = np.load(star_dict['flux_err_fp'])
+            load_success = True
+            print("Successfully loaded from cache")
+        except:
+            print("Unable to load from cache, re-downloading:")
+    if not load_success:
+        search = lk.search_lightcurvefile(star_name, cadence='long', mission='Kepler')
+        if len(search) > 0:
+            lc_collection = search.download_all()
+            lc = lc_collection.PDCSAP_FLUX.stitch(corrector_func=lambda x: x.flatten())
+            lc_norm = lc_collection.PDCSAP_FLUX.stitch(corrector_func=lambda x: x.normalize())
+            lc_raw = lc_collection.PDCSAP_FLUX.stitch(corrector_func=None)
+            time = lc.time
+            flux = lc.flux
+            flux_raw = lc_raw.flux
+            flux_norm = lc_norm.flux
+            flux_err = lc.flux_err
+            time_fp = cache_fp / (star_name + "_time.npy")
+            flux_fp = cache_fp / (star_name + "_flux.npy")
+            flux_raw_fp = cache_fp / (star_name + "_flux_raw.npy")
+            flux_norm_fp = cache_fp / (star_name + "_flux_norm.npy")
+            flux_err_fp = cache_fp / (star_name + "_flux_err.npy")
+            np.save(time_fp, time)
+            np.save(flux_fp, flux)
+            np.save(flux_err_fp, flux_err)
+            print("time_fp: ", time_fp)
+            star_dict = {'time_fp': time_fp.as_posix(),
+                         'flux_fp': flux_fp.as_posix(),
+                         'flux_raw_fp': flux_raw_fp.as_posix(),
+                         'flux_norm_fp': flux_norm_fp.as_posix(),
+                         'flux_err_fp': flux_err_fp.as_posix()}
+            all_cached_stars[star_name] = star_dict.copy()
+            pickle.dump(all_cached_stars, open(cache_fp / cached_results_dict_name, 'wb'))
+            load_success = True
+        else:
+            print("Unable to find star in lightkurve")
+
     #  +++++++++++++++++++++++++++++++++++++++++++  #
 
-    save_fp = results_fp / star_name
+    if not load_success:
+        print(star_name, "failed to load")
+        continue
+    save_fp = fp / star_name
 
     if not save_fp.exists():
-        save_fp.mkdir(save_fp)
+        save_fp.mkdir()
 
-    f, ax = plt.subplots(figsize=(12, 4))
-    plt.plot(time, flux, color='k', drawstyle='steps-mid')
-    plt.title("Flux from " + star_name)
-    plt.xlabel("Time (d)")
-    plt.ylabel("Background-normalized flux")
+    f, ax = plt.subplots(nrows=3, figsize=(12, 4))
+    ax[0].plot(time, flux_raw, color='k', drawstyle='steps-mid')
+    ax[0].title("Raw PDCSAP flux from " + star_name)
+    ax[0].xlabel("Time (d)")
+    ax[0].ylabel("Raw PDCSAP flux")
+
+    ax[1].plot(time, flux_norm, color='k', drawstyle='steps-mid')
+    ax[1].title("Normalized PDCSAP flux from " + star_name)
+    ax[1].xlabel("Time (d)")
+    ax[1].ylabel("Raw PDCSAP flux")
+
+    ax[2].plot(time, flux, color='k', drawstyle='steps-mid')
+    ax[2].title("Flattened PDCSAP flux from " + star_name)
+    ax[2].xlabel("Time (d)")
+    ax[2].ylabel("Background-normalized flux")
     plt.savefig((save_fp / "lc_overview.png"))
     plt.close()
 
@@ -335,6 +422,46 @@ for star_name in star_data_dict:
                                                  single_flare_gap=forward_pad)
     num_flares = base_flare_cat.num_flares
     print("Number of flares identified: ", num_flares)
+
+    results_dict = {}
+
+    with open(save_fp / (star_name + summary_filename), 'w') as file:
+        input_dict = {}
+        file.write("INPUTS\n")
+        file.write("back_pad: " + str(back_pad) + "\n")
+        input_dict['back_pad'] = back_pad
+        file.write("forward_pad: " + str(forward_pad) + "\n")
+        input_dict['forward_pad'] = forward_pad
+        file.write("post_flare_mask: " + str(post_flare_mask) + "\n")
+        input_dict['post_flare_mask'] = post_flare_mask
+        file.write("peak_find_std_dev_thresh: " + str(peak_find_std_dev_thresh) + "\n")
+        input_dict['peak_find_std_dev_thresh'] = peak_find_std_dev_thresh
+        file.write("jk_std_dev_thresh: " + str(jk_std_dev_thresh) + "\n")
+        input_dict['jk_std_dev_thresh'] = jk_std_dev_thresh
+        file.write("num_bootstrap: " + str(num_bootstrap) + "\n")
+        input_dict['num_bootstrap'] = num_bootstrap
+        file.write("conf_range: " + str(conf_range) + "\n")
+        input_dict['conf_range'] = conf_range
+        file.write("num_false_positive_tests: " + str(num_false_positive_tests) + "\n")
+        input_dict['num_false_positive_tests'] = num_false_positive_tests
+        file.write("microflare_find_std_dev_thresh: " + str(microflare_find_std_dev_thresh) + "\n")
+        input_dict['microflare_find_std_dev_thresh'] = microflare_find_std_dev_thresh
+        file.write("pre_flare_brightening: " + str(pre_flare_brightening) + "\n")
+        input_dict['pre_flare_brightening'] = pre_flare_brightening
+        file.write("post_flare_decay: " + str(post_flare_decay) + "\n")
+        input_dict['post_flare_decay'] = post_flare_decay
+        file.write("random_seed: " + str(random_seed) + "\n")
+        input_dict['random_seed'] = random_seed
+        results_dict['inputs'] = input_dict
+
+        output_dict = {}
+        file.write("\nOUTPUTS\n")
+        file.write("Number of flares: " + str(num_flares) + "\n")
+        output_dict['num_flares'] = num_flares
+        file.write("Flare indices: " + str(base_flare_cat.get_flare_indices()) + "\n")
+        output_dict['flare_indices'] = base_flare_cat.get_flare_indices()
+        results_dict['outputs'] = output_dict
+
     base_flare_indices = base_flare_cat.get_flare_indices()
     time_domain_min = base_flare_cat.get_relative_indices() * base_flare_cat.cadence * 24 * 60
 
@@ -374,14 +501,15 @@ for star_name in star_data_dict:
     flares_rejected_by_jk = []
     num_stat_meaningful_indices = []
 
+    if num_flares < min_flares:
+        "Insufficient flares detected for analysis, moving to next star"
+        continue
+    # Perform analysis and false-positive tests:
     for study_i, flare_indices in enumerate(flare_ind_lists):
         # Check if this is ground truth:
+        if study_i % (len(flare_ind_lists) // 10) == 0:
+            print(study_i, "of", len(flare_ind_lists))
         if study_i != 0:
-
-            save_fp = results_fp / star_name / "flare_reinjection" / str(study_i)
-
-            if not save_fp.exists():
-                save_fp.mkdir(parents=True, exist_ok=True)
             plot_flare_array_title = "Artificial flare catalog " + str(study_i)
             # Create a flux copy to work from
             fake_flux = np.copy(flux)
@@ -428,11 +556,11 @@ for star_name in star_data_dict:
         outlier_mask = sigma_dev > jk_std_dev_thresh
         flares_with_outliers = all_ind_list[np.any(outlier_mask, axis=1)]
         flares_rejected_by_jk.append(len(flares_with_outliers))
-        print("flares_with_outliers: ", flares_with_outliers)
+        # print("flares_with_outliers: ", flares_with_outliers)
 
         outlier_culled_flare_list = np.delete(all_ind_list, flares_with_outliers)
         final_flare_list = all_flares[outlier_culled_flare_list]
-        print("Keeping", len(final_flare_list), "of", len(all_flares), "flares after jackknife outlier removal")
+        # print("Keeping", len(final_flare_list), "of", len(all_flares), "flares after jackknife outlier removal")
 
         final_normed_flares, final_normed_flare_weight, final_normed_std_dev = \
             echo_analysis_do_it_all(final_flare_list, back_pad + 1)
@@ -451,7 +579,6 @@ for star_name in star_data_dict:
                                                   * final_normed_flare_weight[new_indices][:, np.newaxis], axis=0)
         boot_mean = np.mean(all_boot_samples, axis=(0, 1))
         boot_conf = np.percentile(all_boot_samples, q=(conf_min, conf_max), axis=(0, 1))
-        print("boot_conf.shape: ", boot_conf.shape)
 
         # Build alternative jackknife threshold confidence intervals
         jk_conf_low = []
@@ -473,7 +600,7 @@ for star_name in star_data_dict:
                        & ((final_normed_mean - 2 * final_normed_std_dev)[
                               echo_slice] > 0)
                        & (jk_conf_low[echo_slice] > 0))[0]
-        print("statistically_interesting_indices: ", statistically_interesting_indices)
+        # print("statistically_interesting_indices: ", statistically_interesting_indices)
         num_stat_meaningful_indices.append(len(statistically_interesting_indices))
 
         # Some summary statistics:
@@ -481,9 +608,26 @@ for star_name in star_data_dict:
         flare_weights_array = np.ones_like(flare_tail_array) * final_normed_flare_weight[:, np.newaxis]
         raw_flare_tail_array = final_flare_list[:, back_pad + 1:]
 
+        # For the real-flare case:
+        if study_i == 0:
+            with open(save_fp / (star_name + summary_filename), 'a') as file:
+                file.write("Number of outlier-rejected flares: " + str(len(flares_with_outliers)) + "\n")
+                results_dict['outputs']['num_outliers'] = len(flares_with_outliers)
+                file.write("Outlier-rejected flares: " + str(flares_with_outliers) + "\n")
+                results_dict['outputs']['outliers'] = flares_with_outliers
+                file.write(
+                    "Number of statistically interesting peaks: " + str(len(statistically_interesting_indices)) + "\n")
+                results_dict['outputs']['num_stat_meaningful_inds'] = len(statistically_interesting_indices)
+                file.write("Statistically interesting indices: " + str(statistically_interesting_indices) + "\n")
+                results_dict['outputs']['statistically_interesting_indices'] = statistically_interesting_indices
+
         #  ----------------------------------------------------------------------------------------------------------  #
-        # Plot all of the results:
-        if study_i <= num_reinjection_verbosity:
+        # Plot the results if it's meaningful, such as the first few or any others that detect 'echoes'
+        if study_i < num_reinjection_verbosity or len(statistically_interesting_indices) > 0:
+            if study_i != 0:
+                save_fp = fp / star_name / "flare_reinjection" / str(study_i)
+                if not save_fp.exists():
+                    save_fp.mkdir(parents=True, exist_ok=True)
 
             eep.visualize.plot_flare_array(flux, flare_indices,
                                            back_pad=back_pad, forward_pad=forward_pad,
@@ -527,7 +671,7 @@ for star_name in star_data_dict:
 
             rejected_outlier_fp = save_fp / "outliers"
             if not rejected_outlier_fp.exists():
-                os.mkdir(rejected_outlier_fp)
+                rejected_outlier_fp.mkdir()
 
             for outlier_ind in flares_with_outliers:
                 plt.plot(time_domain_min, all_flares[outlier_ind], color='k', drawstyle='steps-mid', zorder=1)
@@ -637,7 +781,7 @@ for star_name in star_data_dict:
     # Compile composite results
 
     # Reset filepath:
-    save_fp = results_fp / star_name
+    save_fp = fp / star_name
 
     baseline_jk_rejection = flares_rejected_by_jk.pop(0)
     baseline_num_meaningful = num_stat_meaningful_indices.pop(0)
@@ -665,8 +809,29 @@ for star_name in star_data_dict:
     plt.tight_layout()
     plt.savefig(save_fp / "outliers and echo detection stats.png")
     plt.close()
-    #
-    # with open(save_fp/(star_name+"_results_summary.txt"), 'w') as file:
-    #     file.write("Num")
+
+    total_false_positives = np.sum(num_stat_meaningful_indices)
+    num_at_least_one_false_positive = np.sum(np.array(num_stat_meaningful_indices) > 0)
+
+    with open(save_fp / (star_name + summary_filename), 'a') as file:
+        file.write("Total false positives: " + str(total_false_positives) + "\n")
+        results_dict['outputs']['total_false_positives'] = total_false_positives
+        file.write("Number of tests with false positives: " + str(num_at_least_one_false_positive) + "\n")
+        results_dict['outputs']['num_at_least_one_false_positive'] = num_at_least_one_false_positive
+        file.write("False positive rate (total): " + str(total_false_positives / num_false_positive_tests) + "\n")
+        results_dict['outputs']['false_positive_total_rate'] = total_false_positives / num_false_positive_tests
+        file.write(
+            "False positive rate (any): " + str(num_at_least_one_false_positive / num_false_positive_tests) + "\n")
+        results_dict['outputs']['false_positive_any_rate'] = num_at_least_one_false_positive / num_false_positive_tests
+
+    try:
+        full_dict = pickle.load(open(save_fp / (star_name + summary_dict_filename), 'rb'))
+        if cache_dict_overwrite:
+            full_dict = {}
+    except FileNotFoundError:
+        full_dict = {}
+    dict_key = dict_key_gen(results_dict['inputs'])
+    full_dict[dict_key] = results_dict['outputs']
+    pickle.dump(full_dict, open(save_fp / (star_name + summary_dict_filename), 'wb'))
 
 print("All done!")

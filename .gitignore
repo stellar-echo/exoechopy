@@ -68,3 +68,5 @@ instance/
 
 # Editors
 *.kate-swp
+/disks/disk_echo_search/
+/disks/local_cache/
