@@ -22,6 +22,10 @@ file_folder = 'disk_echo_search'
 
 # List of all targets to interrogate:
 all_stars_filename = 'top3k_final.txt'
+good_stars_filename = 'top_stars_with_flares.txt'
+complete_stars_filename = 'completed_stars.txt'
+# Some stars may require special handling:
+skip_stars_filename = 'skip_stars.txt'
 
 # How far before the flare to plot when producing the overview data product:
 back_pad = 5
@@ -39,6 +43,8 @@ num_bootstrap = 10000
 conf_range = 99.7
 # Number of flares to warrant further investigation:
 min_flares = 10
+# Periodic power rejection for high-amplitude variable stars
+periodogram_power_thresh = 0.08
 
 # Number of flare re-injection tests to perform to develop false-hit-rate values:
 num_false_positive_tests = 500
@@ -90,9 +96,40 @@ with open(fp/all_stars_filename, 'r') as tnames:
 
 target_names = [star_name.split('-')[0] for star_name in raw_target_names]
 print(len(target_names), "total targets identified for analysis")
-# Don't run on entire database yet:
-target_names = target_names[:10]
+# # Don't run on entire database yet:
+# target_names = target_names[:50]
 
+try:
+    with open(fp / good_stars_filename, 'r') as _f:
+        pass
+except FileNotFoundError:
+    with open(fp / good_stars_filename, 'w') as _f:
+        pass
+
+target_len = len(target_names)
+complete_star_list = []
+try:
+    with open(fp / complete_stars_filename, 'r') as _f:
+        complete_star_list = _f.readlines()
+except FileNotFoundError:
+    with open(fp / complete_stars_filename, 'w') as _f:
+        pass
+
+skip_star_list = []
+try:
+    with open(fp / skip_stars_filename, 'r') as _f:
+        skip_star_list = _f.readlines()
+except FileNotFoundError:
+    with open(fp / skip_stars_filename, 'w') as _f:
+        pass
+
+complete_star_list.extend(skip_star_list)
+
+complete_star_list = [star_name.split('\n')[0] for star_name in complete_star_list]
+
+target_names = [star_name for star_name in target_names if star_name not in complete_star_list]
+remaining_target_len = len(target_names)
+print("Of", target_len, "candidates,", remaining_target_len, "remain for analysis")
 
 # This is just to import the data as provided in the email, this should be rewritten for the server version:
 #  +++++++++++++++++++++++++++++++++++++++++++  #
@@ -241,6 +278,8 @@ def find_nonflaring_regions(lightcurve, known_flares, forwardpad, backpad=2, dil
     # Rejected regions are areas where we do not allow a flare to be injected
     # Reject nans:
     rejected_regions = np.isnan(lightcurve)
+    rejected_regions[0] = True
+    rejected_regions[-1] = True
     # Pad the region around nans by dilation_iter:
     rejected_regions = morphology.binary_dilation(rejected_regions, iterations=dilation_iter)
     # Reject regions already covered by our lightcurve:
@@ -358,9 +397,16 @@ for star_name in target_names:
         search = lk.search_lightcurvefile(star_name, cadence='long', mission='Kepler')
         if len(search) > 0:
             lc_collection = search.download_all()
-            lc = lc_collection.PDCSAP_FLUX.stitch(corrector_func=lambda x: x.flatten())
-            lc_norm = lc_collection.PDCSAP_FLUX.stitch(corrector_func=lambda x: x.normalize())
-            lc_raw = lc_collection.PDCSAP_FLUX.stitch(corrector_func=None)
+            try:
+                lc = lc_collection.PDCSAP_FLUX.stitch(corrector_func=lambda x: x.flatten())
+                lc_norm = lc_collection.PDCSAP_FLUX.stitch(corrector_func=lambda x: x.normalize())
+                lc_raw = lc_collection.PDCSAP_FLUX.stitch(corrector_func=None)
+            except ValueError as err:
+                print("Unable to generate lightcurves for", star_name)
+                print("Error: ", err)
+                with open(fp / skip_stars_filename, 'a') as _f:
+                    _f.write(star_name + "\n")
+                continue
             time = lc.time
             flux = lc.flux
             flux_raw = lc_raw.flux
@@ -373,8 +419,9 @@ for star_name in target_names:
             flux_err_fp = cache_fp / (star_name + "_flux_err.npy")
             np.save(time_fp, time)
             np.save(flux_fp, flux)
+            np.save(flux_raw_fp, flux_raw)
+            np.save(flux_norm_fp, flux_norm)
             np.save(flux_err_fp, flux_err)
-            print("time_fp: ", time_fp)
             star_dict = {'time_fp': time_fp.as_posix(),
                          'flux_fp': flux_fp.as_posix(),
                          'flux_raw_fp': flux_raw_fp.as_posix(),
@@ -396,24 +443,37 @@ for star_name in target_names:
     if not save_fp.exists():
         save_fp.mkdir()
 
-    f, ax = plt.subplots(nrows=3, figsize=(12, 4))
+    f, ax = plt.subplots(nrows=3, figsize=(22, 12))
     ax[0].plot(time, flux_raw, color='k', drawstyle='steps-mid')
-    ax[0].title("Raw PDCSAP flux from " + star_name)
-    ax[0].xlabel("Time (d)")
-    ax[0].ylabel("Raw PDCSAP flux")
+    ax[0].set_title("Raw PDCSAP flux from " + star_name)
+    ax[0].set_xlabel("Time (d)")
+    ax[0].set_ylabel("Raw PDCSAP flux")
 
     ax[1].plot(time, flux_norm, color='k', drawstyle='steps-mid')
-    ax[1].title("Normalized PDCSAP flux from " + star_name)
-    ax[1].xlabel("Time (d)")
-    ax[1].ylabel("Raw PDCSAP flux")
+    ax[1].set_title("Normalized PDCSAP flux from " + star_name)
+    ax[1].set_xlabel("Time (d)")
+    ax[1].set_ylabel("Raw PDCSAP flux")
 
     ax[2].plot(time, flux, color='k', drawstyle='steps-mid')
-    ax[2].title("Flattened PDCSAP flux from " + star_name)
-    ax[2].xlabel("Time (d)")
-    ax[2].ylabel("Background-normalized flux")
+    ax[2].set_title("Flattened PDCSAP flux from " + star_name)
+    ax[2].set_xlabel("Time (d)")
+    ax[2].set_ylabel("Background-normalized flux")
+    plt.tight_layout()
     plt.savefig((save_fp / "lc_overview.png"))
     plt.close()
 
+    # Test for ultra-large-amplitude variability:
+    lc = lk.LightCurve(time, flux)
+    lc = lc.remove_nans()
+    pgram = lc.to_periodogram()
+    print("pgram.max_power: ", pgram.max_power)
+    if pgram.max_power > periodogram_power_thresh:
+        print("Star rejected for high-amplitude periodicity: ", pgram.max_power)
+        with open(fp / complete_stars_filename, 'a') as _f:
+            _f.write(star_name + "\n")
+        continue
+
+    # Check for flares:
     base_flare_cat = eep.analyze.LightcurveFlareCatalog(flux,
                                                         extract_range=(back_pad, forward_pad),
                                                         time_domain=time)
@@ -469,7 +529,8 @@ for star_name in target_names:
     list_of_microflares = eep.analyze.find_peaks_stddev_thresh(flux, microflare_find_std_dev_thresh,
                                                                single_flare_gap=forward_pad)
     nonflaring_indices, nonflaring_mask = find_nonflaring_regions(flux, list_of_microflares,
-                                                                  forwardpad=forward_pad, backpad=back_pad)
+                                                                  forwardpad=forward_pad, backpad=back_pad,
+                                                                  dilation_iter=pre_flare_brightening+post_flare_decay+1)
 
     # Examine the global nonflaring flux distribution
     generate_kde_plots(flux[nonflaring_mask],
@@ -499,11 +560,16 @@ for star_name in target_names:
     # TODO - To build ROC curve, we should to manually inject echoes at a given threshold to the non-flaring regions?
 
     flares_rejected_by_jk = []
-    num_stat_meaningful_indices = []
+    stat_meaningful_indices_list = []
 
     if num_flares < min_flares:
-        "Insufficient flares detected for analysis, moving to next star"
+        print("Insufficient flares detected for analysis, moving to next star")
+        with open(fp / complete_stars_filename, 'a') as _f:
+            _f.write(star_name + "\n")
         continue
+    else:
+        with open(fp/good_stars_filename, 'a') as _f:
+            _f.write(star_name+"\n")
     # Perform analysis and false-positive tests:
     for study_i, flare_indices in enumerate(flare_ind_lists):
         # Check if this is ground truth:
@@ -515,8 +581,14 @@ for star_name in target_names:
             fake_flux = np.copy(flux)
             # Inject true flares into fake positions:
             for true_flare_index, new_index in zip(base_flare_indices, flare_indices):
-                fake_flux[new_index - pre_flare_brightening:new_index + post_flare_decay + 1] = \
-                    flux[true_flare_index - pre_flare_brightening:true_flare_index + post_flare_decay + 1]
+                try:
+                    fake_flux[new_index - pre_flare_brightening:new_index + post_flare_decay + 1] = \
+                        flux[true_flare_index - pre_flare_brightening:true_flare_index + post_flare_decay + 1]
+                except ValueError as err:
+                    print("Error: ", err)
+                    print("Study: ", study_i)
+                    print(new_index, true_flare_index, len(fake_flux), len(flux))
+                    print(fake_flux[new_index - pre_flare_brightening:new_index + post_flare_decay + 1])
             new_flare_catalog = eep.analyze.LightcurveFlareCatalog(fake_flux,
                                                                    extract_range=(back_pad, forward_pad),
                                                                    time_domain=time)
@@ -601,7 +673,7 @@ for star_name in target_names:
                               echo_slice] > 0)
                        & (jk_conf_low[echo_slice] > 0))[0]
         # print("statistically_interesting_indices: ", statistically_interesting_indices)
-        num_stat_meaningful_indices.append(len(statistically_interesting_indices))
+        stat_meaningful_indices_list.append(len(statistically_interesting_indices))
 
         # Some summary statistics:
         flare_tail_array = final_normed_flares[:, back_pad + 1:]
@@ -778,51 +850,60 @@ for star_name in target_names:
                                savefile=save_fp / "post-flare_raw_histogram.png",
                                y_axis_loc=1, x_axis_loc=0)
 
-    # Compile composite results
+        # Check and see if we found anything, in which case, we'll do a false-positive test
+        if study_i == 0 and len(statistically_interesting_indices) == 0:
+            print("No statistically interesting indices, not performing error analysis")
+            break
 
     # Reset filepath:
     save_fp = fp / star_name
 
-    baseline_jk_rejection = flares_rejected_by_jk.pop(0)
-    baseline_num_meaningful = num_stat_meaningful_indices.pop(0)
+    # Compile composite results
+    if len(stat_meaningful_indices_list) > 1:
 
-    f, ax = plt.subplots(ncols=3, figsize=(15, 5))
+        baseline_jk_rejection = flares_rejected_by_jk.pop(0)
+        baseline_num_meaningful = stat_meaningful_indices_list.pop(0)
 
-    ax[0].hist(flares_rejected_by_jk)
-    ax[0].set_xlabel("Number of flares rejected by jackknife outlier")
-    ax[0].set_title("Flare outlier rejection rate")
-    ax[0].axvline(x=baseline_jk_rejection, color='r', label="Number rejected from measurement")
+        f, ax = plt.subplots(ncols=3, figsize=(15, 5))
 
-    ax[1].hist(num_stat_meaningful_indices)
-    ax[1].set_xlabel("Number of statistically meaningful indices detected")
-    ax[1].set_title("Frequency of statistically meaningful flare detection")
-    ax[1].axvline(x=baseline_num_meaningful, color='r', label="Number of meaningful indices detected from measurement")
+        ax[0].hist(flares_rejected_by_jk)
+        ax[0].set_xlabel("Number of flares rejected by jackknife outlier")
+        ax[0].set_title("Flare outlier rejection rate")
+        ax[0].axvline(x=baseline_jk_rejection, color='r',
+                      label="Number rejected from measurement")
 
-    ax[2].hist2d(flares_rejected_by_jk, num_stat_meaningful_indices,
-                 bins=[max(flares_rejected_by_jk) + 1, max(num_stat_meaningful_indices) + 1],
-                 label="Control")
-    ax[2].scatter([baseline_jk_rejection], [baseline_num_meaningful], color='r', label="Measurement")
-    ax[2].set_xlabel("Number of flares rejected by JK outliers")
-    ax[2].set_ylabel("Number of statistically interesting indices")
-    ax[2].set_title("Is there a correlation between outlier rejection and echo detection?")
+        ax[1].hist(stat_meaningful_indices_list)
+        ax[1].set_xlabel("Number of statistically meaningful indices detected")
+        ax[1].set_title("Frequency of statistically meaningful flare detection")
+        ax[1].axvline(x=baseline_num_meaningful, color='r',
+                      label="Number of meaningful indices detected from measurement")
 
-    plt.tight_layout()
-    plt.savefig(save_fp / "outliers and echo detection stats.png")
-    plt.close()
+        ax[2].hist2d(flares_rejected_by_jk, stat_meaningful_indices_list,
+                     bins=[max(flares_rejected_by_jk) + 1, max(stat_meaningful_indices_list) + 1],
+                     label="Control")
+        ax[2].scatter([baseline_jk_rejection], [baseline_num_meaningful], color='r',
+                      label="Measurement")
+        ax[2].set_xlabel("Number of flares rejected by JK outliers")
+        ax[2].set_ylabel("Number of statistically interesting indices")
+        ax[2].set_title("Is there a correlation between outlier rejection and echo detection?")
 
-    total_false_positives = np.sum(num_stat_meaningful_indices)
-    num_at_least_one_false_positive = np.sum(np.array(num_stat_meaningful_indices) > 0)
+        plt.tight_layout()
+        plt.savefig(save_fp / "outliers and echo detection stats.png")
+        plt.close()
 
-    with open(save_fp / (star_name + summary_filename), 'a') as file:
-        file.write("Total false positives: " + str(total_false_positives) + "\n")
-        results_dict['outputs']['total_false_positives'] = total_false_positives
-        file.write("Number of tests with false positives: " + str(num_at_least_one_false_positive) + "\n")
-        results_dict['outputs']['num_at_least_one_false_positive'] = num_at_least_one_false_positive
-        file.write("False positive rate (total): " + str(total_false_positives / num_false_positive_tests) + "\n")
-        results_dict['outputs']['false_positive_total_rate'] = total_false_positives / num_false_positive_tests
-        file.write(
-            "False positive rate (any): " + str(num_at_least_one_false_positive / num_false_positive_tests) + "\n")
-        results_dict['outputs']['false_positive_any_rate'] = num_at_least_one_false_positive / num_false_positive_tests
+        total_false_positives = np.sum(stat_meaningful_indices_list)
+        num_at_least_one_false_positive = np.sum(np.array(stat_meaningful_indices_list) > 0)
+
+        with open(save_fp / (star_name + summary_filename), 'a') as file:
+            file.write("Total false positives: " + str(total_false_positives) + "\n")
+            results_dict['outputs']['total_false_positives'] = total_false_positives
+            file.write("Number of tests with false positives: " + str(num_at_least_one_false_positive) + "\n")
+            results_dict['outputs']['num_at_least_one_false_positive'] = num_at_least_one_false_positive
+            file.write("False positive rate (total): " + str(total_false_positives / num_false_positive_tests) + "\n")
+            results_dict['outputs']['false_positive_total_rate'] = total_false_positives / num_false_positive_tests
+            file.write(
+                "False positive rate (any): " + str(num_at_least_one_false_positive / num_false_positive_tests) + "\n")
+            results_dict['outputs']['false_positive_any_rate'] = num_at_least_one_false_positive / num_false_positive_tests
 
     try:
         full_dict = pickle.load(open(save_fp / (star_name + summary_dict_filename), 'rb'))
@@ -833,5 +914,9 @@ for star_name in target_names:
     dict_key = dict_key_gen(results_dict['inputs'])
     full_dict[dict_key] = results_dict['outputs']
     pickle.dump(full_dict, open(save_fp / (star_name + summary_dict_filename), 'wb'))
+
+    with open(fp / complete_stars_filename, 'a') as _f:
+        _f.write(star_name + "\n")
+
 
 print("All done!")

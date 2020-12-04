@@ -409,10 +409,14 @@ def find_peaks_stddev_thresh(lightcurve_data: np.ndarray,
     filtered_lightcurve /= np.nanstd(filtered_lightcurve)
 
     excess_region_mask = np.nonzero(filtered_lightcurve > std_dev_threshold)[0]  # Find all points that exceed threshold
+    if not np.any(excess_region_mask):
+        return np.array([])
     # print("excess_region_mask: ", excess_region_mask)
     delta_mask = excess_region_mask[1:] - excess_region_mask[:-1]  # Computes gap in indices between peaky events
     distinct_regions = np.nonzero(delta_mask > min_index_gap)[0] + 1  # array is 1 shorter, need +1 to align indices
 
+    if len(distinct_regions) == 0:
+        return np.array([])
     # Initialize the return array, now that we know how many peaks we found:
     return_array = np.zeros(len(distinct_regions) + 1, dtype=int)
 
