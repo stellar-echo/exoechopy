@@ -387,6 +387,7 @@ def find_peaks_stddev_thresh(lightcurve_data: np.ndarray,
         Array containing the indices at which peaks were detected in signal_data
 
     """
+    # assert(min_index_gap > 1)
 
     # Using median instead of mean, assumes activity is primarily excess photon events (like flares)
     # Mean would be biased by strong peak events, median less-so
@@ -426,7 +427,8 @@ def find_peaks_stddev_thresh(lightcurve_data: np.ndarray,
     for region_i in range(len(distinct_regions)):
         max_search_ind = excess_region_mask[distinct_regions[region_i] - 1]
         return_array[region_i] = np.nanargmax(
-            lightcurve_data[min_search_ind - extra_search_pad:max_search_ind + extra_search_pad]) + \
+            lightcurve_data[max(0, min_search_ind - extra_search_pad):
+                            min(max_search_ind + extra_search_pad, len(lightcurve_data))]) + \
                                  min_search_ind - extra_search_pad
         min_search_ind = excess_region_mask[distinct_regions[region_i]]
     last_region = excess_region_mask[-1]

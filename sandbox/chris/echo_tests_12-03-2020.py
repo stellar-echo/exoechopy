@@ -23,6 +23,7 @@ file_folder = 'disk_echo_search'
 # List of all targets to interrogate:
 all_stars_filename = 'top3k_final.txt'
 good_stars_filename = 'top_stars_with_flares.txt'
+stat_meaningful_stars_filename = 'stars_with_significant_echoes.txt'
 complete_stars_filename = 'completed_stars.txt'
 # Some stars may require special handling:
 skip_stars_filename = 'skip_stars.txt'
@@ -104,6 +105,13 @@ try:
         pass
 except FileNotFoundError:
     with open(fp / good_stars_filename, 'w') as _f:
+        pass
+
+try:
+    with open(fp / stat_meaningful_stars_filename, 'r') as _f:
+        pass
+except FileNotFoundError:
+    with open(fp / stat_meaningful_stars_filename, 'w') as _f:
         pass
 
 target_len = len(target_names)
@@ -854,6 +862,9 @@ for star_name in target_names:
         if study_i == 0 and len(statistically_interesting_indices) == 0:
             print("No statistically interesting indices, not performing error analysis")
             break
+        elif study_i == 0:
+            with open(fp / stat_meaningful_stars_filename, 'a') as _f:
+                _f.write(star_name + "\n")
 
     # Reset filepath:
     save_fp = fp / star_name
