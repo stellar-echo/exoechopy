@@ -48,7 +48,7 @@ min_flares = 10
 periodogram_power_thresh = 0.08
 
 # Number of flare re-injection tests to perform to develop false-hit-rate values:
-num_false_positive_tests = 500
+num_false_positive_tests = 50
 # Threshold for microflares, used to mask them out for re-injection studies:
 microflare_find_std_dev_thresh = 4.5
 # pre and post-flare indices for flare injection, only weakly used currently:
@@ -470,6 +470,22 @@ for star_name in target_names:
     plt.savefig((save_fp / "lc_overview.png"))
     plt.close()
 
+    # TODO - find an autocorr heuristic for cutoff
+    autocorr = eep.analyze.autocorrelate_array_w_nans(flux, forward_pad)
+    lag_min = [(time[1]-time[0]) * 24 * 60*t_i for t_i in range(len(autocorr))]
+    f, ax = plt.subplots(ncols=2, figsize=(10, 4))
+    ax[0].plot(lag_min, autocorr, color='k', drawstyle='steps-mid')
+    ax[0].set_title("Autocorrelation of entire lightcurve")
+    ax[0].set_ylabel("Correlation (normed)")
+    ax[0].set_xlabel("Time lag (minutes)")
+    ax[1].plot(lag_min[1:], autocorr[1:], color='k', drawstyle='steps-mid')
+    ax[1].set_title("Autocorrelation of entire lightcurve (w/o 0)")
+    ax[1].set_ylabel("Correlation (normed)")
+    ax[1].set_xlabel("Time lag (minutes)")
+    plt.tight_layout()
+    plt.savefig((save_fp / "lc_autocorr_overview.png"))
+    plt.close()
+
     # Test for ultra-large-amplitude variability:
     lc = lk.LightCurve(time, flux)
     lc = lc.remove_nans()
@@ -528,6 +544,8 @@ for star_name in target_names:
         output_dict['num_flares'] = num_flares
         file.write("Flare indices: " + str(base_flare_cat.get_flare_indices()) + "\n")
         output_dict['flare_indices'] = base_flare_cat.get_flare_indices()
+        file.write("Periodogram peak power: " + str(pgram.max_power) + "\n")
+        output_dict['pgram_power'] = pgram.max_power
         results_dict['outputs'] = output_dict
 
     base_flare_indices = base_flare_cat.get_flare_indices()
@@ -637,9 +655,11 @@ for star_name in target_names:
         flares_with_outliers = all_ind_list[np.any(outlier_mask, axis=1)]
         flares_rejected_by_jk.append(len(flares_with_outliers))
         # print("flares_with_outliers: ", flares_with_outliers)
+        # print("flare_indices: ", flare_indices)
 
         outlier_culled_flare_list = np.delete(all_ind_list, flares_with_outliers)
         final_flare_list = all_flares[outlier_culled_flare_list]
+        final_flare_indices = np.array(flare_indices)[outlier_culled_flare_list]
         # print("Keeping", len(final_flare_list), "of", len(all_flares), "flares after jackknife outlier removal")
 
         final_normed_flares, final_normed_flare_weight, final_normed_std_dev = \
@@ -713,6 +733,11 @@ for star_name in target_names:
                                            back_pad=back_pad, forward_pad=forward_pad,
                                            title=plot_flare_array_title,
                                            savefile=save_fp / "flare_overview.png")
+
+            eep.visualize.plot_flare_array(flux, final_flare_indices,
+                                           back_pad=back_pad, forward_pad=forward_pad,
+                                           title="Inliner "+plot_flare_array_title,
+                                           savefile=save_fp / "inlier_flare_overview.png")
 
             f, ax = plt.subplots(ncols=4, figsize=(16, 4))
             for f_i in range(len(all_flares)):
