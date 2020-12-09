@@ -45,7 +45,9 @@ conf_range = 99.7
 # Number of flares to warrant further investigation:
 min_flares = 10
 # Periodic power rejection for high-amplitude variable stars
-periodogram_power_thresh = 0.08
+periodogram_power_thresh = 0.008
+
+skip_error_analysis = True
 
 # Number of flare re-injection tests to perform to develop false-hit-rate values:
 num_false_positive_tests = 50
@@ -564,6 +566,38 @@ for star_name in target_names:
                        savefile=save_fp / "nonflaring_raw_histogram.png",
                        num_plot_pts=1000, y_axis_loc=1., x_axis_loc=0)
 
+    # Non-flaring autocorrelation because why not?
+    nonflare_flux = flux.copy()
+    nonflare_flux[~nonflaring_mask] = np.nan
+    nonflare_autocorr = eep.analyze.autocorrelate_array_w_nans(nonflare_flux, forward_pad)
+    lag_min = [(time[1]-time[0]) * 24 * 60*t_i for t_i in range(len(nonflare_autocorr))]
+    f, ax = plt.subplots(ncols=2, nrows=2, figsize=(10, 10))
+    ax[0, 0].plot(lag_min, nonflare_autocorr, color='k', drawstyle='steps-mid')
+    ax[0, 0].set_title("Autocorrelation of non-flaring lightcurve")
+    ax[0, 0].set_ylabel("Correlation (normed)")
+    ax[0, 0].set_xlabel("Time lag (minutes)")
+
+    ax[0, 1].plot(lag_min[1:], nonflare_autocorr[1:], color='k', drawstyle='steps-mid')
+    ax[0, 1].set_title("Autocorrelation of non-flaring lightcurve (w/o 0)")
+    ax[0, 1].set_ylabel("Correlation (normed)")
+    ax[0, 1].set_xlabel("Time lag (minutes)")
+
+    ax[1, 0].plot(lag_min, autocorr-nonflare_autocorr, color='k', drawstyle='steps-mid')
+    ax[1, 0].set_title("Global AC minus non-flaring AC")
+    ax[1, 0].set_ylabel("Correlation diff (normed)")
+    ax[1, 0].set_xlabel("Time lag (minutes)")
+
+    ax[1, 1].plot(lag_min[1:], nonflare_autocorr[1:], color='r', drawstyle='steps-mid', label='Non-flaring autocorr')
+    ax[1, 1].plot(lag_min[1:], autocorr[1:], color='k', drawstyle='steps-mid', label='Global autocorr')
+    ax[1, 1].legend()
+    ax[1, 1].set_title("Global AC and non-flaring AC (w/o 0)")
+    ax[1, 1].set_ylabel("Correlation (normed)")
+    ax[1, 1].set_xlabel("Time lag (minutes)")
+
+    plt.tight_layout()
+    plt.savefig((save_fp / "nonflare_lc_autocorr_overview.png"))
+    plt.close()
+
     # False-positive test list:
     test_nonflare = select_flare_injection_sites(flux, nonflaring_indices, num_flares,
                                                  forwardpad=forward_pad, num_reselections=num_false_positive_tests)
@@ -584,6 +618,8 @@ for star_name in target_names:
     #  Also help build a multi-star composite for Ben.
 
     # TODO - To build ROC curve, we should to manually inject echoes at a given threshold to the non-flaring regions?
+
+    # TODO - post-process the good stars to select 'unresolved' flares (those with no discernible tail)
 
     flares_rejected_by_jk = []
     stat_meaningful_indices_list = []
@@ -890,6 +926,8 @@ for star_name in target_names:
         elif study_i == 0:
             with open(fp / stat_meaningful_stars_filename, 'a') as _f:
                 _f.write(star_name + "\n")
+            if skip_error_analysis:
+                break
 
     # Reset filepath:
     save_fp = fp / star_name
