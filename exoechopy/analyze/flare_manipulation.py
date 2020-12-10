@@ -297,6 +297,7 @@ class LightcurveFlareCatalog(BaseFlareCatalog):
 
     # ------------------------------------------------------------------------------------------------------------ #
     def get_flare_indices(self):
+        """Return the indices of flare peaks from the lightcurve if identify_flares_with_protocol has been run"""
         return self._flare_indices.copy()
 
     # ------------------------------------------------------------------------------------------------------------ #
