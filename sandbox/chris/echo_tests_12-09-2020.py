@@ -21,18 +21,12 @@ from matplotlib import pyplot as plt
 #  Use global KDE to build the "missed" distribution, show whether it overlaps and if so, how much?
 #  What about lag-resampling?  If we assume an active tail, then lag resampling should flatten that out...
 
-# TODO - Mask out the immediate pre-post flare from jk/l2o analysis?
-
 # TODO - figure out which summary values we want to extract from this effort (frequency of stat sig. values, etc.),
 #  generate the global summary plots and ROC curves.
 #  E.g., are certain bins more likely to generate false values?
 #   (They shouldn't be in this particular analysis, but worth including in case the analysis changes)
 #  Rerun with larger numbers of false flare resamples to come up with good guidance.
 #  Also help build a multi-star composite for Ben.
-
-# TODO - To build ROC curve, we should to manually inject echoes at a given threshold to the non-flaring regions?
-
-# TODO - post-process the good stars to select 'unresolved' flares (those with no discernible tail)?
 
 # Where we are getting raw data from:
 cache_folder = 'local_cache'
@@ -42,6 +36,7 @@ file_folder = 'disk_echo_search'
 # List of all targets to interrogate:
 all_stars_filename = 'top3k_final.txt'
 good_stars_filename = 'top_stars_with_flares.txt'
+clean_delta_flare_stars_filename = 'clean_delta_flare_stars_with_many_flares.txt'
 stat_meaningful_stars_filename = 'stars_with_significant_echoes.txt'
 complete_stars_filename = 'completed_stars.txt'
 # Some stars may require special handling:
@@ -50,7 +45,7 @@ skip_stars_filename = 'skip_stars.txt'
 # How far before the flare to plot when producing the overview data product:
 back_pad = 5
 # How far after the flare to include in the analysis:
-forward_pad = 80
+forward_pad = 50
 # Number of indices after a flare to skip for analysis, anticipating systematic decay errors:
 post_flare_mask = 1  # Typically 0 or 1 for long cadence data
 post_flare_mask_resample = 3  # Special case for the jk/leave-2-out error analysis
@@ -72,6 +67,11 @@ conf_range = 99.7
 min_flares = 10
 # Periodic power rejection for high-amplitude variable stars
 periodogram_power_thresh = 0.008
+# Autocorrelation index to walk past before implementing rejection threshold:
+autocorr_ind_thresh = 8
+# Autocorrelation rejection threshold:
+autocorr_reject_thresh = 0.1
+
 
 skip_error_analysis = True
 
@@ -136,6 +136,13 @@ try:
         pass
 except FileNotFoundError:
     with open(fp / good_stars_filename, 'w') as _f:
+        pass
+
+try:
+    with open(fp / clean_delta_flare_stars_filename, 'r') as _f:
+        pass
+except FileNotFoundError:
+    with open(fp / clean_delta_flare_stars_filename, 'w') as _f:
         pass
 
 try:
@@ -508,6 +515,11 @@ for star_name in target_names:
     plt.tight_layout()
     plt.savefig((save_fp / "lc_autocorr_overview.png"))
     plt.close()
+    if np.any(autocorr[autocorr_ind_thresh:] > autocorr_reject_thresh):
+        print("Star rejected for high-amplitude autocorrelation values: ", np.max(autocorr[autocorr_ind_thresh:]))
+        with open(fp / complete_stars_filename, 'a') as _f:
+            _f.write(star_name + "\n")
+        continue
 
     # Test for ultra-large-amplitude variability:
     lc = lk.LightCurve(time, flux)
@@ -686,6 +698,7 @@ for star_name in target_names:
     else:
         with open(fp / good_stars_filename, 'a') as _f:
             _f.write(star_name + "\n")
+
     # Perform analysis and false-positive tests:
     for study_i, flare_indices in enumerate(flare_ind_lists):
         # Check if this is ground truth:
@@ -757,10 +770,6 @@ for star_name in target_names:
         jk_int_outliers.extend(x for x in flares_with_intensity_outliers if x not in flares_with_jk_outliers)
         jk_int_outliers.sort()
 
-        print("flares_with_intensity_outliers: ", flares_with_intensity_outliers)
-        print("flares_with_jk_outliers: ", flares_with_jk_outliers)
-        print("jk_int_outliers: ", jk_int_outliers)
-
         outlier_culled_flare_list = np.delete(all_ind_list, jk_int_outliers)
         jk_flare_list = all_flares[outlier_culled_flare_list]
         jk_flare_indices = np.array(flare_indices)[outlier_culled_flare_list]
@@ -809,6 +818,11 @@ for star_name in target_names:
         final_flare_list = all_flares[outlier_culled_flare_list]
         final_flare_indices = np.array(flare_indices)[outlier_culled_flare_list]
         # print("Keeping", len(final_flare_list), "of", len(all_flares), "flares after jackknife outlier removal")
+
+        if len(final_flare_list) > min_flares & study_i == 0:
+            if num_resolved/num_flares < 0.1:
+                with open(fp / clean_delta_flare_stars_filename, 'a') as _f:
+                    _f.write(star_name + "\n")
 
         final_normed_flares, final_normed_flare_weight, final_normed_std_dev = \
             echo_analysis_do_it_all(final_flare_list, back_pad + 1)
