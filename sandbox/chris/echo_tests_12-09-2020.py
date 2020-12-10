@@ -56,11 +56,14 @@ post_flare_mask = 1  # Typically 0 or 1 for long cadence data
 post_flare_mask_resample = 3  # Special case for the jk/leave-2-out error analysis
 # Used to test whether a flare was resolved or not.  If resolved, it will be at least ±flare_width_test bins wide:
 flare_width_test = 2
+flare_heuristic_thresh = 1.0025
 # Threshold for detecting flares:
 peak_find_std_dev_thresh = 5
 # Threshold for rejecting flare based on a jackknife resample:
 jk_std_dev_thresh = 4
 l2o_std_dev_thresh = 5
+# Threshold for rejecting a flare based on high intensities in the echo domain:
+relative_flare_intensity_thresh = 0.5
 # Number of bootstrap resamples for developing confidence intervals
 num_bootstrap = 10000
 # Range to use for confidence intervals
@@ -587,13 +590,25 @@ for star_name in target_names:
         neigh_start_ind = max(0, flare_ind - flare_width_test)
         neigh_end_ind = min(len(flux), flare_ind + flare_width_test + 1)
         neighbor_vals = np.nansum(flux[neigh_start_ind:neigh_end_ind]) - flux[flare_ind]
-        resolved_test = neighbor_vals / (neigh_end_ind - neigh_start_ind - 1) / flux[flare_ind] - med_val
+        non_nan = np.sum(~np.isnan(flux[neigh_start_ind:neigh_end_ind]))
+        resolved_test = (neighbor_vals / (non_nan - 1)) / med_val
         flare_resolved_tests.append(resolved_test)
         flare_peak_values.append(flux[flare_ind])
 
+    flare_resolved_list = [True if f_h > flare_heuristic_thresh else False for f_h in flare_resolved_tests]
+
+    num_resolved = np.sum(flare_resolved_list)
+
+    with open(save_fp / (star_name + summary_filename), 'a') as file:
+        file.write("Number of resolved flares: " + str(num_resolved) + "\n")
+        results_dict['outputs']['num_resolved'] = num_resolved
+        file.write("Number of unresolved flares: " + str(num_flares-num_resolved) + "\n")
+        results_dict['outputs']['num_unresolved'] = num_flares-num_resolved
+
     # +++++++++++++++++++++++++++ #
     f, ax = plt.subplots(figsize=(5, 5))
-    ax.scatter(flare_peak_values, flare_resolved_tests)
+    col_array = ['r' if f_h > flare_heuristic_thresh else 'k' for f_h in flare_resolved_tests]
+    ax.scatter(flare_peak_values, flare_resolved_tests, c=col_array, marker='.')
     ax.set_xlabel("Flare peak value")
     ax.set_ylabel("Flare width heuristic")
     plt.title("Flare intensity vs width heuristic")
@@ -709,8 +724,17 @@ for star_name in target_names:
         mean_plot = np.nanmean(all_flares, axis=0)
         normed_mean = np.nansum(normed_flares * normed_flare_weight[:, np.newaxis], axis=0)
 
-        # Jackknife analysis:
         all_ind_list = np.arange(len(all_flares))
+
+        # Intensity outliers:
+        intensity_outlier_mask = np.zeros((len(normed_flares), len(normed_flares[0])), dtype=bool)
+        for ind in all_ind_list:
+            intensity_excursions = np.abs(normed_flares[ind]) > relative_flare_intensity_thresh
+            intensity_outlier_mask[ind] = intensity_excursions & echo_mask
+
+        flares_with_intensity_outliers = all_ind_list[np.any(intensity_outlier_mask, axis=1)]
+
+        # Jackknife analysis:
         all_jk_normed_means = np.zeros((len(all_flares), len(normed_mean)))
         all_jk_normed_stds = np.zeros((len(all_flares), len(normed_std_dev)))
         for ind in all_ind_list:
@@ -725,11 +749,19 @@ for star_name in target_names:
         jk_mean_std = np.std(all_jk_normed_means, axis=0)
         mean_offset_jk = all_jk_normed_means - jk_mean
         sigma_dev = np.abs(mean_offset_jk / jk_mean_std)
-        outlier_mask = sigma_dev > jk_std_dev_thresh
-        flares_with_jk_outliers = all_ind_list[np.any(outlier_mask & echo_mask, axis=1)]
+        jk_outlier_mask = sigma_dev > jk_std_dev_thresh
+        flares_with_jk_outliers = all_ind_list[np.any(jk_outlier_mask & echo_mask, axis=1)]
         flares_rejected_by_jk.append(len(flares_with_jk_outliers))
 
-        outlier_culled_flare_list = np.delete(all_ind_list, flares_with_jk_outliers)
+        jk_int_outliers = list(flares_with_jk_outliers)
+        jk_int_outliers.extend(x for x in flares_with_intensity_outliers if x not in flares_with_jk_outliers)
+        jk_int_outliers.sort()
+
+        print("flares_with_intensity_outliers: ", flares_with_intensity_outliers)
+        print("flares_with_jk_outliers: ", flares_with_jk_outliers)
+        print("jk_int_outliers: ", jk_int_outliers)
+
+        outlier_culled_flare_list = np.delete(all_ind_list, jk_int_outliers)
         jk_flare_list = all_flares[outlier_culled_flare_list]
         jk_flare_indices = np.array(flare_indices)[outlier_culled_flare_list]
 
@@ -761,7 +793,7 @@ for star_name in target_names:
         l2o_outlier_mask = sigma_dev > l2o_std_dev_thresh
         l2o_with_outliers_ct = np.any(l2o_outlier_mask & echo_mask, axis=1)
 
-        l2o_rejected_flares = set(flares_with_jk_outliers)
+        l2o_rejected_flares = set(jk_int_outliers)
         for ind, bool_ in enumerate(l2o_with_outliers_ct):
             if bool_:
                 f1, f2 = l2o_lookup[ind]
@@ -901,15 +933,24 @@ for star_name in target_names:
             # +++++++++++++++++++++++++++ #
             for outlier_ind in flares_with_jk_outliers:
                 plt.plot(time_domain_min, all_flares[outlier_ind], color='k', drawstyle='steps-mid', zorder=1)
-                plt.scatter(time_domain_min[outlier_mask[outlier_ind]],
-                            all_flares[outlier_ind][outlier_mask[outlier_ind]],
+                plt.scatter(time_domain_min[jk_outlier_mask[outlier_ind]],
+                            all_flares[outlier_ind][jk_outlier_mask[outlier_ind]],
                             zorder=0, color='r', marker='x')
-                plt.title("Outlier(s) detected in flare " + str(outlier_ind))
-                plt.savefig((rejected_outlier_fp / ("outliers_in_flare_" + str(outlier_ind) + ".png")))
+                plt.title("Jackknife outlier(s) detected in flare " + str(outlier_ind))
+                plt.savefig((rejected_outlier_fp / ("jk_outliers_in_flare_" + str(outlier_ind) + ".png")))
                 plt.close()
 
             # +++++++++++++++++++++++++++ #
+            for outlier_ind in flares_with_intensity_outliers:
+                plt.plot(time_domain_min, normed_flares[outlier_ind], color='k', drawstyle='steps-mid', zorder=1)
+                plt.scatter(time_domain_min[intensity_outlier_mask[outlier_ind]],
+                            normed_flares[outlier_ind][intensity_outlier_mask[outlier_ind]],
+                            zorder=0, color='g', marker='x')
+                plt.title("Intensity outlier(s) detected in flare " + str(outlier_ind))
+                plt.savefig((rejected_outlier_fp / ("intensity_outliers_in_flare_" + str(outlier_ind) + ".png")))
+                plt.close()
 
+            # +++++++++++++++++++++++++++ #
             for ct, bool_ in enumerate(l2o_with_outliers_ct):
                 if bool_:
                     f1, f2 = l2o_lookup[ct]
@@ -1011,7 +1052,7 @@ for star_name in target_names:
             ax.axhline(y=0, color='gray', ls='--', zorder=30)
             ax.plot(time_domain_min[echo_slice], boot_conf[0][echo_slice],
                     color='darkred', drawstyle='steps-post', zorder=0, lw=1,
-                    label='Boostrap ' + str(conf_range) + "% conf. range")
+                    label='Bootstrap ' + str(conf_range) + "% conf. range")
             ax.plot(time_domain_min[echo_slice], boot_conf[1][echo_slice],
                     color='darkred', drawstyle='steps-post', zorder=0, lw=1)
 
