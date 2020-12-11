@@ -34,14 +34,11 @@ cache_folder = 'local_cache'
 file_folder = 'disk_echo_search_deltas'
 
 # List of all targets to interrogate:
-all_stars_filename = 'top3k_final.txt'
+all_stars_filename = 'clean_delta_flare_stars_with_many_flares.txt'
 good_stars_filename = 'top_stars_with_flares.txt'
 stat_meaningful_stars_filename = 'stars_with_significant_echoes.txt'
 complete_stars_filename = 'completed_stars.txt'
 
-clean_delta_flare_stars_filename = 'clean_delta_flare_stars_with_many_flares.txt'
-clean_resolved_flare_stars_filename = 'clean_resolved_flare_stars_with_many_flares.txt'
-clean_mixed_flare_stars_filename = 'clean_mixed_flare_stars_with_many_flares.txt'
 # Some stars may require special handling:
 skip_stars_filename = 'skip_stars.txt'
 
@@ -75,7 +72,7 @@ autocorr_ind_thresh = 8
 # Autocorrelation rejection threshold:
 autocorr_reject_thresh = 0.1
 
-generate_figures = False
+generate_figures = True
 skip_error_analysis = True
 
 # Number of flare re-injection tests to perform to develop false-hit-rate values:
@@ -130,6 +127,7 @@ with open(fp / all_stars_filename, 'r') as tnames:
     raw_target_names = tnames.readlines()
 
 target_names = [star_name.split('-')[0] for star_name in raw_target_names]
+target_names = [star_name.split('\n')[0] for star_name in target_names]
 print(len(target_names), "total targets identified for analysis")
 # # Don't run on entire database yet:
 # target_names = target_names[:50]
@@ -139,27 +137,6 @@ try:
         pass
 except FileNotFoundError:
     with open(fp / good_stars_filename, 'w') as _f:
-        pass
-
-try:
-    with open(fp / clean_delta_flare_stars_filename, 'r') as _f:
-        pass
-except FileNotFoundError:
-    with open(fp / clean_delta_flare_stars_filename, 'w') as _f:
-        pass
-
-try:
-    with open(fp / clean_resolved_flare_stars_filename, 'r') as _f:
-        pass
-except FileNotFoundError:
-    with open(fp / clean_resolved_flare_stars_filename, 'w') as _f:
-        pass
-
-try:
-    with open(fp / clean_mixed_flare_stars_filename, 'r') as _f:
-        pass
-except FileNotFoundError:
-    with open(fp / clean_mixed_flare_stars_filename, 'w') as _f:
         pass
 
 try:
@@ -840,17 +817,6 @@ for star_name in target_names:
         final_flare_list = all_flares[outlier_culled_flare_list]
         final_flare_indices = np.array(flare_indices)[outlier_culled_flare_list]
         # print("Keeping", len(final_flare_list), "of", len(all_flares), "flares after jackknife outlier removal")
-
-        if len(final_flare_list) > min_flares & study_i == 0:
-            if num_resolved/num_flares < 0.1:
-                with open(fp / clean_delta_flare_stars_filename, 'a') as _f:
-                    _f.write(star_name + "\n")
-            elif num_resolved / num_flares > 0.9:
-                with open(fp / clean_resolved_flare_stars_filename, 'a') as _f:
-                    _f.write(star_name + "\n")
-            else:
-                with open(fp / clean_mixed_flare_stars_filename, 'a') as _f:
-                    _f.write(star_name + "\n")
 
         final_normed_flares, final_normed_flare_weight, final_normed_std_dev = \
             echo_analysis_do_it_all(final_flare_list, back_pad + 1)
