@@ -54,7 +54,7 @@ post_flare_mask = 1  # Typically 0 or 1 for long cadence data
 post_flare_mask_resample = 3  # Special case for the jk/leave-2-out error analysis
 # Used to test whether a flare was resolved or not.  If resolved, it will be at least ±flare_width_test bins wide:
 flare_width_test = 2
-flare_heuristic_thresh = 1.0025
+flare_heuristic_thresh = 1.00125
 # Threshold for detecting flares:
 peak_find_std_dev_thresh = 5
 # Threshold for rejecting flare based on a jackknife resample:
@@ -926,9 +926,12 @@ for star_name in target_names:
                                            savefile=save_fp / "flare_overview.png")
 
             # +++++++++++++++++++++++++++ #
+            inlier_plot_flare_array_title = "Inlier flare catalog from " + star_name + ", " \
+                                     + str(len(final_flare_indices)) + " flares found for peak>" \
+                                     + str(peak_find_std_dev_thresh) + "σ"
             eep.visualize.plot_flare_array(flux, final_flare_indices,
                                            back_pad=back_pad, forward_pad=forward_pad,
-                                           title="Inliner " + plot_flare_array_title,
+                                           title=inlier_plot_flare_array_title,
                                            savefile=save_fp / "inlier_flare_overview.png")
 
             # +++++++++++++++++++++++++++ #
