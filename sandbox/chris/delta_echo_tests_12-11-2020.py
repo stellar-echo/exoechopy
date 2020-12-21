@@ -773,6 +773,14 @@ for star_name in target_names:
         jk_flare_list = all_flares[outlier_culled_flare_list]
         jk_flare_indices = np.array(flare_indices)[outlier_culled_flare_list]
 
+        if len(outlier_culled_flare_list) < min_flares:
+            print("Insufficient flares after initial outlier removal to continue analysis:",
+                  len(outlier_culled_flare_list))
+            if study_i == 0:
+                break
+            else:
+                continue
+
         # Leave-2-out analysis:
         all_ind_list2 = outlier_culled_flare_list.copy()
         num_l2o_tests = (len(all_ind_list2) * (len(all_ind_list2) - 1))

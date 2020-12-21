@@ -29,12 +29,12 @@ from matplotlib import pyplot as plt
 #  Also help build a multi-star composite for Ben.
 
 # Where we are getting raw data from:
-cache_folder = 'local_cache'
+cache_folder = 'local_cache_sc'
 # What directory are we working from:
-file_folder = 'disk_echo_search_deltas'
+file_folder = 'SC_disk_echo_search'
 
 # List of all targets to interrogate:
-all_stars_filename = 'top3k_final.txt'
+all_stars_filename = 'top1k_short_cadence.txt'
 good_stars_filename = 'top_stars_with_flares.txt'
 stat_meaningful_stars_filename = 'stars_with_significant_echoes.txt'
 complete_stars_filename = 'completed_stars.txt'
@@ -45,23 +45,29 @@ clean_mixed_flare_stars_filename = 'clean_mixed_flare_stars_with_many_flares.txt
 # Some stars may require special handling:
 skip_stars_filename = 'skip_stars.txt'
 
+max_targets = None
+
 # How far before the flare to plot when producing the overview data product:
-back_pad = 5
+pre_peak_pad = 5
 # How far after the flare to include in the analysis:
-forward_pad = 50
+post_peak_pad = 70
 # Number of indices after a flare to skip for analysis, anticipating systematic decay errors:
 post_flare_mask = 1  # Typically 0 or 1 for long cadence data
 post_flare_mask_resample = 3  # Special case for the jk/leave-2-out error analysis
 # Used to test whether a flare was resolved or not.  If resolved, it will be at least ±flare_width_test bins wide:
-flare_width_test = 2
-flare_heuristic_thresh = 1.00125
+# flare_width_test = 2
+flare_heuristic_thresh = .5
+# Flare decay thresholds for resolved flares:
+flare_decay_intensity_thresh_0 = 0.35
+flare_decay_intensity_thresh_1 = 0.125
+flare_decay_intensity_thresh_2 = 0.045
 # Threshold for detecting flares:
-peak_find_std_dev_thresh = 5
+peak_find_std_dev_thresh = 7
 # Threshold for rejecting flare based on a jackknife resample:
 jk_std_dev_thresh = 4.
 l2o_std_dev_thresh = 5.
 # Threshold for rejecting a flare based on high intensities in the echo domain:
-relative_flare_intensity_thresh = 0.5
+relative_flare_intensity_thresh = 0.4
 # Number of bootstrap resamples for developing confidence intervals
 num_bootstrap = 10000
 # Range to use for confidence intervals
@@ -75,7 +81,7 @@ autocorr_ind_thresh = 8
 # Autocorrelation rejection threshold:
 autocorr_reject_thresh = 0.1
 
-generate_figures = False
+generate_figures = True
 skip_error_analysis = True
 
 # Number of flare re-injection tests to perform to develop false-hit-rate values:
@@ -121,13 +127,17 @@ conf_min = (100 - conf_range) / 2
 conf_max = 100 - conf_min
 
 # Skip the flare itself when just looking at echo:
-echo_slice = slice(back_pad + 1 + post_flare_mask, None)
-echo_mask = np.zeros(back_pad + forward_pad, dtype=bool)
-echo_mask[back_pad + 1 + post_flare_mask + post_flare_mask_resample:] = True
+echo_slice = slice(pre_peak_pad + 1 + post_flare_mask, None)
+echo_mask = np.zeros(pre_peak_pad + post_peak_pad, dtype=bool)
+echo_mask[pre_peak_pad + 1 + post_flare_mask + post_flare_mask_resample:] = True
 # print("echo_mask: ", echo_mask)
 
 with open(fp / all_stars_filename, 'r') as tnames:
     raw_target_names = tnames.readlines()
+
+if max_targets is None:
+    max_targets = len(raw_target_names)
+raw_target_names = raw_target_names[:max_targets]
 
 target_names = [star_name.split('-')[0] for star_name in raw_target_names]
 print(len(target_names), "total targets identified for analysis")
@@ -449,7 +459,7 @@ for star_name in target_names:
         except:
             print("Unable to load from cache, re-downloading:")
     if not load_success:
-        search = lk.search_lightcurvefile(star_name, cadence='long', mission='Kepler')
+        search = lk.search_lightcurvefile(star_name, cadence='short', mission='Kepler')
         if len(search) > 0:
             lc_collection = search.download_all()
             try:
@@ -498,7 +508,7 @@ for star_name in target_names:
     if not save_fp.exists():
         save_fp.mkdir()
 
-    autocorr = eep.analyze.autocorrelate_array_w_nans(flux, forward_pad)
+    autocorr = eep.analyze.autocorrelate_array_w_nans(flux, post_peak_pad)
     lag_min = [(time[1] - time[0]) * 24 * 60 * t_i for t_i in range(len(autocorr))]
 
     # +++++++++++++++++++++++++++ #
@@ -559,11 +569,11 @@ for star_name in target_names:
 
     # Check for flares:
     base_flare_cat = eep.analyze.LightcurveFlareCatalog(flux,
-                                                        extract_range=(back_pad, forward_pad),
+                                                        extract_range=(pre_peak_pad, post_peak_pad),
                                                         time_domain=time)
     base_flare_cat.identify_flares_with_protocol(eep.analyze.find_peaks_stddev_thresh,
                                                  std_dev_threshold=peak_find_std_dev_thresh,
-                                                 single_flare_gap=forward_pad)
+                                                 single_flare_gap=post_peak_pad)
     num_flares = base_flare_cat.num_flares
     print("Number of flares identified: ", num_flares)
 
@@ -572,10 +582,10 @@ for star_name in target_names:
     with open(save_fp / (star_name + summary_filename), 'w') as file:
         input_dict = {}
         file.write("INPUTS\n")
-        file.write("back_pad: " + str(back_pad) + "\n")
-        input_dict['back_pad'] = back_pad
-        file.write("forward_pad: " + str(forward_pad) + "\n")
-        input_dict['forward_pad'] = forward_pad
+        file.write("back_pad: " + str(pre_peak_pad) + "\n")
+        input_dict['back_pad'] = pre_peak_pad
+        file.write("forward_pad: " + str(post_peak_pad) + "\n")
+        input_dict['forward_pad'] = post_peak_pad
         file.write("post_flare_mask: " + str(post_flare_mask) + "\n")
         input_dict['post_flare_mask'] = post_flare_mask
         file.write("peak_find_std_dev_thresh: " + str(peak_find_std_dev_thresh) + "\n")
@@ -616,28 +626,40 @@ for star_name in target_names:
     flare_resolved_tests = []
     flare_peak_values = []
     for flare_ind in base_flare_indices:
-        start_ind = max(0, flare_ind - back_pad)
-        end_ind = min(len(flux), flare_ind + forward_pad)
-        sliced_flare = flux[start_ind:end_ind]
-        med_val = np.nanmedian(sliced_flare)
-        peakval = np.nanmax(sliced_flare)
-        neigh_start_ind = max(0, flare_ind - flare_width_test)
-        neigh_end_ind = min(len(flux), flare_ind + flare_width_test + 1)
-        neighbor_vals = np.nansum(flux[neigh_start_ind:neigh_end_ind]) - flux[flare_ind]
-        non_nan = np.sum(~np.isnan(flux[neigh_start_ind:neigh_end_ind]))
-        resolved_test = (neighbor_vals / (non_nan - 1)) / med_val
+        # start_ind = max(0, flare_ind - pre_peak_pad)
+        # end_ind = min(len(flux), flare_ind + post_peak_pad)
+        # sliced_flare = flux[start_ind:end_ind]
+        # med_val = np.nanmedian(sliced_flare)
+        # peakval = np.nanmax(sliced_flare)
+        # neigh_start_ind = max(0, flare_ind - flare_width_test)
+        # neigh_end_ind = min(len(flux), flare_ind + flare_width_test + 1)
+        # neighbor_vals = np.nansum(flux[neigh_start_ind:neigh_end_ind]) - flux[flare_ind]
+        # non_nan = np.sum(~np.isnan(flux[neigh_start_ind:neigh_end_ind]))
+        # resolved_test = (neighbor_vals / (non_nan - 1)) / med_val
+
+        f_0 = flux[flare_ind] - 1
+        post_1_value = (flux[flare_ind + 1] - 1) / f_0 - flare_decay_intensity_thresh_0
+        post_2_value = (flux[flare_ind + 2] - 1) / f_0 - flare_decay_intensity_thresh_1
+        post_3_value = (flux[flare_ind + 3] - 1) / f_0 - flare_decay_intensity_thresh_2
+
+        resolved_test = np.nansum([post_1_value, 2 * post_2_value, 3 * post_3_value])
+
         flare_resolved_tests.append(resolved_test)
         flare_peak_values.append(flux[flare_ind])
 
     flare_resolved_list = [True if f_h > flare_heuristic_thresh else False for f_h in flare_resolved_tests]
+
+    # TODO - include:
+    #  post_1_bool = normed_flares[ind][pre_peak_pad + 1] > flare_decay_intensity_thresh_0
+    #  post_2_bool = normed_flares[ind][pre_peak_pad + 2] > flare_decay_intensity_thresh_1
 
     num_resolved = np.sum(flare_resolved_list)
 
     with open(save_fp / (star_name + summary_filename), 'a') as file:
         file.write("Number of resolved flares: " + str(num_resolved) + "\n")
         results_dict['outputs']['num_resolved'] = num_resolved
-        file.write("Number of unresolved flares: " + str(num_flares-num_resolved) + "\n")
-        results_dict['outputs']['num_unresolved'] = num_flares-num_resolved
+        file.write("Number of unresolved flares: " + str(num_flares - num_resolved) + "\n")
+        results_dict['outputs']['num_unresolved'] = num_flares - num_resolved
 
     # +++++++++++++++++++++++++++ #
     if generate_figures:
@@ -653,9 +675,9 @@ for star_name in target_names:
 
     # More inclusive list of flares for later injection tests:
     list_of_microflares = eep.analyze.find_peaks_stddev_thresh(flux, microflare_find_std_dev_thresh,
-                                                               single_flare_gap=forward_pad)
+                                                               single_flare_gap=post_peak_pad)
     nonflaring_indices, nonflaring_mask = find_nonflaring_regions(flux, list_of_microflares,
-                                                                  forwardpad=forward_pad, backpad=back_pad,
+                                                                  forwardpad=post_peak_pad, backpad=pre_peak_pad,
                                                                   dilation_iter=pre_flare_brightening + post_flare_decay + 1)
 
     # Examine the global nonflaring flux distribution
@@ -669,7 +691,7 @@ for star_name in target_names:
     # Non-flaring autocorrelation because why not?
     nonflare_flux = flux.copy()
     nonflare_flux[~nonflaring_mask] = np.nan
-    nonflare_autocorr = eep.analyze.autocorrelate_array_w_nans(nonflare_flux, forward_pad)
+    nonflare_autocorr = eep.analyze.autocorrelate_array_w_nans(nonflare_flux, post_peak_pad)
     lag_min = [(time[1] - time[0]) * 24 * 60 * t_i for t_i in range(len(nonflare_autocorr))]
 
     # +++++++++++++++++++++++++++ #
@@ -690,7 +712,8 @@ for star_name in target_names:
         ax[1, 0].set_ylabel("Correlation diff (normed)")
         ax[1, 0].set_xlabel("Time lag (minutes)")
 
-        ax[1, 1].plot(lag_min[1:], nonflare_autocorr[1:], color='r', drawstyle='steps-mid', label='Non-flaring autocorr')
+        ax[1, 1].plot(lag_min[1:], nonflare_autocorr[1:], color='r', drawstyle='steps-mid',
+                      label='Non-flaring autocorr')
         ax[1, 1].plot(lag_min[1:], autocorr[1:], color='k', drawstyle='steps-mid', label='Global autocorr')
         ax[1, 1].legend()
         ax[1, 1].set_title("Global AC and non-flaring AC (w/o 0)")
@@ -703,7 +726,7 @@ for star_name in target_names:
 
     # False-positive test list:
     test_nonflare = select_flare_injection_sites(flux, nonflaring_indices, num_flares,
-                                                 forwardpad=forward_pad, num_reselections=num_false_positive_tests)
+                                                 forwardpad=post_peak_pad, num_reselections=num_false_positive_tests)
 
     flare_ind_lists = [base_flare_indices]
     flare_ind_lists.extend(test_nonflare)
@@ -740,7 +763,7 @@ for star_name in target_names:
                     print(new_index, true_flare_index, len(fake_flux), len(flux))
                     print(fake_flux[new_index - pre_flare_brightening:new_index + post_flare_decay + 1])
             new_flare_catalog = eep.analyze.LightcurveFlareCatalog(fake_flux,
-                                                                   extract_range=(back_pad, forward_pad),
+                                                                   extract_range=(pre_peak_pad, post_peak_pad),
                                                                    time_domain=time)
             new_flare_catalog.manually_set_flare_indices(flare_indices)
             # Extract our newly faked lightcurves:
@@ -751,7 +774,7 @@ for star_name in target_names:
                                      + str(peak_find_std_dev_thresh) + "σ"
             all_flares = base_flare_cat.get_flare_curves()
 
-        normed_flares, normed_flare_weight, normed_std_dev = echo_analysis_do_it_all(all_flares, back_pad + 1)
+        normed_flares, normed_flare_weight, normed_std_dev = echo_analysis_do_it_all(all_flares, pre_peak_pad + 1)
 
         # Standard deviation of the mean, https://en.wikipedia.org/wiki/Standard_error#Standard_error_of_the_mean
         std_dev_plot = np.nanstd(all_flares, axis=0) / np.sqrt(len(all_flares))
@@ -774,7 +797,7 @@ for star_name in target_names:
         for ind in all_ind_list:
             jk_flare_inds = np.delete(all_ind_list, ind)
             jk_normed_flares, jk_normed_flare_weight, jk_normed_std_dev = \
-                echo_analysis_do_it_all(all_flares[jk_flare_inds], back_pad + 1)
+                echo_analysis_do_it_all(all_flares[jk_flare_inds], pre_peak_pad + 1)
             jk_normed_mean = np.nansum(jk_normed_flares * jk_normed_flare_weight[:, np.newaxis], axis=0)
             all_jk_normed_means[ind] = jk_normed_mean
             all_jk_normed_stds[ind] = jk_normed_std_dev
@@ -818,7 +841,7 @@ for star_name in target_names:
             for ind2 in jk_flare_inds:
                 l2o_flare_inds = np.array([x for x in jk_flare_inds if x != ind2])
                 l2o_normed_flares, l2o_normed_flare_weight, l2o_normed_std_dev = \
-                    echo_analysis_do_it_all(all_flares[l2o_flare_inds], back_pad + 1)
+                    echo_analysis_do_it_all(all_flares[l2o_flare_inds], pre_peak_pad + 1)
                 l2o_normed_mean = np.nansum(l2o_normed_flares * l2o_normed_flare_weight[:, np.newaxis], axis=0)
                 all_l2o_normed_means[ct] = l2o_normed_mean
                 all_l2o_normed_stds[ct] = l2o_normed_std_dev
@@ -850,7 +873,7 @@ for star_name in target_names:
         # print("Keeping", len(final_flare_list), "of", len(all_flares), "flares after jackknife outlier removal")
 
         if len(final_flare_list) > min_flares & study_i == 0:
-            if num_resolved/num_flares < 0.1:
+            if num_resolved / num_flares < 0.1:
                 with open(fp / clean_delta_flare_stars_filename, 'a') as _f:
                     _f.write(star_name + "\n")
             elif num_resolved / num_flares > 0.9:
@@ -861,7 +884,7 @@ for star_name in target_names:
                     _f.write(star_name + "\n")
 
         final_normed_flares, final_normed_flare_weight, final_normed_std_dev = \
-            echo_analysis_do_it_all(final_flare_list, back_pad + 1)
+            echo_analysis_do_it_all(final_flare_list, pre_peak_pad + 1)
         final_unweighted_mean = np.nanmean(final_normed_flares, axis=0)
 
         weighted_final_flares = final_normed_flares * final_normed_flare_weight[:, np.newaxis]
@@ -902,9 +925,9 @@ for star_name in target_names:
         stat_meaningful_indices_list.append(len(statistically_interesting_indices))
 
         # Some summary statistics:
-        flare_tail_array = final_normed_flares[:, back_pad + 1:]
+        flare_tail_array = final_normed_flares[:, pre_peak_pad + 1:]
         flare_weights_array = np.ones_like(flare_tail_array) * final_normed_flare_weight[:, np.newaxis]
-        raw_flare_tail_array = final_flare_list[:, back_pad + 1:]
+        raw_flare_tail_array = final_flare_list[:, pre_peak_pad + 1:]
 
         # For the real-flare case:
         if study_i == 0:
@@ -929,16 +952,16 @@ for star_name in target_names:
 
             # +++++++++++++++++++++++++++ #
             eep.visualize.plot_flare_array(flux, flare_indices,
-                                           back_pad=back_pad, forward_pad=forward_pad,
+                                           back_pad=pre_peak_pad, forward_pad=post_peak_pad,
                                            title=plot_flare_array_title,
                                            savefile=save_fp / "flare_overview.png")
 
             # +++++++++++++++++++++++++++ #
             inlier_plot_flare_array_title = "Inlier flare catalog from " + star_name + ", " \
-                                     + str(len(final_flare_indices)) + " flares found for peak>" \
-                                     + str(peak_find_std_dev_thresh) + "σ"
+                                            + str(len(final_flare_indices)) + " flares found for peak>" \
+                                            + str(peak_find_std_dev_thresh) + "σ"
             eep.visualize.plot_flare_array(flux, final_flare_indices,
-                                           back_pad=back_pad, forward_pad=forward_pad,
+                                           back_pad=pre_peak_pad, forward_pad=post_peak_pad,
                                            title=inlier_plot_flare_array_title,
                                            savefile=save_fp / "inlier_flare_overview.png")
 
