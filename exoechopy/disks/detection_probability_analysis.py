@@ -42,7 +42,7 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
 
     # Do the same for the time:
     full_lc_time = []
-    for t in longcad:
+    for t in long_cadence:
         tt = fits.open(t)
         time = tt[1].data["TIME"]
         for num in time:
