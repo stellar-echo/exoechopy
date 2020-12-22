@@ -26,7 +26,11 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
     :param sigma: sigma-based confidence interval used to verify detection
     :return: probability of detecting the echo, and probability of false positive detection
     """
-
+    
+    sigma = int(sigma)
+    print(sigma)
+    print(type(sigma))
+    
     # Grab all quarters of the star
     long_cadence, short_cadence, full = find_all_quarters(star)
 
@@ -111,8 +115,6 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
         echo_std.append(echostd)
 
     # Detection: If mean - sigma*std > 0 at the echo index, count it as "detected" above the confidence interval.
-    print(sigma)
-    print(type(sigma))
     if echo_mean[7] - sigma*echo_std[7] > 0:
         print("Potential Echo Detected: {}% echo strength, {} sigma confidence".format(echo_strength, sigma))
         return 1
