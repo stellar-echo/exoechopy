@@ -139,7 +139,7 @@ def find_lowest_echo(star, sigma):
     results = []
 
     for i in range(0, 31):
-        result = detection_probability(star, i/100, sigma)
+        result = test_detecting_synthetic_echoes(star, i/100, sigma)
         results.append(result)
 
     if sum(results) > 0:
