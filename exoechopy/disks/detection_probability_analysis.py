@@ -113,7 +113,7 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
         
     print(echo_mean[7])
     print(echo_std[7])
-    print(echo_mean[7] - echo_std[7])
+    print(echo_mean[7] - 3*echo_std[7])
     # Detection: If mean - sigma*std > 0 at the echo index, count it as "detected" above the confidence interval.
     if np.array(echo_mean)[7] - (sigma*np.array(echo_std)[7]) > 0:
         print("Potential Echo Detected: {}% echo strength, {} sigma confidence".format(echo_strength, sigma))
