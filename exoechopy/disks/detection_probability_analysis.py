@@ -146,7 +146,7 @@ def find_lowest_echo(star, sigma):
 
     if sum(results) > 0:
         print("Echoes potentially detected!")
-        print("Lowest Detectable Echo Strength:", np.where(np.array(results) == 1)[0][0])
+        print("Lowest Detectable Echo Strength at {} Sigma Confidence:".format(sigma), np.where(np.array(results) == 1)[0][0], "%")
       
     else:
         print("No echoes detected above {} sigma confidence interval.".format(sigma))
