@@ -84,6 +84,9 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
     to_convolve = list(np.zeros(20))
     to_convolve[5] = 1
     to_convolve[10] = echo_strength
+    
+    # Normalize the kernel
+    to_convolve /= np.sum(to_convolve)
 
     # Generate new LC
     convolved_lc = np.convolve(lc.flux - 1, to_convolve)
