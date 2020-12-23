@@ -28,8 +28,6 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
     """
     
     sigma = int(sigma)
-    print(sigma)
-    print(type(sigma))
     
     # Grab all quarters of the star
     long_cadence, short_cadence, full = find_all_quarters(star)
@@ -113,6 +111,8 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
 
         echostd = np.std(echo_array[:, i])
         echo_std.append(echostd)
+        
+    print("mean - std:", echo_mean[7] - echo_std[7])
 
     # Detection: If mean - sigma*std > 0 at the echo index, count it as "detected" above the confidence interval.
     if echo_mean[7] - sigma*echo_std[7] > 0:
