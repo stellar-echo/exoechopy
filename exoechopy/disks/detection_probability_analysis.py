@@ -27,7 +27,7 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
     :return: probability of detecting the echo, and probability of false positive detection
     """
     
-    sigma = int(sigma)
+    sigma = float(sigma)
     
     # Grab all quarters of the star
     long_cadence, short_cadence, full = find_all_quarters(star)
@@ -112,8 +112,6 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
         echostd = np.std(echo_array[:, i])
         echo_std.append(echostd)
         
-    print("mean - std:", echo_mean[7] - echo_std[7])
-
     # Detection: If mean - sigma*std > 0 at the echo index, count it as "detected" above the confidence interval.
     if echo_mean[7] - sigma*echo_std[7] > 0:
         print("Potential Echo Detected: {}% echo strength, {} sigma confidence".format(echo_strength, sigma))
@@ -150,6 +148,9 @@ def find_lowest_echo(star, sigma):
         print("Echoes potentially detected!")
         print(np.where(results == 1))
 
+        
+    else:
+        print("No echoes detected above {} sigma confidence interval.".format(sigma))
     # Need to include a test to see if ANY events are detected above a certain confidence interval. Then return the
     # echo strength,the amount of events detected above the threshold, and the detection probability at that strength
     # and threshold.
