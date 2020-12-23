@@ -140,7 +140,7 @@ def find_lowest_echo(star, sigma):
     # Test echo strengths from 0 - 30
     results = []
 
-    for i in range(0, 31):
+    for i in range(0, 51):
         result = test_detecting_synthetic_echoes(star, i/100, sigma)
         results.append(result)
 
