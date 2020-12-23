@@ -146,7 +146,7 @@ def find_lowest_echo(star, sigma):
 
     if sum(results) > 0:
         print("Echoes potentially detected!")
-        print(np.where(results == 1))
+        print("Detectable Echo Strengths:", results[np.where(np.array(results) == 1)])
 
         
     else:
