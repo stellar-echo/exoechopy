@@ -63,7 +63,7 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
     flares = [lc.flux[advanced_flare_indices[i]] for i in range(len(advanced_flare_indices))]
 
     # Compute the index-wise mean and std dev
-    no_echo_array = np.zeros((len(peaks)-1, 16))  # 243 rows, 16 columns -- each row is a flare
+    no_echo_array = np.zeros((len(peaks)-1, 16))  # each row is a flare array
     for index, row in enumerate(no_echo_array):
         no_echo_array[index] = no_echo_array[index] + flares[index]
 
