@@ -146,19 +146,11 @@ def find_lowest_echo(star, sigma):
 
     if sum(results) > 0:
         print("Echoes potentially detected!")
-        print("Detectable Echo Strengths:", np.where(np.array(results) == 1))
-
-        
+        print("Lowest Detectable Echo Strength:", np.where(np.array(results) == 1)[0])
+      
     else:
         print("No echoes detected above {} sigma confidence interval.".format(sigma))
-    # Need to include a test to see if ANY events are detected above a certain confidence interval. Then return the
-    # echo strength,the amount of events detected above the threshold, and the detection probability at that strength
-    # and threshold.
-
-    # I think that the confidence interval test should be built into the detection_probability() function.
-    # This way, we can test the detection probability for a variety of echo strengths at a constant confidence interval
-    # in this function, and return all the relevant results. Might also want to save some plots from here.
-
+  
 
 # Run from command line
 if __name__ == "__main__":
