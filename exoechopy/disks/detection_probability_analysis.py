@@ -63,20 +63,9 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
     flares = [lc.flux[advanced_flare_indices[i]] for i in range(len(advanced_flare_indices))]
 
     # Compute the index-wise mean and std dev
-    no_echo_array = np.zeros((len(peaks)-1, 16))  # each row is a flare array
-    for index, row in enumerate(no_echo_array):
-        no_echo_array[index] = no_echo_array[index] + flares[index]
-
-    # grab values from each index
-    no_echo_mean = []
-    no_echo_std = []
-
-    for i in range(np.shape(no_echo_array)[1]):
-        mean = np.mean(no_echo_array[:, i])
-        no_echo_mean.append(mean)
-
-        std = np.std(no_echo_array[:, i])
-        no_echo_std.append(std)
+    no_echo_array = np.array(flares)
+    no_echo_mean = np.nanmean(no_echo_array, axis=0)
+    no_echo_std = np.nanstd(no_echo_array, axis=0)
 
     # ------- Repeat process with echoes added via convolution ------- #
 
@@ -101,19 +90,9 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
     conv_flares = [convolved_lc[adv_conv_fl_ind[i]] for i in range(len(adv_conv_fl_ind))]
 
     # Compute index-wise mean
-    echo_array = np.zeros((len(peaks) - 1, 18))
-    for index, row in enumerate(echo_array):
-        echo_array[index] = echo_array[index] + conv_flares[index]
-
-    echo_mean = []
-    echo_std = []
-
-    for i in range(np.shape(echo_array)[1]):
-        echomean = np.mean(echo_array[:, i])
-        echo_mean.append(echomean)
-
-        echostd = np.std(echo_array[:, i])
-        echo_std.append(echostd)
+    echo_array = np.array(conv_flares)
+    echo_mean = np.nanmean(echo_array, axis=0)
+    echo_std = np.nanstd(echo_array, axis=0)
         
     # Detection: If mean - sigma*std > 0 at the echo index, count it as "detected" above the confidence interval.
     if echo_mean[7] - sigma*echo_std[7] > 0:
