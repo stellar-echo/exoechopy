@@ -67,8 +67,15 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
     no_echo_mean = np.nanmean(no_echo_array, axis=0)
     no_echo_std = np.nanstd(no_echo_array, axis=0)
 
-    # ------- Repeat process with echoes added via convolution ------- #
+    # ------- Repeat process with echoes added via convolution/direct injection ------- #
 
+    # Testing direct injection for now
+    echo_array = np.array(flares) - 1
+    echo_array[:, 7] = (echo_array[:, 2]*echo_strength) + echo_array[:, 7]
+    echo_mean = np.nanmean(echo_array, axis=0)
+    echo_std = np.nanstd(echo_array, axis=0)
+    
+    """
     # Generate simple convolution kernel
     to_convolve = list(np.zeros(20))
     to_convolve[5] = 1
@@ -93,7 +100,8 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
     echo_array = np.array(conv_flares)
     echo_mean = np.nanmean(echo_array, axis=0)
     echo_std = np.nanstd(echo_array, axis=0)
-        
+    """   
+      
     # Detection: If mean - sigma*std > 0 at the echo index, count it as "detected" above the confidence interval.
     if echo_mean[7] - sigma*echo_std[7] > 0:
         print("Potential Echo Detected: {}% echo strength, {} sigma confidence".format(echo_strength, sigma))
