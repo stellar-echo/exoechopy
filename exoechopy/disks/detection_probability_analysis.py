@@ -38,7 +38,7 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
     for qtrfile in long_cadence:
         fl = fits.open(qtrfile)
         flux = fl[1].data["PDCSAP_FLUX"]
-        # myflux = flux / np.nanmedian(flux)
+        myflux = flux / np.nanmedian(flux)
         for num in flux:
             full_lc_flux.append(num)
 
@@ -52,7 +52,7 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
 
     # Remove nans with Lightkurve
     lc = lk.LightCurve(full_lc_time, full_lc_flux)
-    lc = lc.flatten().remove_nans()
+    lc = lc.remove_nans()
 
     # Detect flares at 3 sigma
     flare_threshold = np.nanmedian(lc.flux) + (3*np.nanstd(lc.flux))
@@ -69,7 +69,7 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
 
     # ------- Repeat process with echoes added via convolution/direct injection ------- #
 
-    # Testing direct injection for now
+    # Testing direct injection
     echo_array = np.array(flares) - 1
     echo_array[:, 7] = echo_array[:, 7] + (echo_array[:, 2]*echo_strength)
     echo_mean = np.nanmean(echo_array, axis=0)
@@ -104,11 +104,11 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
       
     # Detection: If mean - sigma*std > 0 at the echo index, count it as "detected" above the confidence interval.
     if echo_mean[7] - sigma*echo_std[7] > 0:
-        print("Potential Echo Detected: {}% echo strength, {} sigma confidence".format(echo_strength, sigma))
+        print("Potential Echo Detected: {}% echo strength, {} sigma confidence".format(echo_strength*100, sigma))
         return 1
 
     else:
-        print("Echo at {}% strength did not survive {} sigma confidence interval".format(echo_strength, sigma))
+        print("Echo at {}% strength did not survive {} sigma confidence interval".format(echo_strength*100, sigma))
         return 0
 
 
