@@ -24,7 +24,7 @@ star_name = 'kplr009146018'
 # Where we are getting raw data from:
 cache_folder = 'local_cache_sc'
 # What directory are we working from:
-export_file_folder = 'single_star_studies\\' + star_name
+export_file_folder = 'single_star_studies\\' + (star_name + "_flare_snr_weight")
 
 # TODO - replace values with ranges
 # How far before the flare to plot when producing the overview data product:
@@ -142,7 +142,9 @@ def echo_analysis_do_it_all(all_flare_arr: np.ndarray, flare_peak_index=0):
         _norm_flare = (flare - 1) / (np.nanmax(flare) - 1)
         _normed_flares[f_i] = _norm_flare
         # Weight is defined here:
-        _normed_flare_weight[f_i] = 1 / np.nanstd(flare[flare_peak_index + 1:])
+        # _normed_flare_weight[f_i] = 1 / np.nanstd(flare[flare_peak_index + 1:])
+        # _normed_flare_weight[f_i] = np.nanmax(flare) - 1
+        _normed_flare_weight[f_i] = (np.nanmax(flare) - 1) / np.nanstd(flare[flare_peak_index + 1:])
 
     total_weight = np.sum(_normed_flare_weight)
     _normed_flare_weight /= total_weight
