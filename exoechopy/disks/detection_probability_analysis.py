@@ -39,7 +39,7 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
         fl = fits.open(qtrfile)
         flux = fl[1].data["PDCSAP_FLUX"]
         myflux = flux / np.nanmedian(flux)
-        for num in myflux:
+        for num in flux:
             full_lc_flux.append(num)
 
     # Do the same for the time:
@@ -59,31 +59,30 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
     peaks, peak_vals = find_peaks(lc.flux, height=flare_threshold, distance=5)
 
     # Chop out flares
-    advanced_flare_indices = [list(range(i-2, i+14)) for i in peaks[0:len(peaks)-1]]
+    advanced_flare_indices = [slice(i-2, i+14) for i in peaks[0:len(peaks)-1]]
     flares = [lc.flux[advanced_flare_indices[i]] for i in range(len(advanced_flare_indices))]
 
     # Compute the index-wise mean and std dev
-    no_echo_array = np.zeros((len(peaks)-1, 16))  # 243 rows, 16 columns -- each row is a flare
-    for index, row in enumerate(no_echo_array):
-        no_echo_array[index] = no_echo_array[index] + flares[index]
+    no_echo_array = np.array(flares)
+    no_echo_mean = np.nanmean(no_echo_array, axis=0)
+    no_echo_std = np.nanstd(no_echo_array, axis=0)
 
-    # grab values from each index
-    no_echo_mean = []
-    no_echo_std = []
+    # ------- Repeat process with echoes added via convolution/direct injection ------- #
 
-    for i in range(np.shape(no_echo_array)[1]):
-        mean = np.mean(no_echo_array[:, i])
-        no_echo_mean.append(mean)
-
-        std = np.std(no_echo_array[:, i])
-        no_echo_std.append(std)
-
-    # ------- Repeat process with echoes added via convolution ------- #
-
+    # Testing direct injection
+    echo_array = np.array(flares) - 1
+    echo_array[:, 7] = echo_array[:, 7] + (echo_array[:, 2]*echo_strength)
+    echo_mean = np.nanmean(echo_array, axis=0)
+    echo_std = np.nanstd(echo_array, axis=0)
+    
+    """
     # Generate simple convolution kernel
     to_convolve = list(np.zeros(20))
     to_convolve[5] = 1
     to_convolve[10] = echo_strength
+    
+    # Normalize the kernel
+    to_convolve /= np.sum(to_convolve)
 
     # Generate new LC
     convolved_lc = np.convolve(lc.flux - 1, to_convolve)
@@ -98,27 +97,18 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
     conv_flares = [convolved_lc[adv_conv_fl_ind[i]] for i in range(len(adv_conv_fl_ind))]
 
     # Compute index-wise mean
-    echo_array = np.zeros((len(peaks) - 1, 18))
-    for index, row in enumerate(echo_array):
-        echo_array[index] = echo_array[index] + conv_flares[index]
-
-    echo_mean = []
-    echo_std = []
-
-    for i in range(np.shape(echo_array)[1]):
-        echomean = np.mean(echo_array[:, i])
-        echo_mean.append(echomean)
-
-        echostd = np.std(echo_array[:, i])
-        echo_std.append(echostd)
-        
+    echo_array = np.array(conv_flares)
+    echo_mean = np.nanmean(echo_array, axis=0)
+    echo_std = np.nanstd(echo_array, axis=0)
+    """   
+      
     # Detection: If mean - sigma*std > 0 at the echo index, count it as "detected" above the confidence interval.
     if echo_mean[7] - sigma*echo_std[7] > 0:
-        print("Potential Echo Detected: {}% echo strength, {} sigma confidence".format(echo_strength, sigma))
+        print("Potential Echo Detected: {}% echo strength, {} sigma confidence".format(echo_strength*100, sigma))
         return 1
 
     else:
-        print("Echo at {}% strength did not survive {} sigma confidence interval".format(echo_strength, sigma))
+        print("Echo at {}% strength did not survive {} sigma confidence interval".format(echo_strength*100, sigma))
         return 0
 
 
