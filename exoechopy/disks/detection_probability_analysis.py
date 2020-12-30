@@ -50,44 +50,22 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
         tt = fits.open(t)
         time = tt[1].data["TIME"]
         for num in time:
-            full_lc_time.append(num)
-
-    print("LC FLUX:", full_lc_flux[0:10])        
+            full_lc_time.append(num)       
     
     # Remove nans with Lightkurve
     lc = lk.LightCurve(full_lc_time, full_lc_flux)
     lc = lc.remove_nans()
-    
-    print("lc.flux:", lc.flux[0:10])
 
     # Detect flares at 3 sigma
-    flare_threshold = np.nanmedian(lc.flux) + (3*np.nanstd(lc.flux))
+    flare_threshold = np.nanmedian(lc.flux) + (6*np.nanstd(lc.flux))
     peaks, peak_vals = find_peaks(lc.flux, height=flare_threshold, distance=5)
-
-    print(flare_threshold)
-    
-    print(peaks)
 
     # Chop out flares
     advanced_flare_indices = [list(range(i-2, i+14)) for i in peaks[0:len(peaks)-1]]
     flares = [lc.flux[advanced_flare_indices[i]] for i in range(len(advanced_flare_indices))]
 
-    print(advanced_flare_indices)
-    
-    print(flares)
-    
     # Compute the index-wise mean and std dev
     no_echo_array = np.array(flares)
-    
-    # Add diagnostics
-    print("===========================================")
-    print()
-    print("No echo array:", no_echo_array)
-    print()
-    print("shape:", np.shape(no_echo_array))
-    print()
-    print("==========================================")
-    
     no_echo_mean = np.nanmean(no_echo_array, axis=0)
     no_echo_std = np.nanstd(no_echo_array, axis=0)
 
@@ -95,15 +73,6 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
 
     # Testing direct injection
     echo_array = np.array(flares) - 1
-    
-    print("===========================================")
-    print()
-    print("echo array:", no_echo_array)
-    print()
-    print("shape:", np.shape(no_echo_array))
-    print()
-    print("==========================================")
-    
     echo_array[:, 7] = (echo_array[:, 2]*echo_strength) + echo_array[:, 7] 
     echo_mean = np.nanmean(echo_array, axis=0)
     echo_std = np.nanstd(echo_array, axis=0)
