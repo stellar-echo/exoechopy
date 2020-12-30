@@ -71,7 +71,7 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
 
     # Testing direct injection
     echo_array = np.array(flares) - 1
-    echo_array[:, 7] = echo_array[:, 7] + (echo_array[:, 2]*echo_strength)
+    echo_array[:, 7] = (echo_array[:, 2]*echo_strength) + echo_array[:, 7] 
     echo_mean = np.nanmean(echo_array, axis=0)
     echo_std = np.nanstd(echo_array, axis=0)
     
