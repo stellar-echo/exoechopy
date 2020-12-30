@@ -64,48 +64,20 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
     advanced_flare_indices = [list(range(i-2, i+14)) for i in peaks[0:len(peaks)-1]]
     flares = [lc.flux[advanced_flare_indices[i]] for i in range(len(advanced_flare_indices))]
 
-    # Compute the index-wise mean and std dev
-    no_echo_array = np.array(flares)
-    no_echo_mean = np.nanmean(no_echo_array, axis=0)
-    no_echo_std = np.nanstd(no_echo_array, axis=0)
-
-    # ------- Repeat process with echoes added via convolution/direct injection ------- #
-
-    # Testing direct injection
-    echo_array = np.array(flares) - 1
-    echo_array[:, 7] = (echo_array[:, 2]*echo_strength) + echo_array[:, 7] 
-    echo_mean = np.nanmean(echo_array, axis=0)
-    echo_std = np.nanstd(echo_array, axis=0)
+    # Add in normalization by the peak flare value
+    normed_flares = [(x-1)/(np.nanmax(flares)-1) for x in flares]
+    normed_flares = np.array(normed_flares)
     
-    """
-    # Generate simple convolution kernel
-    to_convolve = list(np.zeros(20))
-    to_convolve[5] = 1
-    to_convolve[10] = echo_strength
+    # Add in echoes via direct injection
+    normed_echo_array = np.array(normed_flares)
+    normed_echo_array[:, 7] = normed_echo_array[:, 7] + (normed_echo_array[:, 2]*echo_strength)
+    normed_echo_mean = np.nanmean(normed_echo_array, axis=0)
     
-    # Normalize the kernel
-    to_convolve /= np.sum(to_convolve)
-
-    # Generate new LC
-    convolved_lc = np.convolve(lc.flux - 1, to_convolve)
-
-    # Find new flares
-    peaks, peak_val = find_peaks(convolved_lc, height=np.nanmedian(convolved_lc) + (3 * np.nanstd(convolved_lc)),
-                                 distance=4)
-    conv_flare_indices = peaks
-
-    # Chop flares w/echoes
-    adv_conv_fl_ind = [list(range(i - 2, i + 16)) for i in conv_flare_indices]
-    conv_flares = [convolved_lc[adv_conv_fl_ind[i]] for i in range(len(adv_conv_fl_ind))]
-
-    # Compute index-wise mean
-    echo_array = np.array(conv_flares)
-    echo_mean = np.nanmean(echo_array, axis=0)
-    echo_std = np.nanstd(echo_array, axis=0)
-    """   
-      
+    # For standard deviation, use standard error of the mean
+    normed_echo_std = np.nanstd(normed_echo_array, axis=0) / np.sqrt(len(peaks))
+     
     # Detection: If mean - sigma*std > 0 at the echo index, count it as "detected" above the confidence interval.
-    if echo_mean[7] - sigma*echo_std[7] > 0:
+    if normed_echo_mean[7] - sigma*normed_echo_std[7] > 0:
         print("Potential Echo Detected: {}% echo strength, {} sigma confidence".format(echo_strength*100, sigma))
         return 1
 
@@ -135,6 +107,8 @@ def find_lowest_echo(star, sigma):
     for i in range(0, 51):
         result = test_detecting_synthetic_echoes(star, i/100, sigma)
         results.append(result)
+        if result = 1:
+            break
 
     if sum(results) > 0:
         print("Echoes potentially detected!")
