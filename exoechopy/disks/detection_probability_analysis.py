@@ -55,7 +55,7 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
     lc = lc.remove_nans()
 
     # Detect flares at 3 sigma
-    flare_threshold = np.nanmedian(lc.flux) + (6*np.nanstd(lc.flux))
+    flare_threshold = np.nanmedian(lc.flux) + (3*np.nanstd(lc.flux))
     peaks, peak_vals = find_peaks(lc.flux, height=flare_threshold, distance=5)
 
     # Chop out flares
@@ -84,7 +84,7 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
     
     print("===========================================")
     print()
-    print("No echo array:", no_echo_array)
+    print("echo array:", no_echo_array)
     print()
     print("shape:", np.shape(no_echo_array))
     print()
