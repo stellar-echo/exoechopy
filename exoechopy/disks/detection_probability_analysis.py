@@ -107,8 +107,6 @@ def find_lowest_echo(star, sigma):
     for i in range(0, 51):
         result = test_detecting_synthetic_echoes(star, i/100, sigma)
         results.append(result)
-        if result = 1:
-            break
 
     if sum(results) > 0:
         print("Echoes potentially detected!")
