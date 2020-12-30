@@ -64,6 +64,16 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
 
     # Compute the index-wise mean and std dev
     no_echo_array = np.array(flares)
+    
+    # Add diagnostics
+    print("===========================================")
+    print()
+    print("No echo array:", no_echo_array)
+    print()
+    print("shape:", np.shape(no_echo_array))
+    print()
+    print("==========================================")
+    
     no_echo_mean = np.nanmean(no_echo_array, axis=0)
     no_echo_std = np.nanstd(no_echo_array, axis=0)
 
@@ -71,6 +81,15 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
 
     # Testing direct injection
     echo_array = np.array(flares) - 1
+    
+    print("===========================================")
+    print()
+    print("No echo array:", no_echo_array)
+    print()
+    print("shape:", np.shape(no_echo_array))
+    print()
+    print("==========================================")
+    
     echo_array[:, 7] = (echo_array[:, 2]*echo_strength) + echo_array[:, 7] 
     echo_mean = np.nanmean(echo_array, axis=0)
     echo_std = np.nanstd(echo_array, axis=0)
