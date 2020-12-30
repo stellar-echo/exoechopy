@@ -41,7 +41,7 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
         fl = fits.open(qtrfile)
         flux = fl[1].data["PDCSAP_FLUX"]
         myflux = flux / np.nanmedian(flux)
-        for num in flux:
+        for num in myflux:
             full_lc_flux.append(num)
 
     # Do the same for the time:
