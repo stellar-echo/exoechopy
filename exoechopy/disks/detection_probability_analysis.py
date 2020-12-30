@@ -31,6 +31,8 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
     
     # Grab all quarters of the star
     long_cadence, short_cadence, full = find_all_quarters(star)
+    
+    print("Long cadence:", long_cadence)
 
     # We only care about the long cadence flux for now
     # Stitch together all quarters, normalized by the median:
@@ -50,9 +52,13 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
         for num in time:
             full_lc_time.append(num)
 
+    print("LC FLUX:", full_lc_flux)        
+    
     # Remove nans with Lightkurve
     lc = lk.LightCurve(full_lc_time, full_lc_flux)
     lc = lc.remove_nans()
+    
+    print("lc.flux:", lc.flux)
 
     # Detect flares at 3 sigma
     flare_threshold = np.nanmedian(lc.flux) + (3*np.nanstd(lc.flux))
