@@ -52,13 +52,13 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
         for num in time:
             full_lc_time.append(num)
 
-    print("LC FLUX:", full_lc_flux)        
+    print("LC FLUX:", full_lc_flux[0:10])        
     
     # Remove nans with Lightkurve
     lc = lk.LightCurve(full_lc_time, full_lc_flux)
     lc = lc.remove_nans()
     
-    print("lc.flux:", lc.flux)
+    print("lc.flux:", lc.flux[0:10])
 
     # Detect flares at 3 sigma
     flare_threshold = np.nanmedian(lc.flux) + (3*np.nanstd(lc.flux))
