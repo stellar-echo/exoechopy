@@ -12,19 +12,19 @@ from scipy.stats import norm
 
 
 def test_detecting_synthetic_echoes(star, echo_strength, sigma):
+    
     """
-    Searches the full light curve of a star and determines the feasibility of detecting an echo at the given echo
-    strength, assuming an echo is present at all in the data. Echoes are artificially injected using a convolution
-    kernel, and detected by comparing the index-wise mean to the index-wise standard deviation. The sigma threshold for
-    detection can be changed with the sigma parameter. For now, assumes all flares are unresolved delta flares that last
-    one time bin, and that echoes are perfect copies of this flare shape that also last one time bin.
-    This function is meant only as a tool to gauge the feasibility of detecting echoes with other methods,
-    and results are not definitive.
+    Searches the full light curve of a star and determines the feasibility of detecting an echo at a given echo
+    strength. Echoes are artificially directly injected into the light curve, and detected by comparing the index-wise mean
+    to the index-wise standard error of the mean. The sigma threshold for detection can be changed with the sigma parameter. 
+    For now, assumes all flares are unresolved delta flares that last one time bin, and that echoes are perfect copies of this
+    flare shape that also last one time bin. This function is meant only as a tool to gauge the feasibility of detecting echoes 
+    with other methods, and results are not definitive.
 
     :param star: star's kplr number
     :param echo_strength: echo strength, as a percentage of flare strength
     :param sigma: sigma-based confidence interval used to verify detection
-    :return: probability of detecting the echo, and probability of false positive detection
+    :return: 1 if echo detected above sigma confidence threshold, 0 otherwise
     """
     
     sigma = float(sigma)
@@ -32,9 +32,6 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
     # Grab all quarters of the star
     long_cadence, short_cadence, full = find_all_quarters(star)
     
-    print("Long cadence:", long_cadence)
-
-    # We only care about the long cadence flux for now
     # Stitch together all quarters, normalized by the median:
     full_lc_flux = []
     for qtrfile in long_cadence:
@@ -87,33 +84,32 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
 
 
 def find_lowest_echo(star, sigma):
+    
     """
-    Searches the full light curve of a star and determines the dimmest detectable echo strength, assuming an echo is
-    present at all in the data. Echoes are artificially injected using a convolution kernel, and detected by comparing
-    the index-wise mean to the standard deviation of the flare tail. For now, assumes all flares are unresolved delta
-    flares that last one time bin, and that echoes are perfect copies of this flare shape that also last one time bin.
-    This function is meant only as a tool to gauge the feasibility of detecting echoes with other methods, and results
-    are not definitive.
+    Searches the full light curve of a star and determines the dimmest detectable echo strength
+    using the test_detecting_synthetic_echoes() function. Tests every echo strength from 0% to 30%. As soon as 
+    an echo is detected, returns the strength at which it was detected.
 
     :param star: star's kplr number
     :param sigma: sigma-based confidence interval to gauge reliability of echo detection
-    :return: the lowest detectable echo (probability of detection > 0 as a percentage of flare strength, and its
-    probability of detection
+    :return: the lowest detectable echo (mean at echo index - std. error of mean at echo index > 0)
     """
 
     # Test echo strengths from 0 - 30
     results = []
+    
+    while sum(results) == 0:
+        for i in range(0, 31):
+            result = test_detecting_synthetic_echoes(star, i/100, sigma)
+            results.append(result)
 
-    for i in range(0, 51):
-        result = test_detecting_synthetic_echoes(star, i/100, sigma)
-        results.append(result)
-
-    if sum(results) > 0:
-        print("Echoes potentially detected!")
-        print("Lowest Detectable Echo Strength at {} Sigma Confidence:".format(sigma), np.where(np.array(results) == 1)[0][0], "%")
+        if sum(results) > 0:
+            break
+            print("Echo potentially detected!")
+            print("Lowest Detectable Echo Strength at {} Sigma Confidence:".format(sigma), np.where(np.array(results) == 1)[0][0], "%")
       
-    else:
-        print("No echoes detected above {} sigma confidence interval.".format(sigma))
+        else:
+            print("No echoes detected above {} sigma confidence interval.".format(sigma))
   
 
 # Run from command line
