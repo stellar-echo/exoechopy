@@ -129,7 +129,7 @@ def find_lowest_echo(star, sigma):
             
                 print("Lowest Detectable Echo Strength at {} Sigma Confidence:".format(sigma), lowest_echo_strength*100, "%")
             
-                disk_mass_estimate = lowest_echo_strength*3.375e27
+                disk_mass_estimate = lowest_echo_strength*1.125e27
                 disk_mass_mEarth = disk_mass_estimate/6e27
             
                 print("Estimate of Disk Mass:", disk_mass_mEarth, "MEarth")
