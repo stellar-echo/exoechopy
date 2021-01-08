@@ -125,9 +125,9 @@ def find_lowest_echo(star, sigma):
                 
                 print("Echo potentially detected!")
             
-                lowest_echo_strength = np.where(np.array(results) == 1)[0][0]
+                lowest_echo_strength = (np.where(np.array(results) == 1)[0][0])/100
             
-                print("Lowest Detectable Echo Strength at {} Sigma Confidence:".format(sigma), lowest_echo_strength, "%")
+                print("Lowest Detectable Echo Strength at {} Sigma Confidence:".format(sigma), lowest_echo_strength*100, "%")
             
                 disk_mass_estimate = lowest_echo_strength*3.375e27
                 disk_mass_mEarth = disk_mass_estimate/6e27
