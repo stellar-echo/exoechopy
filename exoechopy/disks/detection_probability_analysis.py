@@ -89,10 +89,19 @@ def find_lowest_echo(star, sigma):
     Searches the full light curve of a star and determines the dimmest detectable echo strength
     using the test_detecting_synthetic_echoes() function. Tests every echo strength from 0% to 30%. As soon as 
     an echo is detected, returns the strength at which it was detected.
+    
+    Additionally, if an echo is detected, uses the lowest detectable echo strength to give an estimate of the disk mass.
+    This estimate uses Eq. (16) from our (currently unfinished) paper, and is based on a number of assumptions, including:
+    - A face-on (0 degrees) inclination of the hypothetical disk
+    - Isotropic scattering
+    - The disk is optically thin
+    - The disk is a Kuiper Belt Analog, with an inner radius of 30 AU, outer radius of 50 AU, minimum dust grain radius of 1 micron,
+    a monodisperse distribution of particles (X = 1), and the density of dust particles is 2 g/cm^3.
 
     :param star: star's kplr number
     :param sigma: sigma-based confidence interval to gauge reliability of echo detection
-    :return: the lowest detectable echo (mean at echo index - std. error of mean at echo index > 0)
+    :return: the lowest detectable echo (mean at echo index - std. error of mean at echo index > 0) and a hypothetical disk mass estimate
+    using the above assumptions
     """
 
     # Test echo strengths from 0 - 30
@@ -106,7 +115,16 @@ def find_lowest_echo(star, sigma):
         if sum(results) > 0:
             break
             print("Echo potentially detected!")
-            print("Lowest Detectable Echo Strength at {} Sigma Confidence:".format(sigma), np.where(np.array(results) == 1)[0][0], "%")
+            
+            lowest_echo_strength = np.where(np.array(results) == 1)[0][0]
+            
+            print("Lowest Detectable Echo Strength at {} Sigma Confidence:".format(sigma), lowest_echo_strength, "%")
+            
+            disk_mass_estimate = lowest_echo_strength*3.375e27
+            disk_mass_mEarth = disk_mass_estimate/6e27
+            
+            print("Estimate of Disk Mass:", disk_mass_mEarth, "MEarth")
+            break
       
         else:
             print("No echoes detected above {} sigma confidence interval.".format(sigma))
