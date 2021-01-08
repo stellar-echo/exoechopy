@@ -75,11 +75,19 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
      
     # Detection: If mean - sigma*std > 0 at the echo index, count it as "detected" above the confidence interval.
     if normed_echo_mean[7] - sigma*normed_echo_std[7] > 0:
+        print("========================================================")
+        print()
         print("Potential Echo Detected: {}% echo strength, {} sigma confidence".format(echo_strength*100, sigma))
+        print()
+        print("========================================================")
         return 1
 
     else:
+        print("========================================================")
+        print()
         print("Echo at {}% strength did not survive {} sigma confidence interval".format(echo_strength*100, sigma))
+        print()
+        print("========================================================")
         return 0
 
 
@@ -108,26 +116,27 @@ def find_lowest_echo(star, sigma):
     results = []
     
     while sum(results) == 0:
+        
         for i in range(0, 31):
             result = test_detecting_synthetic_echoes(star, i/100, sigma)
             results.append(result)
 
-        if sum(results) > 0:
-            break
-            print("Echo potentially detected!")
+            if sum(results) > 0:
+                
+                print("Echo potentially detected!")
             
-            lowest_echo_strength = np.where(np.array(results) == 1)[0][0]
+                lowest_echo_strength = np.where(np.array(results) == 1)[0][0]
             
-            print("Lowest Detectable Echo Strength at {} Sigma Confidence:".format(sigma), lowest_echo_strength, "%")
+                print("Lowest Detectable Echo Strength at {} Sigma Confidence:".format(sigma), lowest_echo_strength, "%")
             
-            disk_mass_estimate = lowest_echo_strength*3.375e27
-            disk_mass_mEarth = disk_mass_estimate/6e27
+                disk_mass_estimate = lowest_echo_strength*3.375e27
+                disk_mass_mEarth = disk_mass_estimate/6e27
             
-            print("Estimate of Disk Mass:", disk_mass_mEarth, "MEarth")
-            break
+                print("Estimate of Disk Mass:", disk_mass_mEarth, "MEarth")
+                break
       
-        else:
-            print("No echoes detected above {} sigma confidence interval.".format(sigma))
+            else:
+                print("No echoes detected above {} sigma confidence interval.".format(sigma))
   
 
 # Run from command line
