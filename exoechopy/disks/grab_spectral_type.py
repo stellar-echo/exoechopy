@@ -1,6 +1,8 @@
 from astropy.io import fits
 from astropy.table import Table
-
+from pathlib import Path
+import os
+import sys
 
 # Looks like I have to put this in here manually for it to work ¯\_(ツ)_/¯
 def find_all_quarters(star):
