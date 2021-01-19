@@ -39,18 +39,25 @@ stars = []
 with open("shortCadence_in_paper.txt", "r") as f:
     for line in f:
         stars.append(line.strip())
+  
+print('loaded file')
 
 # Adjust formatting -- remove leading kplr
 short_cadence_stars_condensed = []
 for star in stars:
     short_cadence_stars_condensed.append(star[4:])
 
+    
+print('adjusted formatting')
+    
 # Grab quarter data
 short = []
-for star in stars:
+for i, star in enumerate(stars):
     long, shortcad, full = find_all_quarters(star)
     short.append(shortcad)
-
+    print("grabbed quarter data for ", i, "of", len(stars))
+    
+    
 # Grab temp for spectral type estimation
 keys = ["OBJECT", "TEFF"]
 values = []
