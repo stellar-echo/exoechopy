@@ -10,7 +10,7 @@ with open("shortCadence_in_paper.txt", "r") as f:
 
 # Adjust formatting -- remove leading kplr
 short_cadence_stars_condensed = []
-for star in short_cadence_stars:
+for star in stars:
     short_cadence_stars_condensed.append(star[4:])
 
 # Grab quarter data
@@ -23,7 +23,6 @@ for star in stars:
 keys = ["OBJECT", "TEFF"]
 values = []
 hdu = 0
-
 
 # Need just first star from each, this info is constant for all quarters
 first_stars = []
