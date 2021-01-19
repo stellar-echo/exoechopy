@@ -61,10 +61,11 @@ first_stars = []
 for qtr in short:
     first_stars.append(qtr[0])
 
-for star in first_stars:
+for i, star in enumerate(first_stars):
     header = fits.getheader(star, hdu)
     values.append([header.get(key) for key in keys])
-
+    print("finished", i, "of", len(first_stars))
+    
 # Construct and save table
 row0 = [dict(zip(keys, values[0]))]
 t = Table(row0, names=keys)
