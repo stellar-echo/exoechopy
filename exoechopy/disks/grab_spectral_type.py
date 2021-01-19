@@ -6,7 +6,7 @@ from astropy.table import Table
 stars = []
 with open("shortCadence_in_paper.txt", "r") as f:
     for line in f:
-        stars.append(f.strip())
+        stars.append(line.strip())
 
 # Adjust formatting -- remove leading kplr
 short_cadence_stars_condensed = []
