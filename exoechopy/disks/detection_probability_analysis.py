@@ -53,16 +53,21 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
     lc = lk.LightCurve(full_lc_time, full_lc_flux)
     lc = lc.remove_nans()
 
-    # Detect flares at 3 sigma
+    # Detect flares at 6 sigma -- not the same sigma as provided in func arguments
     flare_threshold = np.nanmedian(lc.flux) + (6*np.nanstd(lc.flux))
     peaks, peak_vals = find_peaks(lc.flux, height=flare_threshold, distance=5)
+    
+    # If not enough 6 sigma flares, use 3 sigma thresh
+    if len(peaks) < 10:
+        new_flare_threshold = np.nanmedian(lc.flux) + (3*np.nanstd(lc.flux))
+        peaks, peak_vals = find_peaks(lc.flux, height=new_flare_threshold, distance=5)
 
     # Chop out flares
     advanced_flare_indices = [list(range(i-2, i+14)) for i in peaks[0:len(peaks)-1]]
     flares = [lc.flux[advanced_flare_indices[i]] for i in range(len(advanced_flare_indices))]
 
     # Add in normalization by the peak flare value
-    normed_flares = [(x-1)/(np.nanmax(flares)-1) for x in flares]
+    normed_flares = [(x-np.nanmedian(lc.flux)/(np.nanmax(flares)-np.nanmedian(lc.flux)) for x in flares]
     normed_flares = np.array(normed_flares)
     
     # Add in echoes via direct injection
