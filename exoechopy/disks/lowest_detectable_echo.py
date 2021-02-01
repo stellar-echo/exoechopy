@@ -11,7 +11,7 @@ from astropy.io import fits
 from scipy.stats import norm
 
 
-def test_detecting_synthetic_echoes(star, echo_strength, sigma):
+def test_detecting_synthetic_echoes(star, echo_strength, sigma, cadence):
     
     """
     Searches the full light curve of a star and determines the feasibility of detecting an echo at a given echo
@@ -21,10 +21,16 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
     flare shape that also last one time bin. This function is meant only as a tool to gauge the feasibility of detecting echoes 
     with other methods, and results are not definitive.
 
-    :param star: star's kplr number
-    :param echo_strength: echo strength, as a percentage of flare strength
-    :param sigma: sigma-based confidence interval used to verify detection
-    :return: 1 if echo detected above sigma confidence threshold, 0 otherwise
+    Parameters
+    -----------
+    star: star's kplr number
+    echo_strength: echo strength, as a percentage of flare strength
+    sigma: sigma-based confidence interval used to verify detection
+    cadence: "long" for long cadence, "short" for short cadence
+    
+    Returns
+    -----------
+    1 if echo detected above sigma confidence threshold, 0 otherwise
     """
     
     sigma = float(sigma)
@@ -33,26 +39,44 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
     long_cadence, short_cadence, full = find_all_quarters(star)
     
     # Stitch together all quarters, normalized by the median:
-    full_lc_flux = []
-    for qtrfile in long_cadence:
-        fl = fits.open(qtrfile)
-        flux = fl[1].data["PDCSAP_FLUX"]
-        myflux = flux / np.nanmedian(flux)
-        for num in myflux:
-            full_lc_flux.append(num)
+    if cadence=="long":
+        full_lc_flux = []
+        for qtrfile in long_cadence:
+            fl = fits.open(qtrfile)
+            flux = fl[1].data["PDCSAP_FLUX"]
+            myflux = flux / np.nanmedian(flux)
+            for num in myflux:
+                full_lc_flux.append(num)
 
-    # Do the same for the time:
-    full_lc_time = []
-    for t in long_cadence:
-        tt = fits.open(t)
-        time = tt[1].data["TIME"]
-        for num in time:
-            full_lc_time.append(num)       
+        # Do the same for the time:
+        full_lc_time = []
+        for t in long_cadence:
+            tt = fits.open(t)
+            time = tt[1].data["TIME"]
+            for num in time:
+                full_lc_time.append(num)       
     
-    # Remove nans with Lightkurve
-    lc = lk.LightCurve(full_lc_time, full_lc_flux)
-    lc = lc.remove_nans()
+        # Remove nans with Lightkurve
+        lc = lk.LightCurve(full_lc_time, full_lc_flux)
+        lc = lc.remove_nans()
 
+    else:
+        full_sc_flux = []
+        for qtrfile in short_cadence:
+            fl = fits.open(qtrfile)
+            flux = fl[1].data["PDCSAP_FLUX"]
+            myflux = flux / np.nanmedian(flux)
+            for num in myflux:
+                full_sc_flux.append(num)
+                
+        full_sc_time = []
+        for t in short_cadence:
+            tt = fits.open(t)
+            time = tt[1].data["TIME"]
+            for num in time:
+                full_sc_time.append(num)
+                
+        
     # Detect flares at 6 sigma -- not the same sigma as provided in func arguments
     flare_threshold = np.nanmedian(lc.flux) + (6*np.nanstd(lc.flux))
     peaks, peak_vals = find_peaks(lc.flux, height=flare_threshold, distance=5)
@@ -96,7 +120,7 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma):
         return 0
 
 
-def find_lowest_echo(star, sigma):
+def find_lowest_echo(star, sigma, cadence):
     
     """
     Searches the full light curve of a star and determines the dimmest detectable echo strength
@@ -123,7 +147,7 @@ def find_lowest_echo(star, sigma):
     while sum(results) == 0:
         
         for i in range(0, 31):
-            result = test_detecting_synthetic_echoes(star, i/100, sigma)
+            result = test_detecting_synthetic_echoes(star, i/100, sigma, cadence)
             results.append(result)
 
             if sum(results) > 0:
@@ -146,4 +170,4 @@ def find_lowest_echo(star, sigma):
 
 # Run from command line
 if __name__ == "__main__":
-    find_lowest_echo(sys.argv[1], sys.argv[2])
+    find_lowest_echo(sys.argv[1], sys.argv[2], sys.argv[3])
