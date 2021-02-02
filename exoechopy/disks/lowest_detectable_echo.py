@@ -163,9 +163,7 @@ def find_lowest_echo(star, sigma, cadence):
             
                 print("Estimate of Disk Mass:", disk_mass_mEarth, "MEarth")
                 
-                result_list = [star, lowest_echo_strength, disk_mass_mEarth]
-                
-                return result_list
+                return star, lowest_echo_strength, disk_mass_mEarth
                 break
       
             else:
