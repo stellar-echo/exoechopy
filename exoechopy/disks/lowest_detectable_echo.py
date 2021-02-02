@@ -4,11 +4,40 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 import lightkurve as lk
-from exoechopy.disks.qtrfind_cm import find_all_quarters
+# from exoechopy.disks.qtrfind_cm import find_all_quarters
 import sys
 import os
 from astropy.io import fits
 from scipy.stats import norm
+
+
+# I think I have to put this in here manually for it to work?
+def find_all_quarters(star):
+    """
+    Given a star's kplr number, returns a list of all quarters of data for that star. Separates data by cadence.
+    :param star: kplr number of a star
+    :return: list of paths to all quarters of data for that star
+    """
+
+    kpath = Path('/home/echo/hdd6tb/02_kepler_time_series_scripts/')
+
+    sc_qtr_list = []
+    lc_qtr_list = []
+    full_qtr_list = []
+
+    all_folders = os.listdir(kpath)
+    quarter_folders = [x for x in all_folders if '_Q' in x]
+
+    for qd in quarter_folders:
+        for f in os.listdir(kpath/qd):
+            if star in f:
+                if 'llc' in f:
+                    lc_qtr_list.append(kpath/qd/f)
+                elif 'slc' in f:
+                    sc_qtr_list.append(kpath/qd/f)
+                full_qtr_list.append(kpath/qd/f)
+
+    return lc_qtr_list, sc_qtr_list, full_qtr_list
 
 
 def test_detecting_synthetic_echoes(star, echo_strength, sigma, cadence):
