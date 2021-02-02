@@ -165,10 +165,16 @@ def find_lowest_echo(star, sigma, cadence):
     - The disk is a Kuiper Belt Analog, with an inner radius of 30 AU, outer radius of 50 AU, minimum dust grain radius of 1 micron,
     a monodisperse distribution of particles (X = 1), and the density of dust particles is 2 g/cm^3.
 
-    :param star: star's kplr number
-    :param sigma: sigma-based confidence interval to gauge reliability of echo detection
-    :return: the lowest detectable echo (mean at echo index - std. error of mean at echo index > 0) and a hypothetical disk mass estimate
-    using the above assumptions
+    Parameters
+    ----------
+    star: star's kplr number
+    sigma: sigma-based confidence interval to gauge reliability of echo detection
+    cadence: long or short cadence
+    
+    Returns
+    ---------
+    Returns the lowest detectable echo (mean at echo index - std. error of mean at echo index > 0) and a hypothetical disk mass estimate
+    using the above assumptions.
     """
 
     # Test echo strengths from 0 - 30
@@ -182,22 +188,23 @@ def find_lowest_echo(star, sigma, cadence):
 
             if sum(results) > 0:
                 
-                print("Echo potentially detected!")
+                # print("Echo potentially detected!")
             
                 lowest_echo_strength = (np.where(np.array(results) == 1)[0][0])/100
             
-                print("Lowest Detectable Echo Strength at {} Sigma Confidence:".format(sigma), lowest_echo_strength*100, "%")
+                # print("Lowest Detectable Echo Strength at {} Sigma Confidence:".format(sigma), lowest_echo_strength*100, "%")
             
                 disk_mass_estimate = lowest_echo_strength*1.125e27
                 disk_mass_mEarth = disk_mass_estimate/6e27
             
                 print("Estimate of Disk Mass:", disk_mass_mEarth, "MEarth")
                 
-                return star, lowest_echo_strength, disk_mass_mEarth
                 break
+                return star, lowest_echo_strength, disk_mass_mEarth
+                
       
             else:
-                print("No echoes detected above {} sigma confidence interval.".format(sigma))
+                # print("No echoes detected above {} sigma confidence interval.".format(sigma))
   
 # Temporarily disable this
 # Run from command line
