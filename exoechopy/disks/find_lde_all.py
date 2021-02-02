@@ -38,7 +38,7 @@ def find_all_quarters(star):
 longcadence = []
 with open("longCadence_in_paper.txt", "r") as f:
     for line in f:
-        longcadence,append(line.strip())
+        longcadence.append(line.strip())
 
 # Load short cadence data
 shortcadence = []
