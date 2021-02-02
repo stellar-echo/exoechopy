@@ -59,6 +59,7 @@ print("Finding lowest detectable echo for short cadence stars........")
 
 sc_results = []
 for i, star in enumerate(short_cadence_condensed):
+    print("Checking", star)
     star_name, lde, dme = find_lowest_echo(star, 3, "short")
     sc_results.append((star_name, lde, dme))
     print("Got result for star ", star, "number ", i, "of ", len(short_cadence_condensed))
