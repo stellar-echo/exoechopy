@@ -183,6 +183,7 @@ def find_lowest_echo(star, sigma, cadence):
     while sum(results) == 0:
         
         for i in range(0, 31):
+            
             result = test_detecting_synthetic_echoes(star, i/100, sigma, cadence)
             results.append(result)
 
@@ -197,7 +198,7 @@ def find_lowest_echo(star, sigma, cadence):
                 disk_mass_estimate = lowest_echo_strength*1.125e27
                 disk_mass_mEarth = disk_mass_estimate/6e27
             
-                print("Estimate of Disk Mass:", disk_mass_mEarth, "MEarth")
+                # print("Estimate of Disk Mass:", disk_mass_mEarth, "MEarth")
                 
                 break
                 return star, lowest_echo_strength, disk_mass_mEarth
