@@ -6,6 +6,9 @@ from lowest_detectable_echo import test_detecting_synthetic_echoes, find_lowest_
 
 
 # Load long cadence data
+
+print("-------------Loading Data-----------------------"
+
 longcadence = []
 with open("longCadence_in_paper.txt", "r") as f:
     for line in f:
@@ -30,9 +33,10 @@ for star in shortcadence:
 print("Finding lowest detectable echo for long cadence stars.......")
 
 lc_results = []
-for star in long_cadence_condensed:
+for i, star in enumerate(long_cadence_condensed):
     star_name, lde, dme = find_lowest_echo(star, 3, "long")
     lc_results.append((star_name, lde, dme))
+    print("Got result for star ", star, "number ", i, "of ", len(long_cadence_condensed)) 
 
 print("Found all lowest detectable echo strengths for long cadence stars.")
 print("Writing to file......")
@@ -49,9 +53,10 @@ print("----------------------------------------")
 print("Finding lowest detectable echo for short cadence stars........")
 
 sc_results = []
-for star in short_cadence_condensed:
+for i, star in enumerate(short_cadence_condensed):
     star_name, lde, dme = find_lowest_echo(star, 3, "short")
     sc_results.append((star_name, lde, dme))
+    print("Got result for star ", star, "number ", i, "of ", len(short_cadence_condensed))
 
 print("Done with short cadence. Writing to file......")
 
