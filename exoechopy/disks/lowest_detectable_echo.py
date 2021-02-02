@@ -204,6 +204,7 @@ def find_lowest_echo(star, sigma, cadence):
                 
       
             else:
+                return star, "null", "null"
                 # print("No echoes detected above {} sigma confidence interval.".format(sigma))
   
 # Temporarily disable this
