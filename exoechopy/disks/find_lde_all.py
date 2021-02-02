@@ -7,7 +7,7 @@ from lowest_detectable_echo import test_detecting_synthetic_echoes, find_lowest_
 
 # Load long cadence data
 
-print("-------------Loading Data-----------------------"
+print("-------------Loading Data-----------------------")
 
 longcadence = []
 with open("longCadence_in_paper.txt", "r") as f:
