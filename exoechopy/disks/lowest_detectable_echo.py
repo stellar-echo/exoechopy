@@ -169,7 +169,7 @@ def find_lowest_echo(star, sigma, cadence):
             else:
                 print("No echoes detected above {} sigma confidence interval.".format(sigma))
   
-
+# Temporarily disable this
 # Run from command line
-if __name__ == "__main__":
-    find_lowest_echo(sys.argv[1], sys.argv[2], sys.argv[3])
+# if __name__ == "__main__":
+#    find_lowest_echo(sys.argv[1], sys.argv[2], sys.argv[3])
