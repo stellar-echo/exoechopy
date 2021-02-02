@@ -9,6 +9,7 @@ import sys
 import os
 from astropy.io import fits
 from scipy.stats import norm
+from pathlib import Path
 
 
 # I think I have to put this in here manually for it to work?
