@@ -159,6 +159,7 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma, cadence):
             return 0
     else:
         print("Not enough flares, skipping star")
+        return 0
 
 
 def find_lowest_echo(star, sigma, cadence):
