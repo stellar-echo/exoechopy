@@ -128,7 +128,7 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma, cadence):
         # Add in normalization by the peak flare value
         normed_flares = [(x-np.nanmedian(lc.flux))/(np.nanmax(flares)-np.nanmedian(lc.flux)) for x in flares]
         normed_flares = np.array(normed_flares)
-        print(normed_flares)
+        print(normed_flares[0])
     
         # Add in echoes via direct injection
         normed_echo_array = np.array(normed_flares)
