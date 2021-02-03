@@ -106,60 +106,62 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma, cadence):
             for num in time:
                 full_sc_time.append(num)
                 
+        lc_short = lk.LightCurve(full_sc_time, full_sc_flux)
+        lc_short = lc_short.remove_nans()
+                
     # Variables
     pre_flare = 2
-    post_flare = 12
-    sigma_thresh = 2
-    echo_index = 7
+    post_flare = 14
+    sigma_thresh = 6
+    echo_index = 10
     
-    # Detect flares at 6 (4 temporarily) sigma -- not the same sigma as provided in func arguments
+    # Detect flares at 6 sigma -- not the same sigma as provided in func arguments
     flare_threshold = np.nanmedian(lc.flux) + (sigma_thresh*np.nanstd(lc.flux))
     peaks, peak_vals = find_peaks(lc.flux, height=flare_threshold, distance=5)
     
-    # If not enough 6 sigma flares, use 3 sigma thresh
-    #if len(peaks) < 10:
-    #    new_flare_threshold = np.nanmedian(lc.flux) + (3*np.nanstd(lc.flux))
-    #    peaks, peak_vals = find_peaks(lc.flux, height=new_flare_threshold, distance=5)
+    if len(peaks) > 0:
 
-    # Chop out flares
-    advanced_flare_indices = [slice(i-pre_flare, i+post_flare) for i in peaks[0:len(peaks)-1]]
-    flares = [lc.flux[advanced_flare_indices[i]] for i in range(len(advanced_flare_indices))]
+        # Chop out flares
+        advanced_flare_indices = [slice(i-pre_flare, i+post_flare) for i in peaks[0:len(peaks)-1]]
+        flares = [lc.flux[advanced_flare_indices[i]] for i in range(len(advanced_flare_indices))]
     
-    # Add in normalization by the peak flare value
-    normed_flares = [(x-np.nanmedian(flux))/(np.nanmax(flares)-np.nanmedian(flux)) for x in flares]
+        # Add in normalization by the peak flare value
+        normed_flares = [(x-np.nanmedian(flux))/(np.nanmax(flares)-np.nanmedian(flux)) for x in flares]
     
-    print(normed_flares[0])
+        print(normed_flares[0])
     
-    normed_flares = np.array(normed_flares)
+        normed_flares = np.array(normed_flares)
     
-    # Add in echoes via direct injection
-    normed_echo_array = np.array(normed_flares)
+        # Add in echoes via direct injection
+        normed_echo_array = np.array(normed_flares)
     
-    print(np.shape(normed_echo_array))
+        print(np.shape(normed_echo_array))
     
-    normed_echo_array[:, echo_index] = normed_echo_array[:, echo_index] + (normed_echo_array[:, 2]*echo_strength)
-    normed_echo_mean = np.nanmean(normed_echo_array, axis=0)
-    normed_echo_mean = normed_echo_mean - np.nanmedian(normed_echo_mean, axis=0)
+        normed_echo_array[:, echo_index] = normed_echo_array[:, echo_index] + (normed_echo_array[:, 2]*echo_strength)
+        normed_echo_mean = np.nanmean(normed_echo_array, axis=0)
+        normed_echo_mean = normed_echo_mean - np.nanmedian(normed_echo_mean, axis=0)
     
-    # For standard deviation, use standard error of the mean
-    normed_echo_std = np.nanstd(normed_echo_array, axis=0) / np.sqrt(len(peaks))
+        # For standard deviation, use standard error of the mean
+        normed_echo_std = np.nanstd(normed_echo_array, axis=0) / np.sqrt(len(peaks))
      
-    # Detection: If mean - sigma*std > 0 at the echo index, count it as "detected" above the confidence interval.
-    if normed_echo_mean[echo_index] - sigma*normed_echo_std[echo_index] > 0:
-        # print("========================================================")
-        # print()
-        # print("Potential Echo Detected: {}% echo strength, {} sigma confidence".format(echo_strength*100, sigma))
-        # print()
-        # print("========================================================")
-        return 1
+        # Detection: If mean - sigma*std > 0 at the echo index, count it as "detected" above the confidence interval.
+        if normed_echo_mean[echo_index] - sigma*normed_echo_std[echo_index] > 0:
+            # print("========================================================")
+            # print()
+            # print("Potential Echo Detected: {}% echo strength, {} sigma confidence".format(echo_strength*100, sigma))
+            # print()
+            # print("========================================================")
+            return 1
 
+        else:
+            # print("========================================================")
+            # print()
+            # print("Echo at {}% strength did not survive {} sigma confidence interval".format(echo_strength*100, sigma))
+            # print()
+            # print("========================================================")
+            return 0
     else:
-        # print("========================================================")
-        # print()
-        # print("Echo at {}% strength did not survive {} sigma confidence interval".format(echo_strength*100, sigma))
-        # print()
-        # print("========================================================")
-        return 0
+        print("Not enough flares, skipping star")
 
 
 def find_lowest_echo(star, sigma, cadence):
