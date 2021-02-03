@@ -126,6 +126,9 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma, cadence):
     
     # Add in echoes via direct injection
     normed_echo_array = np.array(normed_flares)
+    
+    print(np.shape(normed_echo_array))
+    
     normed_echo_array[:, 7] = normed_echo_array[:, 7] + (normed_echo_array[:, 2]*echo_strength)
     normed_echo_mean = np.nanmean(normed_echo_array, axis=0)
     
