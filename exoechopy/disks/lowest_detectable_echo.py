@@ -88,7 +88,7 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma, cadence):
     
         # Remove nans with Lightkurve
         lc = lk.LightCurve(full_lc_time, full_lc_flux)
-        lc = lc.remove_nans().detrend()
+        lc = lc.remove_nans().flatten()
 
     else:
         full_sc_flux = []
@@ -107,7 +107,7 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma, cadence):
                 full_sc_time.append(num)
                 
         lc_short = lk.LightCurve(full_sc_time, full_sc_flux)
-        lc_short = lc_short.remove_nans().detrend()
+        lc_short = lc_short.remove_nans().flatten()
                 
     # Variables
     pre_flare = 2
