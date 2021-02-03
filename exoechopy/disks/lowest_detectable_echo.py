@@ -214,7 +214,10 @@ def find_lowest_echo(star, sigma, cadence):
                 
                 return star, lowest_echo_strength, disk_mass_mEarth
                 break
-      
+            
+            elif len(results) == 100 and sum(results) < 1:   
+                return star, "null", "null"
+                break
             # else:
             #    return star, "null", "null"
                 # print("No echoes detected above {} sigma confidence interval.".format(sigma))
