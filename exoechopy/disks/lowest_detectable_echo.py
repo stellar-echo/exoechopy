@@ -124,6 +124,8 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma, cadence):
     # Chop out flares
     advanced_flare_indices = [slice(i-pre_flare, i+post_flare) for i in peaks[0:len(peaks)-1]]
     flares = [lc.flux[advanced_flare_indices[i]] for i in range(len(advanced_flare_indices))]
+    
+    print(flares)
 
     # Add in normalization by the peak flare value
     normed_flares = [(x-np.nanmedian(lc.flux))/(np.nanmax(flares)-np.nanmedian(lc.flux)) for x in flares]
