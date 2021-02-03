@@ -193,7 +193,7 @@ def find_lowest_echo(star, sigma, cadence):
     
     while sum(results) == 0:
         
-        for i in range(0, 51):
+        for i in range(0, 101):
             
             result = test_detecting_synthetic_echoes(star, i/100, sigma, cadence)
             results.append(result)
