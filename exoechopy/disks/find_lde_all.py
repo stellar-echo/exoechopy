@@ -41,7 +41,7 @@ for i, star in enumerate(long_cadence_condensed):
     print("Checking", star)
     star_name, lde, dme = find_lowest_echo(star, 3, "long")
     lc_results.append((star_name, lde, dme))
-    print("Got result for star ", star, "number ", i, "of ", len(long_cadence_condensed)) 
+    print("Got result for star ", star, "number ", i, "of ", len(long_cadence_condensed), (star_name, lde, dme)) 
 
 print("Found all lowest detectable echo strengths for long cadence stars.")
 print("Writing to file......")
@@ -62,7 +62,7 @@ for i, star in enumerate(short_cadence_condensed):
     print("Checking", star)
     star_name, lde, dme = find_lowest_echo(star, 3, "short")
     sc_results.append((star_name, lde, dme))
-    print("Got result for star ", star, "number ", i, "of ", len(short_cadence_condensed))
+    print("Got result for star ", star, "number ", i, "of ", len(short_cadence_condensed), (star_name, lde, dme))
 
 print("Done with short cadence. Writing to file......")
 
