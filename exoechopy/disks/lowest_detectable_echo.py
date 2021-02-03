@@ -108,7 +108,7 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma, cadence):
                 
     # Variables
     pre_flare = 2
-    post_flare = 14
+    post_flare = 12
     sigma_thresh = 2
     echo_index = 7
     
