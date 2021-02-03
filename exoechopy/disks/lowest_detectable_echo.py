@@ -122,7 +122,7 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma, cadence):
     #    peaks, peak_vals = find_peaks(lc.flux, height=new_flare_threshold, distance=5)
 
     # Chop out flares
-    advanced_flare_indices = [slice(range(i-pre_flare, i+post_flare)) for i in peaks[0:len(peaks)-1]]
+    advanced_flare_indices = [slice(i-pre_flare, i+post_flare) for i in peaks[0:len(peaks)-1]]
     flares = [lc.flux[advanced_flare_indices[i]] for i in range(len(advanced_flare_indices))]
 
     # Add in normalization by the peak flare value
