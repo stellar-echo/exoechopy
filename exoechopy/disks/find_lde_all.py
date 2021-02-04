@@ -31,6 +31,9 @@ for star in shortcadence:
     
 print("Data loaded.")
 
+# Removing problematic stars for now, will re-examine individually when done
+long_cadence_condensed.remove("008711794")
+
 print("-----------------------------------")
 
 # Now perform the lowest detectable echo search, writing results to files when done.
