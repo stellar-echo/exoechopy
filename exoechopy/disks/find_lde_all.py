@@ -32,7 +32,7 @@ for star in shortcadence:
 print("Data loaded.")
 
 # Removing problematic stars for now, will re-examine individually when done
-long_cadence_condensed.remove("008711794", "009475552")
+long_cadence_condensed.remove(["008711794", "009475552"])
 
 print("-----------------------------------")
 
