@@ -55,7 +55,7 @@ print("Writing to file......")
 
 with open('lc_results.txt', 'w') as f:
     for item in lc_results:
-        f.write("%s\n" % item)
+        f.write("%s \n" % str(item))
     f.close()
 
 print("Wrote long cadence results to file.")
@@ -75,7 +75,7 @@ print("Done with short cadence. Writing to file......")
 
 with open("sc_results.txt", "w") as f:
     for item in sc_results:
-        f.write("%s\n" % item)
+        f.write("%s \n" % str(item))
     f.close()
 
 print("Wrote short cadence results to file.")
