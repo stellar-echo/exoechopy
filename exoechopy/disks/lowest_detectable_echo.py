@@ -106,8 +106,8 @@ def test_detecting_synthetic_echoes(star, echo_strength, sigma, cadence):
             for num in time:
                 full_sc_time.append(num)
                 
-        lc_short = lk.LightCurve(full_sc_time, full_sc_flux)
-        lc_short = lc_short.remove_nans().flatten()
+        lc = lk.LightCurve(full_sc_time, full_sc_flux)
+        lc = lc.remove_nans().flatten()
                 
     # Variables
     pre_flare = 2
