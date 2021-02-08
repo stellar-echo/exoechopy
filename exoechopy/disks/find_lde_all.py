@@ -9,10 +9,10 @@ from lowest_detectable_echo import test_detecting_synthetic_echoes, find_lowest_
 
 print("Loading Data.......")
 
-longcadence = []
-with open("longCadence_in_paper.txt", "r") as f:
-    for line in f:
-        longcadence.append(line.strip())
+# longcadence = []
+# with open("longCadence_in_paper.txt", "r") as f:
+#    for line in f:
+#        longcadence.append(line.strip())
 
 # Load short cadence data
 shortcadence = []
@@ -21,9 +21,9 @@ with open("shortCadence_in_paper.txt", "r") as g:
         shortcadence.append(line.strip())
 
 # Adjust formatting -- remove leading "kplr"
-long_cadence_condensed = []
-for star in longcadence:
-    long_cadence_condensed.append(star[4:])
+# long_cadence_condensed = []
+# for star in longcadence:
+#    long_cadence_condensed.append(star[4:])
 
 short_cadence_condensed = []
 for star in shortcadence:
@@ -32,17 +32,18 @@ for star in shortcadence:
 print("Data loaded.")
 
 # Removing problematic stars for now, will re-examine individually when done
-problematic_lc = ["008711794", "009475552", "011136848"]
+# problematic_lc = ["008711794", "009475552", "011136848"]
 
-for i in long_cadence_condensed:
-    if i in problematic_lc:
-        long_cadence_condensed.remove(i)
+# for i in long_cadence_condensed:
+#    if i in problematic_lc:
+#        long_cadence_condensed.remove(i)
 
 print("-----------------------------------")
 
 # Now perform the lowest detectable echo search, writing results to files when done.
-print("Finding lowest detectable echo for long cadence stars.......")
+# print("Finding lowest detectable echo for long cadence stars.......")
 
+"""
 lc_results = []
 for i, star in enumerate(long_cadence_condensed):
     print("Checking", star)
@@ -59,7 +60,7 @@ with open('lc_results.txt', 'w') as f:
     f.close()
 
 print("Wrote long cadence results to file.")
-
+"""
 print("----------------------------------------")
 
 print("Finding lowest detectable echo for short cadence stars........")
