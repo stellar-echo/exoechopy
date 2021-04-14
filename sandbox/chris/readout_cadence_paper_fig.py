@@ -1,11 +1,11 @@
 import numpy as np
 import matplotlib
+
 matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 import exoechopy as eep
 from astropy import units as u
 from pathlib import Path
-
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ #
 # User input section
@@ -38,23 +38,26 @@ save_filepath = "C:\\Users\\cmann\\Documents\\Nanohmics\\Stellar Echo\\Disk proj
 saveloc = Path(save_filepath)
 base_filename = str(int_time) + "_" + str(readout_time) + "_" + str(onset_time) + "_" + str(decay_time) + "_"
 
-num_times = 2*(num_sums+2)*frames_per_sum
+num_times = 2 * (num_sums + 2) * frames_per_sum
 
-start_offsets = np.linspace(0, int_time+readout_time, num_offsets)[:-1]
+start_offsets = np.linspace(0, int_time + readout_time, num_offsets)[:-1]
 
 onset_s = u.Quantity(onset_time, 's')
 decay_s = u.Quantity(decay_time, 's')
 
 flare_1 = eep.simulate.ParabolicRiseExponentialDecay(onset_s, decay_s)
 
-exact_times = u.Quantity(np.linspace(-2*cadence*frames_per_sum, cadence*num_sums*frames_per_sum, num_times*20), 's')
+exact_times = u.Quantity(
+    np.linspace(-2 * cadence * frames_per_sum, cadence * num_sums * frames_per_sum, num_times * 20), 's')
 exact_flare = flare_1.evaluate_over_array(exact_times)
 
 print("Exact solution | \tcounts:",
-      "{:.2f}".format(np.sum(exact_flare)*(exact_times[1]-exact_times[0])))
+      "{:.2f}".format(np.sum(exact_flare) * (exact_times[1] - exact_times[0])))
+
+plt.rcParams['font.size'] = '6'
 
 for offset in start_offsets:
-    all_times = [-cadence*frames_per_sum*2+offset]
+    all_times = [-cadence * frames_per_sum * 2 + offset]
     mask = []
     for t_i in range(num_times):
         if t_i % 2 == 0:
@@ -75,14 +78,15 @@ for offset in start_offsets:
     masked_times = all_times_s[:-1][mask]
 
     # plt.plot(all_times_s[:-1], flare_values, lw=1, drawstyle='steps-post', label=str(offset))
-    f, ax = plt.subplots(ncols=2, nrows=5, figsize=(8, 20))
+    f, ax = plt.subplots(ncols=3, nrows=4, figsize=(7, 9))
     ax[0, 0].plot(exact_times[:-1], exact_flare,
-                  color='gray', lw=1.25, drawstyle='steps-post', label="Perfect cadence")
+                  color='gray', lw=1, ls='--', label="Perfect cadence")
     ax[0, 0].plot(masked_times, masked_flare_values,
-                  color='orangered', lw=1.25, drawstyle='steps-post', label="Frames, pre-summation") # "{:.2f}".format(offset)
+                  color='orangered', lw=1, drawstyle='steps-post',
+                  label="Raw frames")  # "{:.2f}".format(offset)
 
-    total_counts = np.sum(masked_flare_values*dt_array[mask])
-    lost_counts = np.sum(inv_masked_flare_values*dt_array[inv_mask])
+    total_counts = np.sum(masked_flare_values * dt_array[mask])
+    lost_counts = np.sum(inv_masked_flare_values * dt_array[inv_mask])
     verify_counts = total_counts + lost_counts
     print("Offset: ",
           "{:.2f}".format(offset), "| \tcounts:",
@@ -90,8 +94,8 @@ for offset in start_offsets:
           "| \tlost photons:",
           "{:.2f}".format(lost_counts), "| \tcombined:",
           "{:.2f}".format(verify_counts), "| \t% lost:",
-          "{:.2f}".format(100*lost_counts/verify_counts)+"%")
-    ax[0, 0].set_title("Fraction of signal lost: " + "{:.2f}".format(100*lost_counts/verify_counts)+"%")
+          "{:.2f}".format(100 * lost_counts / verify_counts) + "%")
+    # ax[0, 0].set_title("Fraction of signal lost: " + "{:.2f}".format(100 * lost_counts / verify_counts) + "%")
     ax[0, 0].set_xlabel("Time (s)")
     ax[0, 0].set_ylabel("Flux (ct/m²s)")
     ax[0, 0].legend()
@@ -105,23 +109,22 @@ for offset in start_offsets:
                 integrated_lc.append(measurement.value)
             else:
                 integrated_lc[-1] += measurement.value
-        if frame_offset < 4:
-            ax_slice = frame_offset + 1, 0
-        else:
-            ax_slice = frame_offset - 4, 1
-        ax[ax_slice].plot(exact_times[:-1], 3*exact_flare,
-                          color='gray', lw=1.25, drawstyle='steps-post', label="Exact flare (arb scale)")
-        ax[ax_slice].plot(times, integrated_lc, lw=1, drawstyle='steps-post', label="Summed frames")
-        ax[ax_slice].set_title("Summed frames, frame offset "+str(frame_offset))
+        ax_slice = (frame_offset + 1) // 3, (frame_offset + 1) % 3
+
+        ax[ax_slice].plot(exact_times[:-1], 3 * exact_flare,
+                          color='gray', lw=1, ls='--', label="Exact flare")
+        ax[ax_slice].plot(times, integrated_lc, lw=1,
+                          drawstyle='steps-post',
+                          label="Sum offset: " + str(frame_offset),
+                          color='k')
+        # ax[ax_slice].set_title("Summed frames, frame offset " + str(frame_offset))
         ax[ax_slice].set_xlabel("Time (s)")
         ax[ax_slice].set_ylabel("Counts (/m²)")
         ax[ax_slice].legend()
     plt.tight_layout()
-    plt.savefig(saveloc / (base_filename+"{:.2f}".format(offset) + ".pdf"))
+    plt.savefig(saveloc / (base_filename + "{:.2f}".format(offset) + ".pdf"), dpi=300)
     plt.close()
-
 
 # TODO:
 # - Make a helper function that accepts cadence, readout time, start time, and end time and generates points
 # - Make a function that uses the helper function to discretize the flare, integrate with exoechopy
-

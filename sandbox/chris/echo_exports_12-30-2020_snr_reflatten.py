@@ -19,11 +19,14 @@ from matplotlib import pyplot as plt
 #  File structure: time (minutes), mean value, confidence interval
 
 
+# Sensitivity values
+flatten_window = 201
+
 # Where we are getting raw data from:
 cache_folder = 'local_cache'
 # What directory are we working from:
 import_file_folder = 'disk_echo_search_v2'
-export_file_folder = 'disk_echo_export_deltas_only_snr'
+export_file_folder = 'export_deltas_only_snr_' + str(flatten_window)
 
 # List of targets to interrogate:
 clean_delta_flare_stars_filename = 'clean_delta_flare_stars_with_many_flares.txt'
@@ -51,6 +54,7 @@ flare_decay_intensity_thresh_1 = 0.125
 # Number of flares to warrant further investigation:
 min_flares = 10
 
+
 generate_figures = False
 skip_error_analysis = True
 
@@ -75,7 +79,9 @@ cache_dict_overwrite = False
 
 cwd = Path(os.getcwd())
 
-# Where we store results:
+
+#  +++++++++++++++++++++++++++++++++++++++++++  #
+
 fp = cwd.parent.parent / "disks" / export_file_folder
 
 if not fp.exists():
@@ -134,9 +140,6 @@ except FileNotFoundError:
     all_cached_stars = {}
 
 
-#  +++++++++++++++++++++++++++++++++++++++++++  #
-
-
 #  ------------------------------------------------------------------------------------------------------------------  #
 #  These functions should be moved to another utility package
 
@@ -167,7 +170,6 @@ def echo_analysis_do_it_all(all_flare_arr: np.ndarray, flare_peak_index=0):
         # Weight is defined here:
         # _normed_flare_weight[f_i] = 1 / np.nanstd(flare[flare_peak_index + 1:])
         _normed_flare_weight[f_i] = (np.nanmax(flare) - 1) / np.nanstd(flare[flare_peak_index + 1:])
-
 
     total_weight = np.sum(_normed_flare_weight)
     _normed_flare_weight /= total_weight
@@ -364,6 +366,8 @@ for star_name in target_names:
 
     if not save_fp.exists():
         save_fp.mkdir()
+
+    flux = lk.LightCurve(flux=flux_norm).flatten(window_length=flatten_window).flux
 
     # +++++++++++++++++++++++++++ #
     if generate_figures:
